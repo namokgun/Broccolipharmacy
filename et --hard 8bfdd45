@@ -1,0 +1,19 @@
+[33meffc0d3[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m next.config.ts를 next.config.js로 변경
+[33m6ffe84d[m Tailwind v3 패키지 및 globals.css 설정 완료
+[33mc873f40[m next.config.ts를 next.config.js로 변경
+[33m98b91ec[m next.config.ts를 next.config.js로 변경
+[33mcfdb27e[m Next.js 14 안정 버전 적용 완료
+[33m45a7d9d[m 정적 페이지 생성 차단 및 동적 렌더링 강제 적용 (메모리 에러 최종 해결)
+[33m33168da[m 정적 페이지 생성 차단 및 동적 렌더링 강제 적용 (메모리 에러 최종 해결)
+[33m506e1cf[m next.config.ts 최적화 및 빌드 에러 해결
+[33m81156a6[m next.config.ts 최적화 및 빌드 에러 해결
+[33m41cddad[m next.config.ts 최적화 및 빌드 에러 해결
+[33ma17dfc8[m next.config.ts 최적화 및 빌드 에러 해결
+[33m8121062[m 파일 수정
+[33m86d9db8[m 크기추가
+[33mc8c6c49[m 대시보드 상단 문구 삭제
+[33m1b2b08a[m 대시보드 상단 문구 삭제
+[33m52f8044[m 대시보드 수정
+[33mdf37c09[m 대시보드 수정
+[33m2ba4732[m 상담 내역 UI 개선 및 자세히 보기 모달 추가
+[33m8bfdd45[m first commit

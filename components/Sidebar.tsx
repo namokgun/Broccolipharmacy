@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { supabase } from "@/app/lib/supabase";
 import { useEffect, useState } from "react";
@@ -36,12 +37,21 @@ export default function Sidebar() {
 
   return (
     <aside className="hidden md:flex w-64 flex-col bg-white border-r border-slate-100 shadow-sm shrink-0">
-      <div className="p-6 border-b border-slate-100">
-        <div className="flex items-center gap-2 font-bold text-lg text-slate-900">
-          <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
-          브로콜리약국
+      {/* 🟢 로고 영역 (PNG 이미지 적용) */}
+      <div className="p-6 border-b border-slate-100 flex items-center gap-3">
+        <Image 
+          src="/logo.png" 
+          alt="브로콜리약국 로고" 
+          width={36} 
+          height={36} 
+          className="object-contain rounded-lg"
+        />
+        <div>
+          <div className="font-bold text-lg text-slate-900 leading-tight">
+            브로콜리약국
+          </div>
+          <p className="text-xs text-slate-400 mt-0.5">운영중</p>
         </div>
-        <p className="text-xs text-slate-400 mt-0.5">브로콜리약국 · 운영중</p>
       </div>
 
       <nav className="flex-1 p-4 space-y-6 overflow-y-auto text-sm">
@@ -60,7 +70,6 @@ export default function Sidebar() {
         <div>
           <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">상담 케어</p>
           <div className="space-y-1">
-            {/* 🟢 + 기호 제거 완료 */}
             <Link 
               href="/consultations" 
               onClick={() => handleNavClick("")}
