@@ -38,11 +38,19 @@ export default function Sidebar() {
   return (
     <>
       {/* 💻 PC 전용 왼쪽 사이드바 */}
-      <aside className="hidden md:flex fixed top-0 left-0 h-screen w-64 flex-col bg-white border-r border-slate-100 shadow-sm z-30">
+      <aside className="hidden md:flex w-64 flex-col bg-white border-r border-slate-100 shadow-sm shrink-0 h-screen sticky top-0">
         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-          <Image src="/logo.png" alt="로고" width={36} height={36} className="object-contain rounded-lg" />
+          <Image 
+            src="/logo.png" 
+            alt="브로콜리약국 로고" 
+            width={36} 
+            height={36} 
+            className="object-contain rounded-lg"
+          />
           <div>
-            <div className="font-bold text-lg text-slate-900 leading-tight">브로콜리약국</div>
+            <div className="font-bold text-lg text-slate-900 leading-tight">
+              브로콜리약국
+            </div>
             <p className="text-xs text-slate-400 mt-0.5">운영중</p>
           </div>
         </div>
@@ -50,7 +58,12 @@ export default function Sidebar() {
         <nav className="flex-1 p-4 space-y-6 overflow-y-auto text-sm">
           <div>
             <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">메인</p>
-            <Link href="/" className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium ${pathname === "/" ? "bg-teal-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"}`}>
+            <Link 
+              href="/" 
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium ${
+                pathname === "/" ? "bg-teal-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
               <span>📊</span> 대시보드
             </Link>
           </div>
@@ -58,10 +71,23 @@ export default function Sidebar() {
           <div>
             <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">상담 케어</p>
             <div className="space-y-1">
-              <Link href="/consultations" onClick={() => handleNavClick("")} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium ${isWriteActive ? "bg-teal-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"}`}>
+              <Link 
+                href="/consultations" 
+                onClick={() => handleNavClick("")}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium ${
+                  isWriteActive ? "bg-teal-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"
+                }`}
+              >
                 <span>📝</span> 새 상담 기록
               </Link>
-              <Link href="/consultations#history" onClick={() => handleNavClick("#history")} className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium ${isHistoryActive ? "bg-teal-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"}`}>
+              
+              <Link 
+                href="/consultations#history" 
+                onClick={() => handleNavClick("#history")}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium ${
+                  isHistoryActive ? "bg-teal-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"
+                }`}
+              >
                 <span>📂</span> 기록 조회
               </Link>
             </div>
@@ -69,14 +95,24 @@ export default function Sidebar() {
 
           <div>
             <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">일정 관리</p>
-            <Link href="/schedules" className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium ${pathname === "/schedules" ? "bg-teal-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"}`}>
+            <Link 
+              href="/schedules" 
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium ${
+                pathname === "/schedules" ? "bg-teal-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
               <span>📅</span> 일정 캘린더
             </Link>
           </div>
 
           <div>
             <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">환자 관리</p>
-            <Link href="/patients" className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium ${pathname === "/patients" ? "bg-teal-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"}`}>
+            <Link 
+              href="/patients" 
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium ${
+                pathname === "/patients" ? "bg-teal-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"
+              }`}
+            >
               <span>👥</span> 환자 목록
             </Link>
           </div>
@@ -89,8 +125,8 @@ export default function Sidebar() {
         </div>
       </aside>
 
-      {/* 📱 모바일 전용 상단 헤더 (스크롤하면 자연스럽게 올라감, 가림 없음) */}
-      <div className="md:hidden w-full h-14 flex items-center justify-between bg-white border-b border-slate-100 px-4 shadow-sm">
+      {/* 📱 모바일 전용 상단 고정 헤더 (가로 꽉 참) */}
+      <div className="md:hidden fixed top-0 left-0 right-0 flex items-center justify-between bg-white border-b border-slate-100 px-4 py-3 z-50 shadow-sm">
         <div className="flex items-center gap-2">
           <Image src="/logo.png" alt="로고" width={28} height={28} className="object-contain rounded-md" />
           <span className="font-bold text-slate-900 text-sm">브로콜리약국</span>
@@ -100,26 +136,57 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* 📱 모바일 전용 하단 탭 바 (화면 맨 아래 고정) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 z-40 flex justify-around items-center px-2 shadow-lg">
-        <Link href="/" className={`flex flex-col items-center flex-1 py-1 text-xs font-medium transition ${pathname === "/" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"}`}>
-          <span className="text-base">📊</span>
+      {/* 📱 모바일 전용 하단 앱 스타일 탭 바 */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50 flex justify-around items-center py-2 px-2 shadow-lg">
+        <Link 
+          href="/" 
+          className={`flex flex-col items-center flex-1 py-1 text-xs font-medium transition ${
+            pathname === "/" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <span className="text-lg">📊</span>
           <span>대시보드</span>
         </Link>
-        <Link href="/consultations" onClick={() => handleNavClick("")} className={`flex flex-col items-center flex-1 py-1 text-xs font-medium transition ${isWriteActive ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"}`}>
-          <span className="text-base">📝</span>
+
+        <Link 
+          href="/consultations" 
+          onClick={() => handleNavClick("")}
+          className={`flex flex-col items-center flex-1 py-1 text-xs font-medium transition ${
+            isWriteActive ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <span className="text-lg">📝</span>
           <span>상담등록</span>
         </Link>
-        <Link href="/consultations#history" onClick={() => handleNavClick("#history")} className={`flex flex-col items-center flex-1 py-1 text-xs font-medium transition ${isHistoryActive ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"}`}>
-          <span className="text-base">📂</span>
+
+        <Link 
+          href="/consultations#history" 
+          onClick={() => handleNavClick("#history")}
+          className={`flex flex-col items-center flex-1 py-1 text-xs font-medium transition ${
+            isHistoryActive ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <span className="text-lg">📂</span>
           <span>기록조회</span>
         </Link>
-        <Link href="/schedules" className={`flex flex-col items-center flex-1 py-1 text-xs font-medium transition ${pathname === "/schedules" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"}`}>
-          <span className="text-base">📅</span>
+
+        <Link 
+          href="/schedules" 
+          className={`flex flex-col items-center flex-1 py-1 text-xs font-medium transition ${
+            pathname === "/schedules" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <span className="text-lg">📅</span>
           <span>일정</span>
         </Link>
-        <Link href="/patients" className={`flex flex-col items-center flex-1 py-1 text-xs font-medium transition ${pathname === "/patients" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"}`}>
-          <span className="text-base">👥</span>
+
+        <Link 
+          href="/patients" 
+          className={`flex flex-col items-center flex-1 py-1 text-xs font-medium transition ${
+            pathname === "/patients" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <span className="text-lg">👥</span>
           <span>환자</span>
         </Link>
       </nav>
