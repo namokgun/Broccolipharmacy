@@ -3,18 +3,25 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
 
-const THEMES: Record<string, { bg: string, text: string, hover: string, label: string }> = {
-  blue: { bg: "bg-blue-100 border-blue-300", text: "text-blue-900", hover: "hover:bg-blue-200", label: "블루" },
-  emerald: { bg: "bg-emerald-100 border-emerald-300", text: "text-emerald-900", hover: "hover:bg-emerald-200", label: "그린" },
-  purple: { bg: "bg-purple-100 border-purple-300", text: "text-purple-900", hover: "hover:bg-purple-200", label: "퍼플" },
-  amber: { bg: "bg-amber-100 border-amber-300", text: "text-amber-900", hover: "hover:bg-amber-200", label: "오렌지" },
-  rose: { bg: "bg-rose-100 border-rose-300", text: "text-rose-900", hover: "hover:bg-rose-200", label: "핑크" },
+const THEMES: Record<string, { bg: string, text: string, ring: string, label: string }> = {
+  blue: { bg: "bg-blue-500", text: "text-white", ring: "ring-blue-400", label: "블루" },
+  emerald: { bg: "bg-emerald-500", text: "text-white", ring: "ring-emerald-400", label: "그린" },
+  purple: { bg: "bg-purple-500", text: "text-white", ring: "ring-purple-400", label: "퍼플" },
+  amber: { bg: "bg-amber-500", text: "text-white", ring: "ring-amber-400", label: "오렌지" },
+  rose: { bg: "bg-rose-500", text: "text-white", ring: "ring-rose-400", label: "핑크" },
+};
+
+const THEME_CLASSES: Record<string, { bg: string, text: string }> = {
+  blue: { bg: "bg-blue-50 border-blue-200", text: "text-blue-900" },
+  emerald: { bg: "bg-emerald-50 border-emerald-200", text: "text-emerald-900" },
+  purple: { bg: "bg-purple-50 border-purple-200", text: "text-purple-900" },
+  amber: { bg: "bg-amber-50 border-amber-200", text: "text-amber-900" },
+  rose: { bg: "bg-rose-50 border-rose-200", text: "text-rose-900" },
 };
 
 export default function SchedulesPage() {
   const [schedules, setSchedules] = useState<any[]>([]);
   
-  // 📱 모바일 접속 시 최초 렌더링만 주간 뷰, PC는 월간 뷰로 시작 (버튼으로 언제든 자유롭게 전환 가능)
   const [viewMode, setViewMode] = useState<"month" | "week" | "day">(() => {
     if (typeof window !== "undefined" && window.innerWidth < 768) {
       return "week";
@@ -140,14 +147,15 @@ export default function SchedulesPage() {
 
   return (
     <div className="w-full space-y-6 flex flex-col">
+      {/* 상단 헤더 및 컨트롤러 (Apple 스타일) */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
         <div className="flex items-center gap-4">
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 truncate">
+          <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 truncate">
             {viewMode === "month" && `${year}년 ${month + 1}월`}
             {viewMode === "week" && `${year}년 ${month + 1}월 (주간)`}
             {viewMode === "day" && `${year}년 ${month + 1}월 ${day}일`}
           </h1>
-          <div className="flex items-center bg-white border border-slate-200/80 rounded-xl p-1 shadow-xs">
+          <div className="flex items-center bg-white border border-slate-200/80 rounded-xl p-1 shadow-2xs">
             <button onClick={handlePrev} className="px-3 py-1 hover:bg-slate-100 rounded-lg text-xs font-bold text-slate-600 transition">&lt;</button>
             <button onClick={handleToday} className="px-3 py-1 hover:bg-slate-100 rounded-lg text-xs font-bold text-slate-800 transition">오늘</button>
             <button onClick={handleNext} className="px-3 py-1 hover:bg-slate-100 rounded-lg text-xs font-bold text-slate-600 transition">&gt;</button>
@@ -155,8 +163,8 @@ export default function SchedulesPage() {
         </div>
 
         <div className="flex items-center justify-between md:justify-end gap-3">
-          <div className="flex bg-slate-200/80 p-1 rounded-xl text-xs font-bold text-slate-600">
-            <button onClick={() => setViewMode("month")} className={`px-3 md:px-4 py-1.5 rounded-lg transition ${viewMode === "month" ? "bg-white text-slate-900 shadow-xs" : "hover:text-slate-900"}`}>월간</button>
+          <div className="flex bg-slate-100 p-1 rounded-xl text-xs font-bold text-slate-600">
+            <button onClick={() => setViewMode("month")} className={`px-3 md:px-4 py-1.5 rounded-lg transition ${viewMode === "month" ? "bg-white text-slate-900 shadow-2xs" : "hover:text-slate-900"}`}>월간</button>
             <button onClick={() => setViewMode("week")} className={`px-3 md:px-4 py-1.5 rounded-lg transition ${viewMode === "week" ? "bg-white text-slate-900 shadow-xs" : "hover:text-slate-900"}`}>주간</button>
             <button onClick={() => setViewMode("day")} className={`px-3 md:px-4 py-1.5 rounded-lg transition ${viewMode === "day" ? "bg-white text-slate-900 shadow-xs" : "hover:text-slate-900"}`}>일간</button>
           </div>
@@ -170,13 +178,14 @@ export default function SchedulesPage() {
               setTheme("blue");
               setIsModalOpen(true);
             }}
-            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition text-xs md:text-sm shadow-sm flex items-center gap-1.5 whitespace-nowrap"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition text-xs md:text-sm shadow-sm flex items-center gap-1.5 whitespace-nowrap"
           >
             <span>+</span> 새로운 이벤트
           </button>
         </div>
       </div>
 
+      {/* 캘린더 본문 영역 */}
       <div className="bg-white rounded-3xl shadow-xs border border-slate-200/80 flex flex-col overflow-hidden p-4 md:p-6">
         {viewMode === "month" && (
           <div className="flex flex-col">
@@ -189,9 +198,9 @@ export default function SchedulesPage() {
               <span>금</span>
               <span className="text-blue-500">토</span>
             </div>
-            <div className="grid grid-cols-7 text-center gap-1">
+            <div className="grid grid-cols-7 text-center gap-1.5">
               {Array.from({ length: firstDayOfMonth }).map((_, i) => (
-                <div key={`empty-${i}`} className="min-h-[80px] md:min-h-[110px] bg-slate-50/20 rounded-xl" />
+                <div key={`empty-${i}`} className="min-h-[85px] md:min-h-[110px] bg-slate-50/30 rounded-2xl" />
               ))}
               {Array.from({ length: daysInMonth }).map((_, i) => {
                 const d = i + 1;
@@ -206,16 +215,16 @@ export default function SchedulesPage() {
                   <div 
                     key={`day-${d}`}
                     onDoubleClick={() => handleDateDoubleClick(dateStr)}
-                    className={`min-h-[80px] md:min-h-[110px] rounded-xl md:rounded-2xl p-1.5 md:p-2.5 border transition flex flex-col items-start cursor-pointer hover:border-blue-400 overflow-hidden select-none ${
-                      isToday ? "bg-blue-50/40 border-blue-400 shadow-xs" : "bg-white border-slate-100 hover:bg-slate-50/50"
+                    className={`min-h-[85px] md:min-h-[110px] rounded-2xl p-1.5 md:p-2.5 border transition flex flex-col items-start cursor-pointer hover:border-blue-400 overflow-hidden select-none ${
+                      isToday ? "bg-blue-50/30 border-blue-400 shadow-2xs" : "bg-white border-slate-100 hover:bg-slate-50/50"
                     }`}
                   >
-                    <span className={`text-[10px] md:text-xs font-bold mb-1 md:mb-2 w-5 h-5 md:w-6 md:h-6 flex items-center justify-center rounded-full ${isToday ? "bg-blue-600 text-white shadow-xs" : "text-slate-700"}`}>
+                    <span className={`text-[10px] md:text-xs font-bold mb-1 md:mb-2 w-5 h-5 md:w-6 md:h-6 flex items-center justify-center rounded-full ${isToday ? "bg-blue-600 text-white shadow-2xs" : "text-slate-700"}`}>
                       {d}
                     </span>
                     <div className="w-full space-y-1 text-left overflow-y-auto max-h-[50px] md:max-h-[75px] scrollbar-none">
                       {daySchedules.map((s, idx) => {
-                        const t = THEMES[s.theme || "blue"] || THEMES.blue;
+                        const tc = THEME_CLASSES[s.theme || "blue"] || THEME_CLASSES.blue;
                         const isSelected = selectedScheduleId === s.id;
 
                         return (
@@ -223,14 +232,12 @@ export default function SchedulesPage() {
                             key={idx} 
                             onClick={(e) => handleScheduleClick(e, s)}
                             onDoubleClick={(e) => handleScheduleDoubleClick(e, s)}
-                            className={`text-[10px] md:text-[11px] px-1.5 md:px-2.5 py-0.5 md:py-1 rounded-lg truncate flex items-center justify-between transition cursor-pointer font-semibold border ${t.bg} ${t.text} ${
-                              isSelected ? "ring-2 ring-blue-600 shadow-sm font-bold scale-[1.02]" : "opacity-80 hover:opacity-100"
+                            className={`text-[10px] md:text-[11px] px-2 py-0.5 rounded-lg truncate flex items-center justify-between transition cursor-pointer font-semibold border ${tc.bg} ${tc.text} ${
+                              isSelected ? "ring-2 ring-blue-600 shadow-2xs font-bold scale-[1.02]" : "opacity-90 hover:opacity-100"
                             }`}
                             title="한 번 클릭: 선택 / 두 번 클릭: 수정"
                           >
-                            <span className="truncate">
-                              {s.title}
-                            </span>
+                            <span className="truncate">{s.title}</span>
                           </div>
                         );
                       })}
@@ -244,8 +251,8 @@ export default function SchedulesPage() {
 
         {viewMode === "week" && (
           <div className="flex flex-col">
-            <div className="text-xs md:text-sm font-bold text-slate-700 mb-4">
-              🗓️ 이번 주 타임라인 (일정을 터치 또는 클릭하여 선택하고, 더블클릭하면 수정할 수 있습니다)
+            <div className="text-xs md:text-sm font-semibold text-slate-500 mb-4">
+              🗓️ 이번 주 타임라인 (항목을 더블클릭하면 수정할 수 있습니다)
             </div>
             <div className="space-y-3">
               {Array.from({ length: 7 }).map((_, i) => {
@@ -257,7 +264,7 @@ export default function SchedulesPage() {
                   <div 
                     key={i} 
                     onDoubleClick={() => handleDateDoubleClick(dateStr)}
-                    className="flex flex-col md:flex-row border border-slate-100 rounded-2xl p-4 bg-slate-50/40 items-start gap-3 md:gap-4 cursor-pointer hover:border-blue-300 transition"
+                    className="flex flex-col md:flex-row border border-slate-100 rounded-2xl p-4 bg-slate-50/50 items-start gap-3 md:gap-4 cursor-pointer hover:border-blue-300 transition"
                   >
                     <div className="w-full md:w-32 font-bold text-xs md:text-sm text-slate-800 border-b md:border-b-0 md:border-r border-slate-200/80 pb-2 md:pb-0 md:pr-4">
                       {targetDate.toLocaleDateString('ko-KR', { weekday: 'short', month: 'long', day: 'numeric' })}
@@ -267,7 +274,7 @@ export default function SchedulesPage() {
                         <span className="text-xs text-slate-400">등록된 일정이 없습니다.</span>
                       ) : (
                         daySchedules.map((s, idx) => {
-                          const t = THEMES[s.theme || "blue"] || THEMES.blue;
+                          const tc = THEME_CLASSES[s.theme || "blue"] || THEME_CLASSES.blue;
                           const isSelected = selectedScheduleId === s.id;
 
                           return (
@@ -275,16 +282,16 @@ export default function SchedulesPage() {
                               key={idx} 
                               onClick={(e) => handleScheduleClick(e, s)}
                               onDoubleClick={(e) => handleScheduleDoubleClick(e, s)}
-                              className={`flex flex-col md:flex-row justify-between items-start md:items-center p-3 rounded-2xl border transition cursor-pointer gap-2 ${t.bg} ${t.text} ${
-                                isSelected ? "ring-2 ring-blue-600 shadow-sm scale-[1.01]" : "opacity-90"
+                              className={`flex flex-col md:flex-row justify-between items-start md:items-center p-3 rounded-2xl border transition cursor-pointer gap-2 ${tc.bg} ${tc.text} ${
+                                isSelected ? "ring-2 ring-blue-600 shadow-2xs scale-[1.01]" : "opacity-95"
                               }`}
                             >
                               <div>
-                                <span className="text-[11px] font-bold bg-white/60 px-2.5 py-1 rounded-xl mr-3">{s.time || "종일"}</span>
+                                <span className="text-[11px] font-bold bg-white/80 px-2.5 py-1 rounded-xl mr-3 shadow-2xs">{s.time || "종일"}</span>
                                 <span className="font-bold text-sm">{s.title}</span>
-                                {s.content && <p className="text-xs opacity-75 mt-0.5">{s.content}</p>}
+                                {s.content && <p className="text-xs opacity-80 mt-0.5">{s.content}</p>}
                               </div>
-                              <span className="text-[11px] font-semibold opacity-70">더블클릭하여 수정</span>
+                              <span className="text-[11px] font-medium opacity-60">더블클릭 수정</span>
                             </div>
                           );
                         })
@@ -299,7 +306,7 @@ export default function SchedulesPage() {
 
         {viewMode === "day" && (
           <div className="flex flex-col">
-            <div className="text-xs md:text-sm font-bold text-slate-700 mb-4">
+            <div className="text-xs md:text-sm font-semibold text-slate-500 mb-4">
               📅 {year}년 {month + 1}월 {day}일 상세 일정 타임라인
             </div>
             <div className="space-y-3">
@@ -314,7 +321,7 @@ export default function SchedulesPage() {
                 }
 
                 return daySchedules.map((s, idx) => {
-                  const t = THEMES[s.theme || "blue"] || THEMES.blue;
+                  const tc = THEME_CLASSES[s.theme || "blue"] || THEME_CLASSES.blue;
                   const isSelected = selectedScheduleId === s.id;
 
                   return (
@@ -322,18 +329,18 @@ export default function SchedulesPage() {
                       key={idx} 
                       onClick={(e) => handleScheduleClick(e, s)}
                       onDoubleClick={(e) => handleScheduleDoubleClick(e, s)}
-                      className={`p-4 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between transition cursor-pointer gap-2 ${t.bg} ${t.text} ${
-                        isSelected ? "ring-2 ring-blue-600 shadow-sm scale-[1.01]" : "opacity-90"
+                      className={`p-4 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between transition cursor-pointer gap-2 ${tc.bg} ${tc.text} ${
+                        isSelected ? "ring-2 ring-blue-600 shadow-2xs scale-[1.01]" : "opacity-95"
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <span className="text-xs font-bold bg-white/70 px-3 py-1 rounded-xl shadow-xs">{s.time || "종일"}</span>
+                        <span className="text-xs font-bold bg-white/80 px-3 py-1 rounded-xl shadow-2xs">{s.time || "종일"}</span>
                         <div>
                           <h4 className="font-bold text-sm md:text-base">{s.title}</h4>
-                          {s.content && <p className="text-xs opacity-75 mt-1">{s.content}</p>}
+                          {s.content && <p className="text-xs opacity-80 mt-1">{s.content}</p>}
                         </div>
                       </div>
-                      <span className="text-[11px] font-semibold px-3 py-1 bg-white/60 rounded-xl self-end md:self-auto">더블클릭하여 수정</span>
+                      <span className="text-[11px] font-medium opacity-60 px-3 py-1 bg-white/70 rounded-xl">더블클릭 수정</span>
                     </div>
                   );
                 });
@@ -343,25 +350,32 @@ export default function SchedulesPage() {
         )}
       </div>
 
+      {/* 🟢 애플 캘린더 감성의 모던 모달 (모바일 칸 겹침 현상 해결됨) */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-          <div className="bg-white w-full max-w-md p-6 rounded-3xl shadow-2xl border border-slate-100">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+          <div className="bg-white w-full max-w-md p-6 sm:p-7 rounded-3xl shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-5 border-b border-slate-100 pb-3">
               <h3 className="text-lg font-bold text-slate-900">
                 {editingId ? "✏️ 이벤트 편집" : "📅 새로운 이벤트"}
               </h3>
-              <button onClick={closeModal} className="text-slate-400 hover:text-slate-700 font-bold w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition">✕</button>
+              <button 
+                onClick={closeModal} 
+                className="text-slate-400 hover:text-slate-700 font-bold w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition"
+              >
+                ✕
+              </button>
             </div>
 
             <form onSubmit={handleSubmitSchedule} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
+              {/* 📱 모바일에선 세로 스택(grid-cols-1), 태블릿 이상에선 가로 2분할(sm:grid-cols-2)로 겹침 방지 */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">날짜</label>
                   <input
                     type="date"
                     value={scheduleDate}
                     onChange={(e) => setScheduleDate(e.target.value)}
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    className="w-full p-3 bg-slate-100/80 border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition"
                     required
                   />
                 </div>
@@ -371,7 +385,7 @@ export default function SchedulesPage() {
                     type="time"
                     value={scheduleTime}
                     onChange={(e) => setScheduleTime(e.target.value)}
-                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    className="w-full p-3 bg-slate-100/80 border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition"
                     required
                   />
                 </div>
@@ -383,7 +397,7 @@ export default function SchedulesPage() {
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full p-3 bg-slate-100/80 border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition"
                   placeholder="예: 홍길동 환자 상담 예약"
                   required
                 />
@@ -397,8 +411,8 @@ export default function SchedulesPage() {
                       key={key}
                       type="button"
                       onClick={() => setTheme(key)}
-                      className={`w-9 h-9 rounded-full transition flex items-center justify-center font-bold text-xs border-2 ${value.bg} ${value.text} ${
-                        theme === key ? "ring-2 ring-offset-2 ring-blue-600 scale-110" : "opacity-70 hover:opacity-100"
+                      className={`w-9 h-9 rounded-full transition flex items-center justify-center font-bold text-xs ${value.bg} ${value.text} ${
+                        theme === key ? `ring-2 ring-offset-2 ${value.ring} scale-110 shadow-sm` : "opacity-75 hover:opacity-100"
                       }`}
                       title={value.label}
                     >
@@ -413,7 +427,7 @@ export default function SchedulesPage() {
                 <textarea
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  className="w-full p-3 bg-slate-100/80 border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition"
                   rows={2}
                   placeholder="특이사항 메모..."
                 />
@@ -424,7 +438,7 @@ export default function SchedulesPage() {
                   <button
                     type="button"
                     onClick={() => handleDelete(editingId)}
-                    className="py-3 px-4 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-100 transition text-sm"
+                    className="py-3 px-4 bg-red-50 text-red-600 font-bold rounded-2xl hover:bg-red-100 transition text-sm"
                   >
                     삭제
                   </button>
@@ -432,13 +446,13 @@ export default function SchedulesPage() {
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition text-sm"
+                  className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-2xl hover:bg-slate-200 transition text-sm"
                 >
                   취소
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition text-sm shadow-sm"
+                  className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-2xl transition text-sm shadow-sm"
                 >
                   {editingId ? "수정 내용 저장하기" : "이벤트 추가"}
                 </button>
