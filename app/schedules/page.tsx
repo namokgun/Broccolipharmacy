@@ -350,7 +350,7 @@ export default function SchedulesPage() {
         )}
       </div>
 
-      {/* 이벤트 추가/수정 모달 (24시간제 텍스트 입력창 적용) */}
+      {/* 이벤트 추가/수정 모달 (날짜 입력창 좌측 치우침 현상 해결) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md p-6 sm:p-7 rounded-3xl shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
@@ -370,17 +370,17 @@ export default function SchedulesPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">날짜</label>
+                  {/* 🟢 모바일(iOS) 사파리에서 날짜 입력창이 우측으로 치우치는 현상 방지 스타일 적용 */}
                   <input
                     type="date"
                     value={scheduleDate}
                     onChange={(e) => setScheduleDate(e.target.value)}
-                    className="w-full p-3 bg-slate-100/80 border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition text-left"
+                    className="w-full p-3 bg-slate-100/80 border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition text-left [-webkit-appearance:none]"
                     required
                   />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">시간 (24시간제)</label>
-                  {/* 🟢 24시간제 자유 타이핑이 가능한 텍스트 입력창으로 변경 */}
                   <input
                     type="text"
                     value={scheduleTime}
