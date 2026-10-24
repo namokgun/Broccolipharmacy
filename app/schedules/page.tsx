@@ -35,7 +35,11 @@ export default function SchedulesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
-  const [scheduleTime, setScheduleTime] = useState("14:00"); // 24시간제 텍스트 입력
+  
+  // 🟢 시/분 상태를 분리하여 브라우저 기본 time 폼의 스크롤 문제 해결
+  const [scheduleHour, setScheduleHour] = useState("14");
+  const [scheduleMinute, setScheduleMinute] = useState("00");
+
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [theme, setTheme] = useState("blue");
@@ -60,9 +64,12 @@ export default function SchedulesPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return alert("로그인 정보가 없습니다.");
 
+    // 저장 시점에 시와 분을 결합
+    const combinedTime = `${scheduleHour}:${scheduleMinute}`;
+
     const payload = {
       schedule_date: scheduleDate,
-      time: scheduleTime,
+      time: combinedTime,
       title,
       content,
       theme,
@@ -93,13 +100,15 @@ export default function SchedulesPage() {
     setTitle("");
     setContent("");
     setTheme("blue");
-    setScheduleTime("14:00");
+    setScheduleHour("14");
+    setScheduleMinute("00");
   };
 
   const handleDateDoubleClick = (dateStr: string) => {
     setEditingId(null);
     setScheduleDate(dateStr);
-    setScheduleTime("14:00");
+    setScheduleHour("14");
+    setScheduleMinute("00");
     setTitle("");
     setContent("");
     setTheme("blue");
@@ -115,7 +124,12 @@ export default function SchedulesPage() {
     e.stopPropagation();
     setEditingId(s.id);
     setScheduleDate(s.schedule_date);
-    setScheduleTime(s.time || "14:00");
+    
+    // 기존 시간 데이터를 시와 분으로 쪼개서 설정
+    const [h, m] = (s.time || "14:00").split(':');
+    setScheduleHour(h || "14");
+    setScheduleMinute(m || "00");
+
     setTitle(s.title || "");
     setContent(s.content || "");
     setTheme(s.theme || "blue");
@@ -173,7 +187,8 @@ export default function SchedulesPage() {
             onClick={() => {
               setEditingId(null);
               setScheduleDate(new Date().toISOString().split('T')[0]);
-              setScheduleTime("14:00");
+              setScheduleHour("14");
+              setScheduleMinute("00");
               setTitle("");
               setContent("");
               setTheme("blue");
@@ -351,7 +366,7 @@ export default function SchedulesPage() {
         )}
       </div>
 
-      {/* 이벤트 추가/수정 모달 (오전/오후, 휠 스크롤 없는 깔끔한 24시간제 텍스트 입력창) */}
+      {/* 이벤트 추가/수정 모달 */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md p-6 sm:p-7 rounded-3xl shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
@@ -381,15 +396,40 @@ export default function SchedulesPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">시간 (24시간제)</label>
-                  {/* 🟢 오전/오후 선택 없이 깔끔하게 타이핑하는 24시간제 입력창 */}
-                  <input
-                    type="text"
-                    value={scheduleTime}
-                    onChange={(e) => setScheduleTime(e.target.value)}
-                    className="w-full p-3 bg-slate-100/80 border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition text-left"
-                    placeholder="예: 14:00"
-                    required
-                  />
+                  
+                  {/* 🟢 무한스크롤 방지 & 24시간제 커스텀 숫자 입력 컨트롤 */}
+                  <div className="flex items-center w-full p-1.5 bg-slate-100/80 border border-transparent rounded-2xl focus-within:bg-white focus-within:border-blue-500 transition">
+                    <input
+                      type="number"
+                      min="0" max="23"
+                      value={scheduleHour}
+                      onChange={(e) => setScheduleHour(e.target.value)}
+                      onBlur={(e) => {
+                        let v = parseInt(e.target.value);
+                        if (isNaN(v)) v = 0;
+                        if (v < 0) v = 0;
+                        if (v > 23) v = 23;
+                        setScheduleHour(v.toString().padStart(2, '0'));
+                      }}
+                      className="w-full bg-transparent text-center text-sm font-medium focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <span className="text-slate-400 font-bold">:</span>
+                    <input
+                      type="number"
+                      min="0" max="59"
+                      value={scheduleMinute}
+                      onChange={(e) => setScheduleMinute(e.target.value)}
+                      onBlur={(e) => {
+                        let v = parseInt(e.target.value);
+                        if (isNaN(v)) v = 0;
+                        if (v < 0) v = 0;
+                        if (v > 59) v = 59;
+                        setScheduleMinute(v.toString().padStart(2, '0'));
+                      }}
+                      className="w-full bg-transparent text-center text-sm font-medium focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                  </div>
+
                 </div>
               </div>
 
