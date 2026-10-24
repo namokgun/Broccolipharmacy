@@ -223,6 +223,7 @@ export default function PatientsPage() {
         </div>
       </div>
 
+      {/* 1. 환자 상담 이력 모달 (목록 / 사진) */}
       {selectedPatientForHistory && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl shadow-xl max-w-3xl w-full max-h-[85vh] overflow-y-auto p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200">
@@ -288,6 +289,7 @@ export default function PatientsPage() {
                           <td className="p-3 font-semibold text-slate-900">{c.symptoms || "미기재"}</td>
                           <td className="p-3 font-bold text-teal-800">{c.prescription || "미기재"}</td>
                           <td className="p-3 text-center whitespace-nowrap">
+                            {/* 버튼 클릭 시 selectedDetailConsultation 상태 업데이트 */}
                             <button
                               onClick={() => setSelectedDetailConsultation({ ...c, patients: selectedPatientForHistory })}
                               className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition whitespace-nowrap"
@@ -348,10 +350,123 @@ export default function PatientsPage() {
         </div>
       )}
 
+      {/* 🟢 2. 누락되었던 [자세히 보기] 상세 모달 추가 (z-[60]으로 기존 모달 위로 띄움) */}
+      {selectedDetailConsultation && (
+        <div className="fixed inset-0 z-[60] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-start border-b pb-4 mb-6">
+              <div>
+                <div className="flex items-center gap-2 mb-1 whitespace-nowrap flex-wrap">
+                  <span className="text-xl font-bold text-slate-900">{selectedDetailConsultation.patients?.name} 님</span>
+                  <span className="text-xs text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full font-medium">
+                    {selectedDetailConsultation.patients?.gender || "남"} / {selectedDetailConsultation.patients?.birth_year || "-"}년생
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400">상담일시: {new Date(selectedDetailConsultation.created_at).toLocaleString()}</p>
+              </div>
+              <button 
+                onClick={() => setSelectedDetailConsultation(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-6 text-sm">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">체질 / 허실</p>
+                  <p className="font-bold text-slate-800">
+                    {selectedDetailConsultation.body_type || "미입력"} / {selectedDetailConsultation.deficiency_type || "미입력"}
+                  </p>
+                </div>
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">수면 및 소화 상태</p>
+                  <p className="font-semibold text-slate-800">
+                    수면: {selectedDetailConsultation.sleep_state || "-"} <br/>
+                    소화: {selectedDetailConsultation.digestion_stool || "-"}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">주요 증상 및 세부 호소</p>
+                <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
+                  <p className="font-bold text-slate-900">{selectedDetailConsultation.symptoms || "미기재"}</p>
+                  {selectedDetailConsultation.symptom_detail && (
+                    <p className="text-slate-600 text-xs leading-relaxed whitespace-pre-line">{selectedDetailConsultation.symptom_detail}</p>
+                  )}
+                </div>
+              </div>
+
+              {selectedDetailConsultation.display_image_urls && selectedDetailConsultation.display_image_urls.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📸 첨부된 사진 (클릭하여 확대)</p>
+                  <div className="flex flex-wrap gap-3">
+                    {selectedDetailConsultation.display_image_urls.map((imgUrl: string, idx: number) => (
+                      <div 
+                        key={idx} 
+                        onClick={() => setPreviewImageUrl(imgUrl)}
+                        className="w-24 h-24 rounded-2xl overflow-hidden border border-slate-200 cursor-pointer hover:opacity-90 transition shadow-xs bg-slate-100"
+                      >
+                        <img src={imgUrl} alt={`첨부사진 ${idx + 1}`} className="w-full h-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {(selectedDetailConsultation.expert_opinion || selectedDetailConsultation.comprehensive_judgment) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {selectedDetailConsultation.expert_opinion && (
+                    <div className="p-4 bg-teal-50/40 rounded-2xl border border-teal-100">
+                      <p className="text-xs font-semibold text-teal-700 uppercase tracking-wider mb-1">선진 소견</p>
+                      <p className="text-slate-700 text-xs whitespace-pre-line">{selectedDetailConsultation.expert_opinion}</p>
+                    </div>
+                  )}
+                  {selectedDetailConsultation.comprehensive_judgment && (
+                    <div className="p-4 bg-purple-50/40 rounded-2xl border border-purple-100">
+                      <p className="text-xs font-semibold text-purple-700 uppercase tracking-wider mb-1">종합 판단</p>
+                      <p className="text-slate-700 text-xs whitespace-pre-line">{selectedDetailConsultation.comprehensive_judgment}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div className="p-4 bg-teal-900 text-white rounded-2xl">
+                <p className="text-xs font-semibold text-teal-300 uppercase tracking-wider mb-1">권고 의약품 (처방)</p>
+                <p className="font-bold text-base whitespace-pre-line">{selectedDetailConsultation.prescription || "미기재"}</p>
+              </div>
+
+              {(selectedDetailConsultation.patient_memo || selectedDetailConsultation.consult_memo) && (
+                <div className="p-4 bg-amber-50/50 border border-amber-200 rounded-2xl space-y-2 text-xs">
+                  {selectedDetailConsultation.patient_memo && (
+                    <p><strong className="text-amber-900">환자 특이사항 메모:</strong> <span className="text-slate-700">{selectedDetailConsultation.patient_memo}</span></p>
+                  )}
+                  {selectedDetailConsultation.consult_memo && (
+                    <p><strong className="text-amber-900">상담 특이사항 메모:</strong> <span className="text-slate-700">{selectedDetailConsultation.consult_memo}</span></p>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-8 pt-4 border-t flex justify-end">
+              <button 
+                onClick={() => setSelectedDetailConsultation(null)}
+                className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. 라이트박스 팝업 (가장 높은 z-[70]) */}
       {previewImageUrl && (
         <div 
           onClick={() => setPreviewImageUrl(null)}
-          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer"
+          className="fixed inset-0 z-[70] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer"
         >
           <div className="relative max-w-4xl max-h-[90vh] w-full flex items-center justify-center">
             <button 
