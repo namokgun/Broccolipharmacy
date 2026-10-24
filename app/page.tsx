@@ -8,15 +8,7 @@ export default function DashboardPage() {
   const [schedules, setSchedules] = useState<any[]>([]);
   const [consultations, setConsultations] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  
-  // 📱 모바일 접속 시 최초 렌더링만 주간 뷰, PC는 월간 뷰로 시작 (버튼으로 언제든 전환 가능)
-  const [viewMode, setViewMode] = useState<"month" | "week">(() => {
-    if (typeof window !== "undefined" && window.innerWidth < 768) {
-      return "week";
-    }
-    return "month";
-  });
-  
+  const [viewMode, setViewMode] = useState<"month" | "week">("month");
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -66,10 +58,10 @@ export default function DashboardPage() {
 
   return (
     <div className="w-full space-y-6">
-      <h1 className="text-2xl font-bold text-slate-900">📊 대시보드 및 현황</h1>
+      <h1 className="text-2xl font-bold text-slate-900">📊 대시보드</h1>
 
-      {/* 1. 상단 통계 요약 카드 복구 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* 상단 통계 요약 카드 (등록된 일정 제외) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">총 등록 환자</p>
@@ -84,16 +76,9 @@ export default function DashboardPage() {
           </div>
           <div className="w-12 h-12 bg-blue-50 text-blue-800 rounded-2xl flex items-center justify-center font-bold text-lg">📝</div>
         </div>
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
-          <div>
-            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">등록된 일정</p>
-            <h3 className="text-2xl font-bold text-slate-900">{schedules.length} 개</h3>
-          </div>
-          <div className="w-12 h-12 bg-purple-50 text-purple-800 rounded-2xl flex items-center justify-center font-bold text-lg">📅</div>
-        </div>
       </div>
 
-      {/* 2. 대시보드 캘린더 영역 */}
+      {/* 대시보드 캘린더 영역 */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3">
@@ -203,10 +188,10 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* 3. 환자 목록 관리 및 간편 조회 영역 (원래의 카드 형태 복구 + 성씨 아바타 제거 + 이름 줄바꿈 방지) */}
+      {/* 환자 목록 영역 (원래 레이아웃 복구) */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <h2 className="text-lg font-bold text-slate-900">환자 목록 관리 및 간편 조회 ({filteredPatients.length}명)</h2>
+          <h2 className="text-lg font-bold text-slate-900">환자 목록</h2>
           <input
             type="text"
             placeholder="환자 이름 또는 연락처 검색..."
