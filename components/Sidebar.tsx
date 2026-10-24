@@ -125,8 +125,8 @@ export default function Sidebar() {
         </div>
       </aside>
 
-      {/* 📱 모바일 전용 상단 고정 헤더 (fixed -> sticky 변경으로 가려짐 방지) */}
-      <div className="md:hidden sticky top-0 left-0 right-0 flex items-center justify-between bg-white border-b border-slate-100 px-4 py-3 z-40 shadow-sm">
+      {/* 📱 모바일 전용 상단 고정 헤더 (fixed + 모바일에서만 위쪽 여백 확보용 더미 공간 포함) */}
+      <div className="md:hidden fixed top-0 left-0 right-0 flex items-center justify-between bg-white border-b border-slate-100 px-4 py-3 z-50 shadow-sm">
         <div className="flex items-center gap-2">
           <Image src="/logo.png" alt="로고" width={28} height={28} className="object-contain rounded-md" />
           <span className="font-bold text-slate-900 text-sm">브로콜리약국</span>
@@ -135,6 +135,9 @@ export default function Sidebar() {
           로그아웃
         </button>
       </div>
+
+      {/* 📱 모바일에서 콘텐츠가 상단 헤더와 하단 탭에 안 가려지도록 밀어주는 투명 여백 박스 */}
+      <div className="md:hidden h-14 w-full shrink-0" />
 
       {/* 📱 모바일 전용 하단 앱 스타일 탭 바 */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 z-50 flex justify-around items-center py-2 px-2 shadow-lg">
