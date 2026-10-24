@@ -23,12 +23,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko" className={`${inter.className} h-full antialiased w-full overflow-x-hidden`}>
       <body className="min-h-screen w-full bg-slate-50 text-slate-900 flex flex-col md:flex-row overflow-x-hidden">
-        {/* 모바일에서는 상단 헤더, PC에서는 왼쪽 사이드바 */}
+        {/* 네비게이션 영역 */}
         <Sidebar />
         
-        {/* 본문 및 모바일 하단 바를 포함하는 영역 */}
+        {/* 본문 영역: PC에서는 왼쪽 여백(md:pl-64), 모바일에서는 하단 탭 바에 안 가리게 하단 여백(pb-24) 부여 */}
         <div className="flex-1 flex flex-col min-w-0 w-full md:pl-64">
-          <main className="flex-1 p-4 md:p-8 w-full">
+          <main className="flex-1 p-4 md:p-8 pb-24 md:pb-8 w-full">
             {children}
           </main>
         </div>
