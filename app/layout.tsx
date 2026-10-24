@@ -14,13 +14,13 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ko" className={`${inter.className} h-full antialiased`}>
-      <body className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
-        {/* 공통 사이드바 (내부에 PC 고정 사이드바 및 모바일 상하단바 포함) */}
+    <html lang="ko" className={`${inter.className} h-full w-full bg-slate-50 antialiased`}>
+      <body className="h-full w-full bg-slate-50 text-slate-900 flex flex-col m-0 p-0 overflow-x-hidden">
+        {/* 공통 사이드바 */}
         <Sidebar />
         
-        {/* 본문 영역: PC에서는 왼쪽 여백(md:pl-64)을 줘서 겹침 방지 */}
-        <main className="flex-1 md:pl-64 pt-4 pb-24 md:py-6 px-4 md:px-8">
+        {/* 본문 영역: 배경색을 확실히 지정하고 화면 전체를 채우도록 설정 */}
+        <main className="flex-1 md:pl-64 w-full min-h-screen pt-4 pb-24 md:py-6 px-4 md:px-8 bg-slate-50">
           {children}
         </main>
       </body>
