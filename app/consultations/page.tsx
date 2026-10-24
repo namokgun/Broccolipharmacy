@@ -16,6 +16,9 @@ export default function ConsultationsPage() {
   // 🟢 상세 보기 모달 상태
   const [selectedDetailConsultation, setSelectedDetailConsultation] = useState<any | null>(null);
 
+  // 🟢 사진 단독 확대 미리보기(라이트박스) 상태
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+
   const [patientSearchQuery, setPatientSearchQuery] = useState("");
   const [isPatientDropdownOpen, setIsPatientDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -580,13 +583,13 @@ export default function ConsultationsPage() {
                     </button>
                     <button 
                       onClick={() => handleEditClick(c)}
-                      className="px-3.5 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold rounded-xl transition"
+                      className="px-3.5 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold rounded-lg transition"
                     >
                       수정
                     </button>
                     <button 
                       onClick={() => handleDelete(c.id)}
-                      className="px-3.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-xl transition"
+                      className="px-3.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition"
                     >
                       삭제
                     </button>
@@ -649,18 +652,16 @@ export default function ConsultationsPage() {
 
               {selectedDetailConsultation.display_image_urls && selectedDetailConsultation.display_image_urls.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📸 첨부된 사진 (안전 보안 링크)</p>
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📸 첨부된 사진 (클릭하여 앱 안에서 확대)</p>
                   <div className="flex flex-wrap gap-3">
                     {selectedDetailConsultation.display_image_urls.map((imgUrl: string, idx: number) => (
-                      <a 
+                      <div 
                         key={idx} 
-                        href={imgUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="w-24 h-24 rounded-2xl overflow-hidden border border-slate-200 block hover:opacity-90 transition shadow-xs"
+                        onClick={() => setPreviewImageUrl(imgUrl)}
+                        className="w-24 h-24 rounded-2xl overflow-hidden border border-slate-200 cursor-pointer hover:opacity-90 transition shadow-xs bg-slate-100"
                       >
                         <img src={imgUrl} alt={`첨부사진 ${idx + 1}`} className="w-full h-full object-cover" />
-                      </a>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -708,6 +709,29 @@ export default function ConsultationsPage() {
                 닫기
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🟢 [인앱 이미지 라이트박스] 사진 원본 크게 확대 보기 팝업 */}
+      {previewImageUrl && (
+        <div 
+          onClick={() => setPreviewImageUrl(null)}
+          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer"
+        >
+          <div className="relative max-w-4xl max-h-[90vh] w-full flex items-center justify-center">
+            <button 
+              onClick={() => setPreviewImageUrl(null)}
+              className="absolute -top-12 right-0 text-white bg-slate-800 hover:bg-slate-700 w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg shadow-lg transition"
+            >
+              ✕
+            </button>
+            <img 
+              src={previewImageUrl} 
+              alt="확대된 사진" 
+              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl"
+              onClick={(e) => e.stopPropagation()} // 이미지 클릭 시 닫히지 않게 방지
+            />
           </div>
         </div>
       )}
