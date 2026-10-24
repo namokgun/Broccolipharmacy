@@ -15,6 +15,7 @@ export default function PatientsPage() {
   const [selectedPatientForHistory, setSelectedPatientForHistory] = useState<any | null>(null);
   const [patientConsultations, setPatientConsultations] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
+  const [historyTab, setHistoryTab] = useState<"list" | "photos">("list"); // 탭 상태 ('목록' 또는 '사진 모아보기')
 
   // 🟢 이력 모달 내에서 [자세히 보기]를 눌렀을 때 띄울 상세 모달 상태
   const [selectedDetailConsultation, setSelectedDetailConsultation] = useState<any | null>(null);
@@ -67,6 +68,7 @@ export default function PatientsPage() {
   // 🟢 특정 환자의 상담 이력 불러오기 (보안 Signed URL 포함)
   const handleOpenHistoryModal = async (patient: any) => {
     setSelectedPatientForHistory(patient);
+    setHistoryTab("list"); // 모달 열 때 기본은 목록 탭
     setLoadingHistory(true);
     const { data, error } = await supabase
       .from("consultations")
@@ -228,14 +230,14 @@ export default function PatientsPage() {
         </div>
       </div>
 
-      {/* 🟢 환자별 상담 이력 모달 팝업 */}
+      {/* 🟢 환자별 상담 이력 및 사진 모아보기 모달 팝업 */}
       {selectedPatientForHistory && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl shadow-xl max-w-3xl w-full max-h-[85vh] overflow-y-auto p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center border-b pb-4 mb-6">
+            <div className="flex justify-between items-center border-b pb-4 mb-4">
               <div>
                 <h3 className="text-xl font-bold text-slate-900">
-                  📂 [{selectedPatientForHistory.name}] 님의 상담 이력 모음
+                  📂 [{selectedPatientForHistory.name}] 님의 상담 기록 관리
                 </h3>
                 <p className="text-xs text-slate-400 mt-1">
                   연락처: {selectedPatientForHistory.phone || "번호 없음"} | 성별/출생: {selectedPatientForHistory.gender || "남"} / {selectedPatientForHistory.birth_year || "-"}년생
@@ -249,43 +251,97 @@ export default function PatientsPage() {
               </button>
             </div>
 
+            {/* 탭 전환 버튼 (상담 기록 목록 vs 사진 모아보기) */}
+            <div className="flex gap-2 mb-6 border-b pb-3">
+              <button
+                onClick={() => setHistoryTab("list")}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+                  historyTab === "list" ? "bg-teal-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                📋 상담 기록 목록
+              </button>
+              <button
+                onClick={() => setHistoryTab("photos")}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+                  historyTab === "photos" ? "bg-teal-900 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                📸 환자 사진 모아보기
+              </button>
+            </div>
+
             {loadingHistory ? (
-              <p className="text-center text-slate-400 py-12 text-sm">상담 기록을 불러오는 중...</p>
-            ) : patientConsultations.length === 0 ? (
-              <p className="text-center text-slate-400 py-12 text-sm">이 환자에 대한 상담 기록이 아직 없습니다.</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm border border-slate-100 rounded-xl overflow-hidden">
-                  <thead className="bg-slate-50 text-slate-400 uppercase text-xs">
-                    <tr>
-                      <th className="p-3 font-semibold">상담 일시</th>
-                      <th className="p-3 font-semibold">주요 증상</th>
-                      <th className="p-3 font-semibold">권고 처방</th>
-                      <th className="p-3 font-semibold text-center">상세 / 사진</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {patientConsultations.map((c) => (
-                      <tr key={c.id} className="hover:bg-slate-50/80 transition">
-                        <td className="p-3 text-slate-500 whitespace-nowrap text-xs">
-                          {new Date(c.created_at).toLocaleDateString()} <br />
-                          <span className="text-[10px] text-slate-400">{new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                        </td>
-                        <td className="p-3 font-semibold text-slate-900">{c.symptoms || "미기재"}</td>
-                        <td className="p-3 font-bold text-teal-800">{c.prescription || "미기재"}</td>
-                        <td className="p-3 text-center">
-                          <button
-                            onClick={() => setSelectedDetailConsultation({ ...c, patients: selectedPatientForHistory })}
-                            className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition"
-                          >
-                            🔍 자세히 보기 {c.display_image_urls?.length > 0 && `(📸 ${c.display_image_urls.length})`}
-                          </button>
-                        </td>
+              <p className="text-center text-slate-400 py-12 text-sm">데이터를 불러오는 중...</p>
+            ) : historyTab === "list" ? (
+              /* 📋 상담 기록 목록 테이블 뷰 */
+              patientConsultations.length === 0 ? (
+                <p className="text-center text-slate-400 py-12 text-sm">이 환자에 대한 상담 기록이 아직 없습니다.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-sm border border-slate-100 rounded-xl overflow-hidden">
+                    <thead className="bg-slate-50 text-slate-400 uppercase text-xs">
+                      <tr>
+                        <th className="p-3 font-semibold">상담 일시</th>
+                        <th className="p-3 font-semibold">주요 증상</th>
+                        <th className="p-3 font-semibold">권고 처방</th>
+                        <th className="p-3 font-semibold text-center">상세 / 사진</th>
                       </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {patientConsultations.map((c) => (
+                        <tr key={c.id} className="hover:bg-slate-50/80 transition">
+                          <td className="p-3 text-slate-500 whitespace-nowrap text-xs">
+                            {new Date(c.created_at).toLocaleDateString()} <br />
+                            <span className="text-[10px] text-slate-400">{new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                          </td>
+                          <td className="p-3 font-semibold text-slate-900">{c.symptoms || "미기재"}</td>
+                          <td className="p-3 font-bold text-teal-800">{c.prescription || "미기재"}</td>
+                          <td className="p-3 text-center">
+                            <button
+                              onClick={() => setSelectedDetailConsultation({ ...c, patients: selectedPatientForHistory })}
+                              className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition"
+                            >
+                              🔍 자세히 보기 {c.display_image_urls?.length > 0 && `(📸 ${c.display_image_urls.length})`}
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )
+            ) : (
+              /* 📸 사진 모아보기 갤러리 뷰 */
+              (() => {
+                const allPhotos = patientConsultations.flatMap(c => 
+                  (c.display_image_urls || []).map((url: string) => ({
+                    url,
+                    date: c.created_at,
+                    symptoms: c.symptoms
+                  }))
+                );
+
+                if (allPhotos.length === 0) {
+                  return <p className="text-center text-slate-400 py-12 text-sm">등록된 사진이 없습니다.</p>;
+                }
+
+                return (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-h-[50vh] overflow-y-auto p-1">
+                    {allPhotos.map((photo, idx) => (
+                      <div key={idx} className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden shadow-xs flex flex-col">
+                        <a href={photo.url} target="_blank" rel="noopener noreferrer" className="block h-36 overflow-hidden bg-slate-100">
+                          <img src={photo.url} alt={`환자 사진 ${idx + 1}`} className="w-full h-full object-cover hover:scale-105 transition duration-200" />
+                        </a>
+                        <div className="p-3 text-[11px] space-y-1">
+                          <p className="font-semibold text-slate-800 truncate">증상: {photo.symptoms || "미기재"}</p>
+                          <p className="text-slate-400">{new Date(photo.date).toLocaleDateString()}</p>
+                        </div>
+                      </div>
                     ))}
-                  </tbody>
-                </table>
-              </div>
+                  </div>
+                );
+              })()
             )}
 
             <div className="mt-8 pt-4 border-t flex justify-end">
