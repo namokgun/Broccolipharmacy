@@ -15,10 +15,13 @@ export default function PatientsPage() {
   const [selectedPatientForHistory, setSelectedPatientForHistory] = useState<any | null>(null);
   const [patientConsultations, setPatientConsultations] = useState<any[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
-  const [historyTab, setHistoryTab] = useState<"list" | "photos">("list"); // 탭 상태 ('목록' 또는 '사진 모아보기')
+  const [historyTab, setHistoryTab] = useState<"list" | "photos">("list");
 
-  // 🟢 이력 모달 내에서 [자세히 보기]를 눌렀을 때 띄울 상세 모달 상태
+  // 🟢 상세 보기 모달 상태
   const [selectedDetailConsultation, setSelectedDetailConsultation] = useState<any | null>(null);
+
+  // 🟢 사진 단독 확대 미리보기(라이트박스) 상태
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   const fetchPatients = async () => {
     const { data } = await supabase.from("patients").select("*").order("created_at", { ascending: false });
@@ -68,7 +71,7 @@ export default function PatientsPage() {
   // 🟢 특정 환자의 상담 이력 불러오기 (보안 Signed URL 포함)
   const handleOpenHistoryModal = async (patient: any) => {
     setSelectedPatientForHistory(patient);
-    setHistoryTab("list"); // 모달 열 때 기본은 목록 탭
+    setHistoryTab("list");
     setLoadingHistory(true);
     const { data, error } = await supabase
       .from("consultations")
@@ -251,7 +254,7 @@ export default function PatientsPage() {
               </button>
             </div>
 
-            {/* 탭 전환 버튼 (상담 기록 목록 vs 사진 모아보기) */}
+            {/* 탭 전환 버튼 */}
             <div className="flex gap-2 mb-6 border-b pb-3">
               <button
                 onClick={() => setHistoryTab("list")}
@@ -274,7 +277,6 @@ export default function PatientsPage() {
             {loadingHistory ? (
               <p className="text-center text-slate-400 py-12 text-sm">데이터를 불러오는 중...</p>
             ) : historyTab === "list" ? (
-              /* 📋 상담 기록 목록 테이블 뷰 */
               patientConsultations.length === 0 ? (
                 <p className="text-center text-slate-400 py-12 text-sm">이 환자에 대한 상담 기록이 아직 없습니다.</p>
               ) : (
@@ -312,7 +314,7 @@ export default function PatientsPage() {
                 </div>
               )
             ) : (
-              /* 📸 사진 모아보기 갤러리 뷰 */
+              /* 사진 모아보기 갤러리 뷰 */
               (() => {
                 const allPhotos = patientConsultations.flatMap(c => 
                   (c.display_image_urls || []).map((url: string) => ({
@@ -330,9 +332,13 @@ export default function PatientsPage() {
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-h-[50vh] overflow-y-auto p-1">
                     {allPhotos.map((photo, idx) => (
                       <div key={idx} className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden shadow-xs flex flex-col">
-                        <a href={photo.url} target="_blank" rel="noopener noreferrer" className="block h-36 overflow-hidden bg-slate-100">
+                        {/* 클릭 시 외부로 안 나가고 인앱 라이트박스 열림 */}
+                        <div 
+                          onClick={() => setPreviewImageUrl(photo.url)}
+                          className="block h-36 overflow-hidden bg-slate-100 cursor-pointer"
+                        >
                           <img src={photo.url} alt={`환자 사진 ${idx + 1}`} className="w-full h-full object-cover hover:scale-105 transition duration-200" />
-                        </a>
+                        </div>
                         <div className="p-3 text-[11px] space-y-1">
                           <p className="font-semibold text-slate-800 truncate">증상: {photo.symptoms || "미기재"}</p>
                           <p className="text-slate-400">{new Date(photo.date).toLocaleDateString()}</p>
@@ -407,18 +413,16 @@ export default function PatientsPage() {
 
               {selectedDetailConsultation.display_image_urls && selectedDetailConsultation.display_image_urls.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📸 첨부된 사진 (안전 보안 링크)</p>
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📸 첨부된 사진 (클릭하여 앱 안에서 확대)</p>
                   <div className="flex flex-wrap gap-3">
                     {selectedDetailConsultation.display_image_urls.map((imgUrl: string, idx: number) => (
-                      <a 
+                      <div 
                         key={idx} 
-                        href={imgUrl} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="w-24 h-24 rounded-2xl overflow-hidden border border-slate-200 block hover:opacity-90 transition shadow-xs"
+                        onClick={() => setPreviewImageUrl(imgUrl)}
+                        className="w-24 h-24 rounded-2xl overflow-hidden border border-slate-200 cursor-pointer hover:opacity-90 transition shadow-xs bg-slate-100"
                       >
                         <img src={imgUrl} alt={`첨부사진 ${idx + 1}`} className="w-full h-full object-cover" />
-                      </a>
+                      </div>
                     ))}
                   </div>
                 </div>
@@ -466,6 +470,29 @@ export default function PatientsPage() {
                 닫기
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🟢 [인앱 이미지 라이트박스] 사진 원본 크게 확대 보기 팝업 */}
+      {previewImageUrl && (
+        <div 
+          onClick={() => setPreviewImageUrl(null)}
+          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer"
+        >
+          <div className="relative max-w-4xl max-h-[90vh] w-full flex items-center justify-center">
+            <button 
+              onClick={() => setPreviewImageUrl(null)}
+              className="absolute -top-12 right-0 text-white bg-slate-800 hover:bg-slate-700 w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg shadow-lg transition"
+            >
+              ✕
+            </button>
+            <img 
+              src={previewImageUrl} 
+              alt="확대된 사진" 
+              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl"
+              onClick={(e) => e.stopPropagation()} // 이미지 클릭 시 닫히지 않게 방지
+            />
           </div>
         </div>
       )}
