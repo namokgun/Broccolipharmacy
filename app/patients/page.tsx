@@ -160,7 +160,6 @@ export default function PatientsPage() {
         </form>
       </div>
 
-      {/* 환자 목록 테이블 (whitespace-nowrap 적용) */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
           <h2 className="text-lg font-bold text-slate-900">전체 환자 리스트 ({filteredPatients.length}명)</h2>
@@ -194,10 +193,7 @@ export default function PatientsPage() {
               ) : (
                 filteredPatients.map((p) => (
                   <tr key={p.id} className="hover:bg-slate-50/80 transition">
-                    <td className="p-4 font-semibold text-slate-900 flex items-center gap-3 whitespace-nowrap">
-                      <span className="w-8 h-8 rounded-full bg-teal-50 text-teal-800 flex items-center justify-center text-xs font-bold shrink-0">
-                        {p.name[0]}
-                      </span>
+                    <td className="p-4 font-semibold text-slate-900 whitespace-nowrap">
                       {p.name}
                     </td>
                     <td className="p-4 text-slate-600 whitespace-nowrap">
@@ -227,7 +223,6 @@ export default function PatientsPage() {
         </div>
       </div>
 
-      {/* 환자별 상담 이력 모달 */}
       {selectedPatientForHistory && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl shadow-xl max-w-3xl w-full max-h-[85vh] overflow-y-auto p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200">
@@ -353,8 +348,27 @@ export default function PatientsPage() {
         </div>
       )}
 
-      {/* 대시보드 캘린더 자동 주간 뷰 적용 관련 */}
-      {/* (참고: 대시보드 및 환자 간편 조회 탭에서도 환자 이름에 whitespace-nowrap을 적용해 주시면 두 줄로 꺾이는 현상이 해결됩니다) */}
+      {previewImageUrl && (
+        <div 
+          onClick={() => setPreviewImageUrl(null)}
+          className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 cursor-pointer"
+        >
+          <div className="relative max-w-4xl max-h-[90vh] w-full flex items-center justify-center">
+            <button 
+              onClick={() => setPreviewImageUrl(null)}
+              className="absolute -top-12 right-0 text-white bg-slate-800 hover:bg-slate-700 w-10 h-10 rounded-full flex items-center justify-center font-bold text-lg shadow-lg transition"
+            >
+              ✕
+            </button>
+            <img 
+              src={previewImageUrl} 
+              alt="확대된 사진" 
+              className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

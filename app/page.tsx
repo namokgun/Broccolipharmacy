@@ -6,7 +6,6 @@ import { supabase } from "@/app/lib/supabase";
 export default function DashboardPage() {
   const [patients, setPatients] = useState<any[]>([]);
   const [schedules, setSchedules] = useState<any[]>([]);
-  const [consultations, setConsultations] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   
   // 📱 모바일 접속 시 최초 렌더링만 주간 뷰, PC는 월간 뷰로 시작 (버튼으로 언제든 전환 가능)
@@ -22,13 +21,6 @@ export default function DashboardPage() {
   useEffect(() => {
     setCurrentDate(new Date());
     fetchData();
-
-    const handleResize = () => {
-      // 화면 크기가 작아질 때만 자동으로 주간으로 변경 (사용자가 직접 누른 경우는 유지하려면 resize 로직 조정 가능)
-    };
-
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   const fetchData = async () => {
@@ -37,13 +29,6 @@ export default function DashboardPage() {
 
     const { data: sData } = await supabase.from("schedules").select("*").order("schedule_date");
     if (sData) setSchedules(sData);
-
-    const { data: cData } = await supabase
-      .from("consultations")
-      .select("*, patients(name)")
-      .order("created_at", { ascending: false })
-      .limit(5);
-    if (cData) setConsultations(cData);
   };
 
   const filteredPatients = patients.filter(p =>
@@ -74,40 +59,9 @@ export default function DashboardPage() {
 
   return (
     <div className="w-full space-y-6">
-      <h1 className="text-2xl font-bold text-slate-900">📊 대시보드 및 복약 관리</h1>
+      <h1 className="text-2xl font-bold text-slate-900">📊 대시보드</h1>
 
-      {/* 1. 환자 간편 조회 및 복약 관리 섹션 */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <h2 className="text-lg font-bold text-slate-900">환자 간편 조회 및 복약 관리</h2>
-          <input
-            type="text"
-            placeholder="환자 이름 또는 연락처 검색..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full md:w-80 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredPatients.length === 0 ? (
-            <p className="col-span-full text-center text-slate-400 py-6 text-sm">등록된 환자가 없거나 검색 결과가 없습니다.</p>
-          ) : (
-            filteredPatients.map((p) => (
-              <div key={p.id} className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between gap-2">
-                <span className="font-bold text-base text-slate-900 whitespace-nowrap">
-                  {p.name}
-                </span>
-                <span className="text-xs text-slate-500 whitespace-nowrap">
-                  {p.phone || "번호 없음"}
-                </span>
-              </div>
-            ))
-          )}
-        </div>
-      </div>
-
-      {/* 2. 대시보드 캘린더 (월간/주간 전환 가능) */}
+      {/* 대시보드 캘린더 영역 */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3">
@@ -138,7 +92,6 @@ export default function DashboardPage() {
         </div>
 
         {viewMode === "month" ? (
-          /* 🟢 정상적인 월간 캘린더 그리드 뷰 복구 */
           <div className="flex flex-col pt-2">
             <div className="grid grid-cols-7 text-center text-xs font-bold text-slate-400 mb-3 pb-3 border-b border-slate-100">
               <span className="text-red-500">일</span>
@@ -188,7 +141,6 @@ export default function DashboardPage() {
             </div>
           </div>
         ) : (
-          /* 주간 타임라인 뷰 */
           <div className="space-y-3">
             {Array.from({ length: 7 }).map((_, i) => {
               const targetDate = new Date(year, month, day - currentDate.getDay() + i);
@@ -219,24 +171,30 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* 3. 최근 상담 내역 리스트 */}
+      {/* 맨 아래 환자 목록 영역 (성씨/초성 아바타 제거 및 이름 줄바꿈 방지) */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
-        <h2 className="text-lg font-bold text-slate-900">최근 등록된 상담 내역</h2>
-        <div className="space-y-3">
-          {consultations.length === 0 ? (
-            <p className="text-center text-slate-400 py-6 text-sm">최근 상담 내역이 없습니다.</p>
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+          <h2 className="text-lg font-bold text-slate-900">환자 목록</h2>
+          <input
+            type="text"
+            placeholder="환자 이름 또는 연락처 검색..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full md:w-80 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredPatients.length === 0 ? (
+            <p className="col-span-full text-center text-slate-400 py-6 text-sm">등록된 환자가 없습니다.</p>
           ) : (
-            consultations.map((c) => (
-              <div key={c.id} className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-2">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 whitespace-nowrap">
-                    <span className="font-bold text-slate-900">{c.patients?.name || "환자"}</span>
-                    <span className="text-xs text-slate-400">· {new Date(c.created_at).toLocaleDateString()}</span>
-                  </div>
-                  <p className="text-xs text-slate-700">증상: {c.symptoms || "미기재"}</p>
-                </div>
-                <span className="text-xs font-bold text-teal-800 bg-teal-50 px-3 py-1 rounded-xl whitespace-nowrap">
-                  처방: {c.prescription || "미기재"}
+            filteredPatients.map((p) => (
+              <div key={p.id} className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between gap-2">
+                <span className="font-bold text-base text-slate-900 whitespace-nowrap">
+                  {p.name}
+                </span>
+                <span className="text-xs text-slate-500 whitespace-nowrap">
+                  {p.phone || "번호 없음"}
                 </span>
               </div>
             ))
