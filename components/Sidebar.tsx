@@ -125,8 +125,8 @@ export default function Sidebar() {
         </div>
       </aside>
 
-      {/* 📱 모바일 전용 상단 고정 헤더 (가로 꽉 참) */}
-      <div className="md:hidden fixed top-0 left-0 right-0 flex items-center justify-between bg-white border-b border-slate-100 px-4 py-3 z-50 shadow-sm">
+      {/* 📱 모바일 전용 상단 고정 헤더 (fixed -> sticky 변경으로 가려짐 방지) */}
+      <div className="md:hidden sticky top-0 left-0 right-0 flex items-center justify-between bg-white border-b border-slate-100 px-4 py-3 z-40 shadow-sm">
         <div className="flex items-center gap-2">
           <Image src="/logo.png" alt="로고" width={28} height={28} className="object-contain rounded-md" />
           <span className="font-bold text-slate-900 text-sm">브로콜리약국</span>
