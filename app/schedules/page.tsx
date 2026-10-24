@@ -19,10 +19,6 @@ const THEME_CLASSES: Record<string, { bg: string, text: string }> = {
   rose: { bg: "bg-rose-50 border-rose-200", text: "text-rose-900" },
 };
 
-// 🟢 시간(00~23) 및 분(5분 단위) 옵션 배열
-const HOURS = Array.from({ length: 24 }).map((_, i) => String(i).padStart(2, '0'));
-const MINUTES = ['00', '05', '10', '15', '20', '25', '30', '35', '40', '45', '50', '55'];
-
 export default function SchedulesPage() {
   const [schedules, setSchedules] = useState<any[]>([]);
   
@@ -39,11 +35,7 @@ export default function SchedulesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
-  
-  // 🟢 시, 분 상태 분리
-  const [scheduleHour, setScheduleHour] = useState("14");
-  const [scheduleMinute, setScheduleMinute] = useState("00");
-
+  const [scheduleTime, setScheduleTime] = useState("14:00");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [theme, setTheme] = useState("blue");
@@ -68,12 +60,9 @@ export default function SchedulesPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return alert("로그인 정보가 없습니다.");
 
-    // 시와 분을 결합하여 시간 문자열 생성 (예: "14:30")
-    const combinedTime = `${scheduleHour}:${scheduleMinute}`;
-
     const payload = {
       schedule_date: scheduleDate,
-      time: combinedTime,
+      time: scheduleTime,
       title,
       content,
       theme,
@@ -104,15 +93,13 @@ export default function SchedulesPage() {
     setTitle("");
     setContent("");
     setTheme("blue");
-    setScheduleHour("14");
-    setScheduleMinute("00");
+    setScheduleTime("14:00");
   };
 
   const handleDateDoubleClick = (dateStr: string) => {
     setEditingId(null);
     setScheduleDate(dateStr);
-    setScheduleHour("14");
-    setScheduleMinute("00");
+    setScheduleTime("14:00");
     setTitle("");
     setContent("");
     setTheme("blue");
@@ -128,12 +115,7 @@ export default function SchedulesPage() {
     e.stopPropagation();
     setEditingId(s.id);
     setScheduleDate(s.schedule_date);
-    
-    // 기존 저장된 시간(예: "15:30")을 시와 분으로 분리
-    const [h, m] = (s.time || "14:00").split(':');
-    setScheduleHour(h || "14");
-    setScheduleMinute(m || "00");
-
+    setScheduleTime(s.time || "14:00");
     setTitle(s.title || "");
     setContent(s.content || "");
     setTheme(s.theme || "blue");
@@ -191,8 +173,7 @@ export default function SchedulesPage() {
             onClick={() => {
               setEditingId(null);
               setScheduleDate(new Date().toISOString().split('T')[0]);
-              setScheduleHour("14");
-              setScheduleMinute("00");
+              setScheduleTime("14:00");
               setTitle("");
               setContent("");
               setTheme("blue");
@@ -370,7 +351,7 @@ export default function SchedulesPage() {
         )}
       </div>
 
-      {/* 이벤트 추가/수정 모달 (시 : 분 분리 선택 적용) */}
+      {/* 이벤트 추가/수정 모달 (원래의 깔끔한 단일 입력 박스 복구) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md p-6 sm:p-7 rounded-3xl shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
@@ -399,35 +380,15 @@ export default function SchedulesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">시간 (시 : 분)</label>
-                  {/* 🟢 시와 분을 각각 따로 선택할 수 있는 셀렉트 박스 */}
-                  <div className="flex items-center gap-1.5">
-                    <select
-                      value={scheduleHour}
-                      onChange={(e) => setScheduleHour(e.target.value)}
-                      className="w-1/2 p-3 bg-slate-100/80 border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition text-center"
-                      required
-                    >
-                      {HOURS.map((h) => (
-                        <option key={h} value={h}>
-                          {h}시
-                        </option>
-                      ))}
-                    </select>
-                    <span className="text-slate-400 font-bold text-lg">:</span>
-                    <select
-                      value={scheduleMinute}
-                      onChange={(e) => setScheduleMinute(e.target.value)}
-                      className="w-1/2 p-3 bg-slate-100/80 border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition text-center"
-                      required
-                    >
-                      {MINUTES.map((m) => (
-                        <option key={m} value={m}>
-                          {m}분
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">시간</label>
+                  {/* 🟢 원래의 깔끔한 단일 시간 입력 박스 복구 */}
+                  <input
+                    type="time"
+                    value={scheduleTime}
+                    onChange={(e) => setScheduleTime(e.target.value)}
+                    className="w-full p-3 bg-slate-100/80 border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition text-left [-webkit-appearance:none]"
+                    required
+                  />
                 </div>
               </div>
 
