@@ -3,7 +3,6 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "../lib/supabase";
-import Sidebar from "@/components/Sidebar";
 
 export default function PatientsPage() {
   const [patients, setPatients] = useState<any[]>([]);
