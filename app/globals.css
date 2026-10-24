@@ -35,3 +35,21 @@ html, body {
   touch-action: manipulation;   /* 더블 탭 확대나 불필요한 제스처로 인한 화면 울렁임 차단 */
   -webkit-text-size-adjust: 100%; /* 입력 시 글자 크기가 자동 조절되면서 화면이 확대되는 현상 방지 */
 }
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 📱 모바일에서 두 손가락 터치나 키보드 입력 시 화면 흔들림 및 바운스 고정 */
+html, body {
+  overscroll-behavior-y: none;
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ✍️ 입력창 글자 및 예시(placeholder) 색상 선명하게 고정 */
+input, textarea, select {
+  color: #0f172a !important; /* 진한 글자색 (text-slate-900) */
+}
+input::placeholder, textarea::placeholder {
+  color: #94a3b8 !important; /* 연한 회색 예시 메시지 (text-slate-400) */
+}
