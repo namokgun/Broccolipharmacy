@@ -147,7 +147,7 @@ export default function SchedulesPage() {
 
   return (
     <div className="w-full space-y-6 flex flex-col">
-      {/* 상단 헤더 및 컨트롤러 (Apple 스타일) */}
+      {/* 상단 헤더 및 컨트롤러 */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900 truncate">
@@ -350,7 +350,7 @@ export default function SchedulesPage() {
         )}
       </div>
 
-      {/* 🟢 애플 캘린더 감성의 모던 모달 (모바일 칸 겹침 현상 해결됨) */}
+      {/* 이벤트 추가/수정 모달 (날짜/시간 입력창 정렬 및 폭 최적화) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md p-6 sm:p-7 rounded-3xl shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
@@ -367,7 +367,6 @@ export default function SchedulesPage() {
             </div>
 
             <form onSubmit={handleSubmitSchedule} className="space-y-4">
-              {/* 📱 모바일에선 세로 스택(grid-cols-1), 태블릿 이상에선 가로 2분할(sm:grid-cols-2)로 겹침 방지 */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">날짜</label>
@@ -375,7 +374,7 @@ export default function SchedulesPage() {
                     type="date"
                     value={scheduleDate}
                     onChange={(e) => setScheduleDate(e.target.value)}
-                    className="w-full p-3 bg-slate-100/80 border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition"
+                    className="w-full p-3 bg-slate-100/80 border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition text-left"
                     required
                   />
                 </div>
@@ -385,7 +384,7 @@ export default function SchedulesPage() {
                     type="time"
                     value={scheduleTime}
                     onChange={(e) => setScheduleTime(e.target.value)}
-                    className="w-full p-3 bg-slate-100/80 border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition"
+                    className="w-full p-3 bg-slate-100/80 border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition text-left"
                     required
                   />
                 </div>
@@ -397,7 +396,7 @@ export default function SchedulesPage() {
                   type="text"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="w-full p-3 bg-slate-100/80 border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition"
+                  className="w-full p-3 bg-slate-100/80 border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition text-left"
                   placeholder="예: 홍길동 환자 상담 예약"
                   required
                 />
@@ -427,7 +426,7 @@ export default function SchedulesPage() {
                 <textarea
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  className="w-full p-3 bg-slate-100/80 border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition"
+                  className="w-full p-3 bg-slate-100/80 border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition text-left"
                   rows={2}
                   placeholder="특이사항 메모..."
                 />
