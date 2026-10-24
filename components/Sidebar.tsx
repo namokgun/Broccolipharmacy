@@ -37,7 +37,7 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* 💻 PC 전용 왼쪽 고정 사이드바 */}
+      {/* 💻 PC 전용 왼쪽 사이드바 (PC에서는 고정) */}
       <aside className="hidden md:flex fixed top-0 left-0 h-screen w-64 flex-col bg-white border-r border-slate-100 shadow-sm z-30">
         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
           <Image 
@@ -125,8 +125,8 @@ export default function Sidebar() {
         </div>
       </aside>
 
-      {/* 📱 모바일 전용 상단 고정 헤더 */}
-      <div className="md:hidden fixed top-0 left-0 right-0 h-14 flex items-center justify-between bg-white border-b border-slate-100 px-4 z-40 shadow-sm">
+      {/* 📱 모바일 전용 상단 헤더 (고정 안 함, 일반 상단 배치) */}
+      <div className="md:hidden w-full h-14 flex items-center justify-between bg-white border-b border-slate-100 px-4 shadow-sm">
         <div className="flex items-center gap-2">
           <Image src="/logo.png" alt="로고" width={28} height={28} className="object-contain rounded-md" />
           <span className="font-bold text-slate-900 text-sm">브로콜리약국</span>
@@ -136,8 +136,8 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* 📱 모바일 전용 하단 고정 탭 바 */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 z-40 flex justify-around items-center px-2 shadow-lg">
+      {/* 📱 모바일 전용 하단 탭 바 (고정 안 함, 페이지 맨 아래에 위치) */}
+      <nav className="md:hidden w-full h-16 bg-white border-t border-slate-200 flex justify-around items-center px-2 shadow-sm mt-auto">
         <Link 
           href="/" 
           className={`flex flex-col items-center flex-1 py-1 text-xs font-medium transition ${
