@@ -136,9 +136,6 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* 📱 모바일 상단 헤더 공간 확보용 스페이서 */}
-      <div className="md:hidden h-14 w-full shrink-0" />
-
       {/* 📱 모바일 전용 하단 고정 탭 바 */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 z-50 flex justify-around items-center px-2 shadow-lg">
         <Link 
