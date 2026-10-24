@@ -13,10 +13,7 @@ export default function ConsultationsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingPatientName, setEditingPatientName] = useState("");
 
-  // 🟢 상세 보기 모달 상태
   const [selectedDetailConsultation, setSelectedDetailConsultation] = useState<any | null>(null);
-
-  // 🟢 사진 단독 확대 미리보기(라이트박스) 상태
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   const [patientSearchQuery, setPatientSearchQuery] = useState("");
@@ -37,7 +34,6 @@ export default function ConsultationsPage() {
   const [prescription, setPrescription] = useState(""); 
   const [consultMemo, setConsultMemo] = useState("");
 
-  // 📸 사진 첨부 및 보안 URL 관련 상태
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
   const [existingImagePreviews, setExistingImagePreviews] = useState<{ path: string; url: string }[]>([]);
@@ -472,7 +468,6 @@ export default function ConsultationsPage() {
               </div>
             </div>
 
-            {/* 📸 사진 첨부 입력 필드 */}
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">📸 사진 첨부</label>
               <input 
@@ -487,7 +482,6 @@ export default function ConsultationsPage() {
                 className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100"
               />
 
-              {/* 이미지 미리보기 */}
               {(existingImagePreviews.length > 0 || imageFiles.length > 0) && (
                 <div className="flex flex-wrap gap-3 mt-3">
                   {existingImagePreviews.map((item, idx) => (
@@ -533,7 +527,7 @@ export default function ConsultationsPage() {
         </div>
       )}
 
-      {/* 2. 전체 기록 조회 탭 */}
+      {/* 2. 전체 기록 조회 탭 (whitespace-nowrap 적용으로 두 줄 방지) */}
       {activeTab === "history" && (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
           <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
@@ -554,14 +548,15 @@ export default function ConsultationsPage() {
               filteredConsultations.map((c) => (
                 <div key={c.id} className="p-5 bg-white border border-slate-200/80 rounded-2xl shadow-xs hover:shadow-md transition flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                   <div className="space-y-1.5 flex-1">
-                    <div className="flex items-center gap-2.5">
+                    {/* 🟢 환자 정보 영역: whitespace-nowrap으로 두 줄 꺾임 방지 */}
+                    <div className="flex items-center gap-2 flex-wrap whitespace-nowrap">
                       <span className="font-bold text-base text-slate-900">{c.patients?.name || "알 수 없음"}</span>
-                      <span className="text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full font-medium">
+                      <span className="text-xs text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full font-medium">
                         {c.patients?.gender || "남"} / {c.patients?.birth_year || "-"}년생
                       </span>
                       <span className="text-xs text-slate-400">· {new Date(c.created_at).toLocaleDateString()}</span>
                       {c.display_image_urls && c.display_image_urls.length > 0 && (
-                        <span className="text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded-md font-semibold">
+                        <span className="text-xs bg-teal-50 text-teal-700 px-2.5 py-0.5 rounded-md font-semibold">
                           📸 사진 {c.display_image_urls.length}장
                         </span>
                       )}
@@ -589,7 +584,7 @@ export default function ConsultationsPage() {
                     </button>
                     <button 
                       onClick={() => handleDelete(c.id)}
-                      className="px-3.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition"
+                      className="px-3.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-xl transition"
                     >
                       삭제
                     </button>
@@ -601,13 +596,13 @@ export default function ConsultationsPage() {
         </div>
       )}
 
-      {/* 🟢 [자세히 보기] 모달 팝업창 */}
+      {/* 자세히 보기 모달 */}
       {selectedDetailConsultation && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white rounded-3xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex justify-between items-start border-b pb-4 mb-6">
               <div>
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 whitespace-nowrap flex-wrap">
                   <span className="text-xl font-bold text-slate-900">{selectedDetailConsultation.patients?.name} 님</span>
                   <span className="text-xs text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full font-medium">
                     {selectedDetailConsultation.patients?.gender || "남"} / {selectedDetailConsultation.patients?.birth_year || "-"}년생
@@ -652,7 +647,7 @@ export default function ConsultationsPage() {
 
               {selectedDetailConsultation.display_image_urls && selectedDetailConsultation.display_image_urls.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📸 첨부된 사진 (클릭하여 앱 안에서 확대)</p>
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📸 첨부된 사진 (클릭하여 확대)</p>
                   <div className="flex flex-wrap gap-3">
                     {selectedDetailConsultation.display_image_urls.map((imgUrl: string, idx: number) => (
                       <div 
@@ -713,7 +708,7 @@ export default function ConsultationsPage() {
         </div>
       )}
 
-      {/* 🟢 [인앱 이미지 라이트박스] 사진 원본 크게 확대 보기 팝업 */}
+      {/* 라이트박스 */}
       {previewImageUrl && (
         <div 
           onClick={() => setPreviewImageUrl(null)}
@@ -730,7 +725,7 @@ export default function ConsultationsPage() {
               src={previewImageUrl} 
               alt="확대된 사진" 
               className="max-w-full max-h-[85vh] object-contain rounded-2xl shadow-2xl"
-              onClick={(e) => e.stopPropagation()} // 이미지 클릭 시 닫히지 않게 방지
+              onClick={(e) => e.stopPropagation()}
             />
           </div>
         </div>
