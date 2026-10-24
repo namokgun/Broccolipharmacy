@@ -34,6 +34,11 @@ export default function ConsultationsPage() {
   const [prescription, setPrescription] = useState(""); 
   const [consultMemo, setConsultMemo] = useState("");
 
+  // 📸 사진 첨부 관련 상태
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+
   useEffect(() => {
     const handleHashCheck = () => {
       if (window.location.hash === "#history") {
@@ -74,6 +79,38 @@ export default function ConsultationsPage() {
     fetchData();
   }, []);
 
+  // 📸 이미지 업로드 핸들러
+  const uploadImages = async () => {
+    if (imageFiles.length === 0) return existingImageUrls;
+
+    const uploadedUrls: string[] = [...existingImageUrls];
+
+    for (const file of imageFiles) {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("consultation-images")
+        .upload(filePath, file);
+
+      if (uploadError) {
+        alert("이미지 업로드 실패: " + uploadError.message);
+        continue;
+      }
+
+      const { data } = supabase.storage
+        .from("consultation-images")
+        .getPublicUrl(filePath);
+
+      if (data?.publicUrl) {
+        uploadedUrls.push(data.publicUrl);
+      }
+    }
+
+    return uploadedUrls;
+  };
+
   const handleSubmitConsultation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPatient) return alert("환자를 선택해주세요.");
@@ -81,42 +118,52 @@ export default function ConsultationsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return alert("로그인 정보가 없습니다.");
 
-    const payload = {
-      patient_id: selectedPatient,
-      symptoms, 
-      prescription, 
-      user_id: user.id,
-      symptom_detail: symptomDetail,
-      digestion_stool: digestionStool,
-      sleep_state: sleepState,
-      patient_memo: patientMemo,
-      body_type: bodyType,
-      deficiency_type: deficiencyType,
-      expert_opinion: expertOpinion,
-      comprehensive_judgment: comprehensiveJudgment,
-      consult_memo: consultMemo
-    };
+    setUploading(true);
 
-    if (editingId) {
-      const { error } = await supabase.from("consultations").update(payload).eq("id", editingId);
-      if (error) alert("수정 실패: " + error.message);
-      else {
-        alert("상담 기록이 수정되었습니다! 📝");
-        resetForm();
-        window.location.hash = "history";
-        setActiveTab("history");
-        fetchData();
+    try {
+      // 1. 이미지 업로드 실행
+      const finalImageUrls = await uploadImages();
+
+      const payload = {
+        patient_id: selectedPatient,
+        symptoms, 
+        prescription, 
+        user_id: user.id,
+        symptom_detail: symptomDetail,
+        digestion_stool: digestionStool,
+        sleep_state: sleepState,
+        patient_memo: patientMemo,
+        body_type: bodyType,
+        deficiency_type: deficiencyType,
+        expert_opinion: expertOpinion,
+        comprehensive_judgment: comprehensiveJudgment,
+        consult_memo: consultMemo,
+        image_urls: finalImageUrls
+      };
+
+      if (editingId) {
+        const { error } = await supabase.from("consultations").update(payload).eq("id", editingId);
+        if (error) alert("수정 실패: " + error.message);
+        else {
+          alert("상담 기록이 수정되었습니다! 📝");
+          resetForm();
+          window.location.hash = "history";
+          setActiveTab("history");
+          fetchData();
+        }
+      } else {
+        const { error } = await supabase.from("consultations").insert([payload]);
+        if (error) alert("등록 실패: " + error.message);
+        else {
+          alert("전문 상담 기록이 저장되었습니다! 💊");
+          resetForm();
+          window.location.hash = "history";
+          setActiveTab("history");
+          fetchData();
+        }
       }
-    } else {
-      const { error } = await supabase.from("consultations").insert([payload]);
-      if (error) alert("등록 실패: " + error.message);
-      else {
-        alert("전문 상담 기록이 저장되었습니다! 💊");
-        resetForm();
-        window.location.hash = "history";
-        setActiveTab("history");
-        fetchData();
-      }
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -137,6 +184,8 @@ export default function ConsultationsPage() {
     setComprehensiveJudgment("");
     setPrescription("");
     setConsultMemo("");
+    setImageFiles([]);
+    setExistingImageUrls([]);
   };
 
   const handleEditClick = (c: any) => {
@@ -156,6 +205,8 @@ export default function ConsultationsPage() {
     setComprehensiveJudgment(c.comprehensive_judgment || "");
     setPrescription(c.prescription || "");
     setConsultMemo(c.consult_memo || "");
+    setExistingImageUrls(c.image_urls || []);
+    setImageFiles([]);
     
     window.location.hash = "";
     setActiveTab("write");
@@ -395,17 +446,64 @@ export default function ConsultationsPage() {
               </div>
             </div>
 
+            {/* 📸 사진 첨부 입력 필드 */}
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">📸 사진 첨부 (처방전, 환부 등)</label>
+              <input 
+                type="file" 
+                accept="image/*" 
+                multiple
+                onChange={(e) => {
+                  if (e.target.files) {
+                    setImageFiles(Array.from(e.target.files));
+                  }
+                }}
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100"
+              />
+
+              {/* 기존 업로드된 이미지 및 새로 선택한 이미지 미리보기 */}
+              {(existingImageUrls.length > 0 || imageFiles.length > 0) && (
+                <div className="flex flex-wrap gap-3 mt-3">
+                  {existingImageUrls.map((url, idx) => (
+                    <div key={`exist-${idx}`} className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-200 group">
+                      <img src={url} alt="기존 이미지" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setExistingImageUrls(existingImageUrls.filter((_, i) => i !== idx))}
+                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-80 hover:opacity-100"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  {imageFiles.map((file, idx) => (
+                    <div key={`new-${idx}`} className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-200">
+                      <img src={URL.createObjectURL(file)} alt="새 이미지 미리보기" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setImageFiles(imageFiles.filter((_, i) => i !== idx))}
+                        className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-80 hover:opacity-100"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <button 
               type="submit" 
-              className="w-full py-4 bg-teal-900 hover:bg-teal-800 text-white font-bold rounded-2xl shadow-sm transition text-base"
+              disabled={uploading}
+              className="w-full py-4 bg-teal-900 hover:bg-teal-800 text-white font-bold rounded-2xl shadow-sm transition text-base disabled:opacity-50"
             >
-              {editingId ? "수정 내용 저장하기" : "전문 상담 기록 저장하기"}
+              {uploading ? "이미지 업로드 및 저장 중..." : (editingId ? "수정 내용 저장하기" : "전문 상담 기록 저장하기")}
             </button>
           </form>
         </div>
       )}
 
-      {/* 2. 전체 기록 조회 탭 (깔끔한 요약 카드 + 자세히 보기 버튼) */}
+      {/* 2. 전체 기록 조회 탭 */}
       {activeTab === "history" && (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
           <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
@@ -432,6 +530,11 @@ export default function ConsultationsPage() {
                         {c.patients?.gender || "남"} / {c.patients?.birth_year || "-"}년생
                       </span>
                       <span className="text-xs text-slate-400">· {new Date(c.created_at).toLocaleDateString()}</span>
+                      {c.image_urls && c.image_urls.length > 0 && (
+                        <span className="text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded-md font-semibold">
+                          📸 사진 {c.image_urls.length}장
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm font-semibold text-slate-800">
                       <span className="text-slate-400 font-normal mr-1.5">증상:</span> {c.symptoms}
@@ -441,7 +544,6 @@ export default function ConsultationsPage() {
                     </p>
                   </div>
 
-                  {/* 액션 버튼 그룹 (자세히 보기, 수정, 삭제) */}
                   <div className="flex items-center gap-2 w-full md:w-auto justify-end border-t md:border-t-0 pt-3 md:pt-0 border-slate-100">
                     <button 
                       onClick={() => setSelectedDetailConsultation(c)}
@@ -518,6 +620,26 @@ export default function ConsultationsPage() {
                 </div>
               </div>
 
+              {/* 📸 첨부된 사진 목록 표시 영역 */}
+              {selectedDetailConsultation.image_urls && selectedDetailConsultation.image_urls.length > 0 && (
+                <div>
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📸 첨부된 사진</p>
+                  <div className="flex flex-wrap gap-3">
+                    {selectedDetailConsultation.image_urls.map((imgUrl: string, idx: number) => (
+                      <a 
+                        key={idx} 
+                        href={imgUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="w-24 h-24 rounded-2xl overflow-hidden border border-slate-200 block hover:opacity-90 transition shadow-xs"
+                      >
+                        <img src={imgUrl} alt={`첨부사진 ${idx + 1}`} className="w-full h-full object-cover" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {(selectedDetailConsultation.expert_opinion || selectedDetailConsultation.comprehensive_judgment) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {selectedDetailConsultation.expert_opinion && (
@@ -555,7 +677,7 @@ export default function ConsultationsPage() {
             <div className="mt-8 pt-4 border-t flex justify-end">
               <button 
                 onClick={() => setSelectedDetailConsultation(null)}
-                className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition"
+                className="px-6 py.25 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition"
               >
                 닫기
               </button>
