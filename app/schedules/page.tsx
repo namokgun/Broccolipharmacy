@@ -35,7 +35,7 @@ export default function SchedulesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
-  const [scheduleTime, setScheduleTime] = useState("10:00");
+  const [scheduleTime, setScheduleTime] = useState("14:00");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [theme, setTheme] = useState("blue");
@@ -93,13 +93,13 @@ export default function SchedulesPage() {
     setTitle("");
     setContent("");
     setTheme("blue");
-    setScheduleTime("10:00");
+    setScheduleTime("14:00");
   };
 
   const handleDateDoubleClick = (dateStr: string) => {
     setEditingId(null);
     setScheduleDate(dateStr);
-    setScheduleTime("10:00");
+    setScheduleTime("14:00");
     setTitle("");
     setContent("");
     setTheme("blue");
@@ -115,7 +115,7 @@ export default function SchedulesPage() {
     e.stopPropagation();
     setEditingId(s.id);
     setScheduleDate(s.schedule_date);
-    setScheduleTime(s.time || "10:00");
+    setScheduleTime(s.time || "14:00");
     setTitle(s.title || "");
     setContent(s.content || "");
     setTheme(s.theme || "blue");
@@ -287,7 +287,7 @@ export default function SchedulesPage() {
                               }`}
                             >
                               <div>
-                                <span className="text-[11px] font-bold bg-white/80 px-2.5 py-1 rounded-xl mr-3 shadow-2xs">{s.time || "종일"}</span>
+                                <span className="text-[11px] font-bold bg-white/80 px-2.5 py-1 rounded-xl mr-3 shadow-2xs">{s.time || "14:00"}</span>
                                 <span className="font-bold text-sm">{s.title}</span>
                                 {s.content && <p className="text-xs opacity-80 mt-0.5">{s.content}</p>}
                               </div>
@@ -334,7 +334,7 @@ export default function SchedulesPage() {
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <span className="text-xs font-bold bg-white/80 px-3 py-1 rounded-xl shadow-2xs">{s.time || "종일"}</span>
+                        <span className="text-xs font-bold bg-white/80 px-3 py-1 rounded-xl shadow-2xs">{s.time || "14:00"}</span>
                         <div>
                           <h4 className="font-bold text-sm md:text-base">{s.title}</h4>
                           {s.content && <p className="text-xs opacity-80 mt-1">{s.content}</p>}
@@ -350,7 +350,7 @@ export default function SchedulesPage() {
         )}
       </div>
 
-      {/* 이벤트 추가/수정 모달 (날짜/시간 입력창 정렬 및 폭 최적화) */}
+      {/* 이벤트 추가/수정 모달 (24시간제 텍스트 입력창 적용) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md p-6 sm:p-7 rounded-3xl shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
@@ -379,12 +379,14 @@ export default function SchedulesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">시간</label>
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">시간 (24시간제)</label>
+                  {/* 🟢 24시간제 자유 타이핑이 가능한 텍스트 입력창으로 변경 */}
                   <input
-                    type="time"
+                    type="text"
                     value={scheduleTime}
                     onChange={(e) => setScheduleTime(e.target.value)}
                     className="w-full p-3 bg-slate-100/80 border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition text-left"
+                    placeholder="예: 14:00 또는 09:30"
                     required
                   />
                 </div>
