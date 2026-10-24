@@ -35,11 +35,7 @@ export default function SchedulesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
-  
-  // 🟢 시/분 상태를 분리하여 브라우저 기본 time 폼의 스크롤 문제 해결
-  const [scheduleHour, setScheduleHour] = useState("14");
-  const [scheduleMinute, setScheduleMinute] = useState("00");
-
+  const [scheduleTime, setScheduleTime] = useState("14:00");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [theme, setTheme] = useState("blue");
@@ -64,12 +60,9 @@ export default function SchedulesPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return alert("로그인 정보가 없습니다.");
 
-    // 저장 시점에 시와 분을 결합
-    const combinedTime = `${scheduleHour}:${scheduleMinute}`;
-
     const payload = {
       schedule_date: scheduleDate,
-      time: combinedTime,
+      time: scheduleTime,
       title,
       content,
       theme,
@@ -100,15 +93,13 @@ export default function SchedulesPage() {
     setTitle("");
     setContent("");
     setTheme("blue");
-    setScheduleHour("14");
-    setScheduleMinute("00");
+    setScheduleTime("14:00");
   };
 
   const handleDateDoubleClick = (dateStr: string) => {
     setEditingId(null);
     setScheduleDate(dateStr);
-    setScheduleHour("14");
-    setScheduleMinute("00");
+    setScheduleTime("14:00");
     setTitle("");
     setContent("");
     setTheme("blue");
@@ -124,12 +115,7 @@ export default function SchedulesPage() {
     e.stopPropagation();
     setEditingId(s.id);
     setScheduleDate(s.schedule_date);
-    
-    // 기존 시간 데이터를 시와 분으로 쪼개서 설정
-    const [h, m] = (s.time || "14:00").split(':');
-    setScheduleHour(h || "14");
-    setScheduleMinute(m || "00");
-
+    setScheduleTime(s.time || "14:00");
     setTitle(s.title || "");
     setContent(s.content || "");
     setTheme(s.theme || "blue");
@@ -187,8 +173,7 @@ export default function SchedulesPage() {
             onClick={() => {
               setEditingId(null);
               setScheduleDate(new Date().toISOString().split('T')[0]);
-              setScheduleHour("14");
-              setScheduleMinute("00");
+              setScheduleTime("14:00");
               setTitle("");
               setContent("");
               setTheme("blue");
@@ -303,7 +288,7 @@ export default function SchedulesPage() {
                               }`}
                             >
                               <div>
-                                <span className="text-[11px] font-bold bg-white/80 px-2.5 py-1 rounded-xl mr-3 shadow-2xs">{s.time || "14:00"}</span>
+                                <span className="text-[11px] font-bold bg-white/80 px-2.5 py-1 rounded-xl mr-3 shadow-2xs">{s.time || "종일"}</span>
                                 <span className="font-bold text-sm">{s.title}</span>
                                 {s.content && <p className="text-xs opacity-80 mt-0.5">{s.content}</p>}
                               </div>
@@ -350,7 +335,7 @@ export default function SchedulesPage() {
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        <span className="text-xs font-bold bg-white/80 px-3 py-1 rounded-xl shadow-2xs">{s.time || "14:00"}</span>
+                        <span className="text-xs font-bold bg-white/80 px-3 py-1 rounded-xl shadow-2xs">{s.time || "종일"}</span>
                         <div>
                           <h4 className="font-bold text-sm md:text-base">{s.title}</h4>
                           {s.content && <p className="text-xs opacity-80 mt-1">{s.content}</p>}
@@ -366,7 +351,7 @@ export default function SchedulesPage() {
         )}
       </div>
 
-      {/* 이벤트 추가/수정 모달 */}
+      {/* 이벤트 추가/수정 모달 (원래의 type="time" 네이티브 스크롤 복구) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md p-6 sm:p-7 rounded-3xl shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
@@ -395,41 +380,15 @@ export default function SchedulesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">시간 (24시간제)</label>
-                  
-                  {/* 🟢 무한스크롤 방지 & 24시간제 커스텀 숫자 입력 컨트롤 */}
-                  <div className="flex items-center w-full p-1.5 bg-slate-100/80 border border-transparent rounded-2xl focus-within:bg-white focus-within:border-blue-500 transition">
-                    <input
-                      type="number"
-                      min="0" max="23"
-                      value={scheduleHour}
-                      onChange={(e) => setScheduleHour(e.target.value)}
-                      onBlur={(e) => {
-                        let v = parseInt(e.target.value);
-                        if (isNaN(v)) v = 0;
-                        if (v < 0) v = 0;
-                        if (v > 23) v = 23;
-                        setScheduleHour(v.toString().padStart(2, '0'));
-                      }}
-                      className="w-full bg-transparent text-center text-sm font-medium focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                    <span className="text-slate-400 font-bold">:</span>
-                    <input
-                      type="number"
-                      min="0" max="59"
-                      value={scheduleMinute}
-                      onChange={(e) => setScheduleMinute(e.target.value)}
-                      onBlur={(e) => {
-                        let v = parseInt(e.target.value);
-                        if (isNaN(v)) v = 0;
-                        if (v < 0) v = 0;
-                        if (v > 59) v = 59;
-                        setScheduleMinute(v.toString().padStart(2, '0'));
-                      }}
-                      className="w-full bg-transparent text-center text-sm font-medium focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                    />
-                  </div>
-
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">시간</label>
+                  {/* 🟢 수동 입력창 버리고 네이티브 스크롤(type="time") 복구 */}
+                  <input
+                    type="time"
+                    value={scheduleTime}
+                    onChange={(e) => setScheduleTime(e.target.value)}
+                    className="w-full p-3 bg-slate-100/80 border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition text-left [-webkit-appearance:none]"
+                    required
+                  />
                 </div>
               </div>
 
