@@ -24,3 +24,14 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 📱 모바일에서 두 손가락 터치나 키보드 입력 시 화면 흔들림 및 바운스 고정 */
+html, body {
+  overscroll-behavior-y: none; /* 모바일에서 위아래로 당길 때 화면이 통째로 밀리는 현상 방지 */
+  touch-action: manipulation;   /* 더블 탭 확대나 불필요한 제스처로 인한 화면 울렁임 차단 */
+  -webkit-text-size-adjust: 100%; /* 입력 시 글자 크기가 자동 조절되면서 화면이 확대되는 현상 방지 */
+}
