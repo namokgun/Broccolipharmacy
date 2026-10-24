@@ -6,6 +6,7 @@ import { supabase } from "@/app/lib/supabase";
 export default function DashboardPage() {
   const [patients, setPatients] = useState<any[]>([]);
   const [schedules, setSchedules] = useState<any[]>([]);
+  const [consultations, setConsultations] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   
   // 📱 모바일 접속 시 최초 렌더링만 주간 뷰, PC는 월간 뷰로 시작 (버튼으로 언제든 전환 가능)
@@ -29,6 +30,12 @@ export default function DashboardPage() {
 
     const { data: sData } = await supabase.from("schedules").select("*").order("schedule_date");
     if (sData) setSchedules(sData);
+
+    const { data: cData } = await supabase
+      .from("consultations")
+      .select("*, patients(name, gender, birth_year)")
+      .order("created_at", { ascending: false });
+    if (cData) setConsultations(cData);
   };
 
   const filteredPatients = patients.filter(p =>
@@ -59,9 +66,34 @@ export default function DashboardPage() {
 
   return (
     <div className="w-full space-y-6">
-      <h1 className="text-2xl font-bold text-slate-900">📊 대시보드</h1>
+      <h1 className="text-2xl font-bold text-slate-900">📊 대시보드 및 현황</h1>
 
-      {/* 대시보드 캘린더 영역 */}
+      {/* 1. 상단 통계 요약 카드 복구 */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">총 등록 환자</p>
+            <h3 className="text-2xl font-bold text-slate-900">{patients.length} 명</h3>
+          </div>
+          <div className="w-12 h-12 bg-teal-50 text-teal-800 rounded-2xl flex items-center justify-center font-bold text-lg">👥</div>
+        </div>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">총 상담 기록</p>
+            <h3 className="text-2xl font-bold text-slate-900">{consultations.length} 건</h3>
+          </div>
+          <div className="w-12 h-12 bg-blue-50 text-blue-800 rounded-2xl flex items-center justify-center font-bold text-lg">📝</div>
+        </div>
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">등록된 일정</p>
+            <h3 className="text-2xl font-bold text-slate-900">{schedules.length} 개</h3>
+          </div>
+          <div className="w-12 h-12 bg-purple-50 text-purple-800 rounded-2xl flex items-center justify-center font-bold text-lg">📅</div>
+        </div>
+      </div>
+
+      {/* 2. 대시보드 캘린더 영역 */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3">
@@ -171,10 +203,10 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* 맨 아래 환자 목록 영역 (성씨/초성 아바타 제거 및 이름 줄바꿈 방지) */}
+      {/* 3. 환자 목록 관리 및 간편 조회 영역 (원래의 카드 형태 복구 + 성씨 아바타 제거 + 이름 줄바꿈 방지) */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <h2 className="text-lg font-bold text-slate-900">환자 목록</h2>
+          <h2 className="text-lg font-bold text-slate-900">환자 목록 관리 및 간편 조회 ({filteredPatients.length}명)</h2>
           <input
             type="text"
             placeholder="환자 이름 또는 연락처 검색..."
@@ -189,13 +221,16 @@ export default function DashboardPage() {
             <p className="col-span-full text-center text-slate-400 py-6 text-sm">등록된 환자가 없습니다.</p>
           ) : (
             filteredPatients.map((p) => (
-              <div key={p.id} className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between gap-2">
-                <span className="font-bold text-base text-slate-900 whitespace-nowrap">
-                  {p.name}
-                </span>
-                <span className="text-xs text-slate-500 whitespace-nowrap">
-                  {p.phone || "번호 없음"}
-                </span>
+              <div key={p.id} className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl flex flex-col justify-between gap-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-bold text-base text-slate-900 whitespace-nowrap">
+                    {p.name}
+                  </span>
+                  <span className="text-xs text-slate-500 bg-white px-2.5 py-0.5 rounded-full border border-slate-200 whitespace-nowrap">
+                    {p.gender || "남"} / {p.birth_year || "-"}년생
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600">연락처: {p.phone || "번호 없음"}</p>
               </div>
             ))
           )}
