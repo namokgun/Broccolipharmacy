@@ -34,9 +34,10 @@ export default function ConsultationsPage() {
   const [prescription, setPrescription] = useState(""); 
   const [consultMemo, setConsultMemo] = useState("");
 
-  // 📸 사진 첨부 관련 상태
+  // 📸 사진 첨부 및 보안 URL 관련 상태
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
+  const [existingImagePreviews, setExistingImagePreviews] = useState<{ path: string; url: string }[]>([]);
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
@@ -72,18 +73,39 @@ export default function ConsultationsPage() {
       .from("consultations")
       .select("*, patients(name, gender, birth_year, phone)")
       .order("created_at", { ascending: false });
-    if (cData) setConsultations(cData);
+    
+    if (cData) {
+      // 비공개 버킷의 이미지 경로들을 1시간 유효한 Signed URL로 변환
+      const consultationsWithSignedUrls = await Promise.all(
+        cData.map(async (c) => {
+          if (c.image_urls && c.image_urls.length > 0) {
+            const signedUrls = await Promise.all(
+              c.image_urls.map(async (path: string) => {
+                if (path.startsWith('http')) return path; // 기존 공개 URL 호환
+                const { data: signedData } = await supabase.storage
+                  .from('consultation-images')
+                  .createSignedUrl(path, 60 * 60);
+                return signedData?.signedUrl || '';
+              })
+            );
+            return { ...c, display_image_urls: signedUrls.filter(Boolean) };
+          }
+          return { ...c, display_image_urls: [] };
+        })
+      );
+      setConsultations(consultationsWithSignedUrls);
+    }
   };
 
   useEffect(() => {
     fetchData();
   }, []);
 
-  // 📸 이미지 업로드 핸들러
+  // 📸 이미지 업로드 핸들러 (파일 경로 저장)
   const uploadImages = async () => {
     if (imageFiles.length === 0) return existingImageUrls;
 
-    const uploadedUrls: string[] = [...existingImageUrls];
+    const uploadedPaths: string[] = [...existingImageUrls];
 
     for (const file of imageFiles) {
       const fileExt = file.name.split('.').pop();
@@ -99,16 +121,10 @@ export default function ConsultationsPage() {
         continue;
       }
 
-      const { data } = supabase.storage
-        .from("consultation-images")
-        .getPublicUrl(filePath);
-
-      if (data?.publicUrl) {
-        uploadedUrls.push(data.publicUrl);
-      }
+      uploadedPaths.push(filePath);
     }
 
-    return uploadedUrls;
+    return uploadedPaths;
   };
 
   const handleSubmitConsultation = async (e: React.FormEvent) => {
@@ -121,8 +137,7 @@ export default function ConsultationsPage() {
     setUploading(true);
 
     try {
-      // 1. 이미지 업로드 실행
-      const finalImageUrls = await uploadImages();
+      const finalImagePaths = await uploadImages();
 
       const payload = {
         patient_id: selectedPatient,
@@ -138,7 +153,7 @@ export default function ConsultationsPage() {
         expert_opinion: expertOpinion,
         comprehensive_judgment: comprehensiveJudgment,
         consult_memo: consultMemo,
-        image_urls: finalImageUrls
+        image_urls: finalImagePaths
       };
 
       if (editingId) {
@@ -186,9 +201,10 @@ export default function ConsultationsPage() {
     setConsultMemo("");
     setImageFiles([]);
     setExistingImageUrls([]);
+    setExistingImagePreviews([]);
   };
 
-  const handleEditClick = (c: any) => {
+  const handleEditClick = async (c: any) => {
     setEditingId(c.id);
     setEditingPatientName(c.patients?.name || "환자");
     setSelectedPatient(c.patient_id || "");
@@ -205,7 +221,19 @@ export default function ConsultationsPage() {
     setComprehensiveJudgment(c.comprehensive_judgment || "");
     setPrescription(c.prescription || "");
     setConsultMemo(c.consult_memo || "");
-    setExistingImageUrls(c.image_urls || []);
+    
+    const rawPaths = c.image_urls || [];
+    setExistingImageUrls(rawPaths);
+
+    // 수정 모드 시 기존 이미지 미리보기용 Signed URL 생성
+    const previews = await Promise.all(
+      rawPaths.map(async (path: string) => {
+        if (path.startsWith('http')) return { path, url: path };
+        const { data } = await supabase.storage.from('consultation-images').createSignedUrl(path, 60 * 60);
+        return { path, url: data?.signedUrl || '' };
+      })
+    );
+    setExistingImagePreviews(previews);
     setImageFiles([]);
     
     window.location.hash = "";
@@ -448,7 +476,7 @@ export default function ConsultationsPage() {
 
             {/* 📸 사진 첨부 입력 필드 */}
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">📸 사진 첨부</label>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">📸 사진 첨부 (처방전, 환부 등 - 안전한 비공개 저장)</label>
               <input 
                 type="file" 
                 accept="image/*" 
@@ -461,15 +489,19 @@ export default function ConsultationsPage() {
                 className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-teal-50 file:text-teal-700 hover:file:bg-teal-100"
               />
 
-              {/* 기존 업로드된 이미지 및 새로 선택한 이미지 미리보기 */}
-              {(existingImageUrls.length > 0 || imageFiles.length > 0) && (
+              {/* 이미지 미리보기 */}
+              {(existingImagePreviews.length > 0 || imageFiles.length > 0) && (
                 <div className="flex flex-wrap gap-3 mt-3">
-                  {existingImageUrls.map((url, idx) => (
-                    <div key={`exist-${idx}`} className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-200 group">
-                      <img src={url} alt="기존 이미지" className="w-full h-full object-cover" />
+                  {existingImagePreviews.map((item, idx) => (
+                    <div key={`exist-${idx}`} className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-200">
+                      <img src={item.url} alt="기존 이미지" className="w-full h-full object-cover" />
                       <button
                         type="button"
-                        onClick={() => setExistingImageUrls(existingImageUrls.filter((_, i) => i !== idx))}
+                        onClick={() => {
+                          const updatedPaths = existingImageUrls.filter((_, i) => i !== idx);
+                          setExistingImageUrls(updatedPaths);
+                          setExistingImagePreviews(existingImagePreviews.filter((_, i) => i !== idx));
+                        }}
                         className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-5 h-5 text-xs flex items-center justify-center opacity-80 hover:opacity-100"
                       >
                         ✕
@@ -497,7 +529,7 @@ export default function ConsultationsPage() {
               disabled={uploading}
               className="w-full py-4 bg-teal-900 hover:bg-teal-800 text-white font-bold rounded-2xl shadow-sm transition text-base disabled:opacity-50"
             >
-              {uploading ? "이미지 업로드 및 저장 중..." : (editingId ? "수정 내용 저장하기" : "전문 상담 기록 저장하기")}
+              {uploading ? "이미지 업로드 및 안전 저장 중..." : (editingId ? "수정 내용 저장하기" : "전문 상담 기록 저장하기")}
             </button>
           </form>
         </div>
@@ -530,9 +562,9 @@ export default function ConsultationsPage() {
                         {c.patients?.gender || "남"} / {c.patients?.birth_year || "-"}년생
                       </span>
                       <span className="text-xs text-slate-400">· {new Date(c.created_at).toLocaleDateString()}</span>
-                      {c.image_urls && c.image_urls.length > 0 && (
+                      {c.display_image_urls && c.display_image_urls.length > 0 && (
                         <span className="text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded-md font-semibold">
-                          📸 사진 {c.image_urls.length}장
+                          📸 사진 {c.display_image_urls.length}장
                         </span>
                       )}
                     </div>
@@ -620,12 +652,12 @@ export default function ConsultationsPage() {
                 </div>
               </div>
 
-              {/* 📸 첨부된 사진 목록 표시 영역 */}
-              {selectedDetailConsultation.image_urls && selectedDetailConsultation.image_urls.length > 0 && (
+              {/* 📸 안전하게 생성된 보안 Signed URL로 사진 표시 */}
+              {selectedDetailConsultation.display_image_urls && selectedDetailConsultation.display_image_urls.length > 0 && (
                 <div>
-                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📸 첨부된 사진</p>
+                  <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📸 첨부된 사진 (안전 보안 링크)</p>
                   <div className="flex flex-wrap gap-3">
-                    {selectedDetailConsultation.image_urls.map((imgUrl: string, idx: number) => (
+                    {selectedDetailConsultation.display_image_urls.map((imgUrl: string, idx: number) => (
                       <a 
                         key={idx} 
                         href={imgUrl} 
@@ -677,7 +709,7 @@ export default function ConsultationsPage() {
             <div className="mt-8 pt-4 border-t flex justify-end">
               <button 
                 onClick={() => setSelectedDetailConsultation(null)}
-                className="px-6 py.25 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition"
+                className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition"
               >
                 닫기
               </button>
