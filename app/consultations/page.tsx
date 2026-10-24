@@ -75,13 +75,12 @@ export default function ConsultationsPage() {
       .order("created_at", { ascending: false });
     
     if (cData) {
-      // 비공개 버킷의 이미지 경로들을 1시간 유효한 Signed URL로 변환
       const consultationsWithSignedUrls = await Promise.all(
         cData.map(async (c) => {
           if (c.image_urls && c.image_urls.length > 0) {
             const signedUrls = await Promise.all(
               c.image_urls.map(async (path: string) => {
-                if (path.startsWith('http')) return path; // 기존 공개 URL 호환
+                if (path.startsWith('http')) return path;
                 const { data: signedData } = await supabase.storage
                   .from('consultation-images')
                   .createSignedUrl(path, 60 * 60);
@@ -101,7 +100,6 @@ export default function ConsultationsPage() {
     fetchData();
   }, []);
 
-  // 📸 이미지 업로드 핸들러 (파일 경로 저장)
   const uploadImages = async () => {
     if (imageFiles.length === 0) return existingImageUrls;
 
@@ -225,7 +223,6 @@ export default function ConsultationsPage() {
     const rawPaths = c.image_urls || [];
     setExistingImageUrls(rawPaths);
 
-    // 수정 모드 시 기존 이미지 미리보기용 Signed URL 생성
     const previews = await Promise.all(
       rawPaths.map(async (path: string) => {
         if (path.startsWith('http')) return { path, url: path };
@@ -360,7 +357,6 @@ export default function ConsultationsPage() {
                   onChange={(e) => setSymptoms(e.target.value)} 
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" 
                   placeholder="예: 두통, 소화불량, 피로감" 
-                  required 
                 />
               </div>
               <div>
@@ -450,7 +446,6 @@ export default function ConsultationsPage() {
                   className="w-full p-3 bg-teal-50/50 border border-teal-200 rounded-xl text-sm" 
                   rows={2} 
                   placeholder="추천 영양제 및 일반의약품..." 
-                  required 
                 />
               </div>
               <div>
@@ -476,7 +471,7 @@ export default function ConsultationsPage() {
 
             {/* 📸 사진 첨부 입력 필드 */}
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">📸 사진 첨부</label>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">📸 사진 첨부 (처방전, 환부 등 - 안전한 비공개 저장)</label>
               <input 
                 type="file" 
                 accept="image/*" 
@@ -569,10 +564,10 @@ export default function ConsultationsPage() {
                       )}
                     </div>
                     <p className="text-sm font-semibold text-slate-800">
-                      <span className="text-slate-400 font-normal mr-1.5">증상:</span> {c.symptoms}
+                      <span className="text-slate-400 font-normal mr-1.5">증상:</span> {c.symptoms || "미기재"}
                     </p>
                     <p className="text-sm font-bold text-teal-800">
-                      <span className="text-slate-400 font-normal mr-1.5">처방:</span> {c.prescription}
+                      <span className="text-slate-400 font-normal mr-1.5">처방:</span> {c.prescription || "미기재"}
                     </p>
                   </div>
 
@@ -645,14 +640,13 @@ export default function ConsultationsPage() {
               <div>
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">주요 증상 및 세부 호소</p>
                 <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2">
-                  <p className="font-bold text-slate-900">{selectedDetailConsultation.symptoms}</p>
+                  <p className="font-bold text-slate-900">{selectedDetailConsultation.symptoms || "미기재"}</p>
                   {selectedDetailConsultation.symptom_detail && (
                     <p className="text-slate-600 text-xs leading-relaxed whitespace-pre-line">{selectedDetailConsultation.symptom_detail}</p>
                   )}
                 </div>
               </div>
 
-              {/* 📸 안전하게 생성된 보안 Signed URL로 사진 표시 */}
               {selectedDetailConsultation.display_image_urls && selectedDetailConsultation.display_image_urls.length > 0 && (
                 <div>
                   <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">📸 첨부된 사진 (안전 보안 링크)</p>
@@ -691,7 +685,7 @@ export default function ConsultationsPage() {
 
               <div className="p-4 bg-teal-900 text-white rounded-2xl">
                 <p className="text-xs font-semibold text-teal-300 uppercase tracking-wider mb-1">권고 의약품 (처방)</p>
-                <p className="font-bold text-base whitespace-pre-line">{selectedDetailConsultation.prescription}</p>
+                <p className="font-bold text-base whitespace-pre-line">{selectedDetailConsultation.prescription || "미기재"}</p>
               </div>
 
               {(selectedDetailConsultation.patient_memo || selectedDetailConsultation.consult_memo) && (
