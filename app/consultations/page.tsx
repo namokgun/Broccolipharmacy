@@ -471,7 +471,7 @@ export default function ConsultationsPage() {
 
             {/* 📸 사진 첨부 입력 필드 */}
             <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">📸 사진 첨부 (처방전, 환부 등 - 안전한 비공개 저장)</label>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">📸 사진 첨부</label>
               <input 
                 type="file" 
                 accept="image/*" 
