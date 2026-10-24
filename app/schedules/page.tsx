@@ -35,7 +35,7 @@ export default function SchedulesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
-  const [scheduleTime, setScheduleTime] = useState("14:00");
+  const [scheduleTime, setScheduleTime] = useState("14:00"); // 24시간제 텍스트 입력
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [theme, setTheme] = useState("blue");
@@ -351,7 +351,7 @@ export default function SchedulesPage() {
         )}
       </div>
 
-      {/* 이벤트 추가/수정 모달 (원래의 깔끔한 단일 입력 박스 복구) */}
+      {/* 이벤트 추가/수정 모달 (오전/오후, 휠 스크롤 없는 깔끔한 24시간제 텍스트 입력창) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md p-6 sm:p-7 rounded-3xl shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
@@ -380,13 +380,14 @@ export default function SchedulesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">시간</label>
-                  {/* 🟢 원래의 깔끔한 단일 시간 입력 박스 복구 */}
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">시간 (24시간제)</label>
+                  {/* 🟢 오전/오후 선택 없이 깔끔하게 타이핑하는 24시간제 입력창 */}
                   <input
-                    type="time"
+                    type="text"
                     value={scheduleTime}
                     onChange={(e) => setScheduleTime(e.target.value)}
-                    className="w-full p-3 bg-slate-100/80 border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition text-left [-webkit-appearance:none]"
+                    className="w-full p-3 bg-slate-100/80 border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition text-left"
+                    placeholder="예: 14:00"
                     required
                   />
                 </div>
