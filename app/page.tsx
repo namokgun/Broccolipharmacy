@@ -9,7 +9,7 @@ export default function DashboardPage() {
   const [consultations, setConsultations] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   
-  // 📱 모바일 접속 시 최초 렌더링부터 주간 뷰로 설정되도록 함수형 초기값 적용
+  // 📱 모바일 접속 시 최초 렌더링만 주간 뷰, PC는 월간 뷰로 시작 (버튼으로 언제든 전환 가능)
   const [viewMode, setViewMode] = useState<"month" | "week">(() => {
     if (typeof window !== "undefined" && window.innerWidth < 768) {
       return "week";
@@ -24,9 +24,7 @@ export default function DashboardPage() {
     fetchData();
 
     const handleResize = () => {
-      if (window.innerWidth < 768) {
-        setViewMode("week");
-      }
+      // 화면 크기가 작아질 때만 자동으로 주간으로 변경 (사용자가 직접 누른 경우는 유지하려면 resize 로직 조정 가능)
     };
 
     window.addEventListener("resize", handleResize);
@@ -59,6 +57,21 @@ export default function DashboardPage() {
   const month = currentDate.getMonth();
   const day = currentDate.getDate();
 
+  const firstDayOfMonth = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const handlePrev = () => {
+    if (viewMode === "month") setCurrentDate(new Date(year, month - 1, 1));
+    else setCurrentDate(new Date(year, month, day - 7));
+  };
+
+  const handleNext = () => {
+    if (viewMode === "month") setCurrentDate(new Date(year, month + 1, 1));
+    else setCurrentDate(new Date(year, month, day + 7));
+  };
+
+  const handleToday = () => setCurrentDate(new Date());
+
   return (
     <div className="w-full space-y-6">
       <h1 className="text-2xl font-bold text-slate-900">📊 대시보드 및 복약 관리</h1>
@@ -82,7 +95,6 @@ export default function DashboardPage() {
           ) : (
             filteredPatients.map((p) => (
               <div key={p.id} className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl flex items-center justify-between gap-2">
-                {/* 🟢 환자 이름 두 줄 방지 및 성별 표시 제거 완료 */}
                 <span className="font-bold text-base text-slate-900 whitespace-nowrap">
                   {p.name}
                 </span>
@@ -95,12 +107,20 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 2. 대시보드 캘린더 (모바일 자동 주간 뷰 지원) */}
+      {/* 2. 대시보드 캘린더 (월간/주간 전환 가능) */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
-        <div className="flex justify-between items-center">
-          <h2 className="text-lg font-bold text-slate-900 whitespace-nowrap">
-            {viewMode === "month" ? `${year}년 ${month + 1}월 캘린더` : `${year}년 ${month + 1}월 주간 타임라인`}
-          </h2>
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-bold text-slate-900 whitespace-nowrap">
+              {viewMode === "month" ? `${year}년 ${month + 1}월 캘린더` : `${year}년 ${month + 1}월 주간 타임라인`}
+            </h2>
+            <div className="flex items-center bg-slate-100 rounded-xl p-1">
+              <button onClick={handlePrev} className="px-2.5 py-1 hover:bg-white rounded-lg text-xs font-bold text-slate-600 transition">&lt;</button>
+              <button onClick={handleToday} className="px-2.5 py-1 hover:bg-white rounded-lg text-xs font-bold text-slate-800 transition">오늘</button>
+              <button onClick={handleNext} className="px-2.5 py-1 hover:bg-white rounded-lg text-xs font-bold text-slate-600 transition">&gt;</button>
+            </div>
+          </div>
+
           <div className="flex bg-slate-200/80 p-1 rounded-xl text-xs font-bold text-slate-600">
             <button
               onClick={() => setViewMode("month")}
@@ -117,7 +137,58 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {viewMode === "week" ? (
+        {viewMode === "month" ? (
+          /* 🟢 정상적인 월간 캘린더 그리드 뷰 복구 */
+          <div className="flex flex-col pt-2">
+            <div className="grid grid-cols-7 text-center text-xs font-bold text-slate-400 mb-3 pb-3 border-b border-slate-100">
+              <span className="text-red-500">일</span>
+              <span>월</span>
+              <span>화</span>
+              <span>수</span>
+              <span>목</span>
+              <span>금</span>
+              <span className="text-blue-500">토</span>
+            </div>
+            <div className="grid grid-cols-7 text-center gap-1.5">
+              {Array.from({ length: firstDayOfMonth }).map((_, i) => (
+                <div key={`empty-${i}`} className="min-h-[90px] bg-slate-50/20 rounded-xl" />
+              ))}
+              {Array.from({ length: daysInMonth }).map((_, i) => {
+                const d = i + 1;
+                const formattedMonth = String(month + 1).padStart(2, '0');
+                const formattedDay = String(d).padStart(2, '0');
+                const dateStr = `${year}-${formattedMonth}-${formattedDay}`;
+                
+                const daySchedules = schedules.filter(s => s.schedule_date === dateStr);
+                const isToday = d === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear();
+
+                return (
+                  <div 
+                    key={`day-${d}`}
+                    className={`min-h-[90px] rounded-2xl p-2 border transition flex flex-col items-start overflow-hidden ${
+                      isToday ? "bg-blue-50/40 border-blue-400 shadow-xs" : "bg-white border-slate-100"
+                    }`}
+                  >
+                    <span className={`text-xs font-bold mb-1 w-6 h-6 flex items-center justify-center rounded-full ${isToday ? "bg-blue-600 text-white shadow-xs" : "text-slate-700"}`}>
+                      {d}
+                    </span>
+                    <div className="w-full space-y-1 text-left overflow-y-auto max-h-[60px] scrollbar-none">
+                      {daySchedules.map((s, idx) => (
+                        <div 
+                          key={idx} 
+                          className="text-[10px] px-2 py-0.5 rounded-md truncate font-semibold bg-blue-100 text-blue-900 border border-blue-300"
+                        >
+                          {s.title}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          /* 주간 타임라인 뷰 */
           <div className="space-y-3">
             {Array.from({ length: 7 }).map((_, i) => {
               const targetDate = new Date(year, month, day - currentDate.getDay() + i);
@@ -145,21 +216,10 @@ export default function DashboardPage() {
               );
             })}
           </div>
-        ) : (
-          <div className="space-y-3">
-            <p className="text-xs text-slate-500 mb-2">월간 뷰 모드입니다. (모바일 기기에서는 자동으로 주간 뷰로 전환됩니다.)</p>
-            {/* 월간 간이 리스트 */}
-            <div className="grid grid-cols-7 text-center text-xs font-bold text-slate-400 pb-2 border-b">
-              <span className="text-red-500">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span className="text-blue-500">토</span>
-            </div>
-            <div className="p-8 text-center text-slate-400 text-sm">
-              상단 우측의 **[주간]** 버튼을 누르시면 모바일에서 보기 편한 주간 타임라인으로 전환됩니다.
-            </div>
-          </div>
         )}
       </div>
 
-      {/* 3. 최근 상담 내역 리스트 복구 */}
+      {/* 3. 최근 상담 내역 리스트 */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
         <h2 className="text-lg font-bold text-slate-900">최근 등록된 상담 내역</h2>
         <div className="space-y-3">
