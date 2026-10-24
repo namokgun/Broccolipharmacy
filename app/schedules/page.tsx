@@ -38,10 +38,19 @@ export default function SchedulesPage() {
     setCurrentDate(new Date());
     fetchSchedules();
     
-    // 📱 모바일 화면(768px 미만)일 경우 기본 뷰를 주간(week)으로 자동 설정
-    if (window.innerWidth < 768) {
-      setViewMode("week");
-    }
+    // 📱 화면 크기에 따라 자동으로 뷰 모드 조절
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setViewMode("week");
+      }
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    
+    return () => {
+      window.removeEventListener("resize", handleResize);
+    };
   }, []);
 
   const handleSubmitSchedule = async (e: React.FormEvent) => {
