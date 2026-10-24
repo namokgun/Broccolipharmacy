@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase } from "@/app/lib/supabase";
 
 export default function PatientsPage() {
   const [patients, setPatients] = useState<any[]>([]);
@@ -10,6 +10,11 @@ export default function PatientsPage() {
   const [gender, setGender] = useState("남");
   const [birthYear, setBirthYear] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+
+  // 🟢 특정 환자 상담 이력 모달 상태
+  const [selectedPatientForHistory, setSelectedPatientForHistory] = useState<any | null>(null);
+  const [patientConsultations, setPatientConsultations] = useState<any[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
 
   const fetchPatients = async () => {
     const { data } = await supabase.from("patients").select("*").order("created_at", { ascending: false });
@@ -54,6 +59,20 @@ export default function PatientsPage() {
       alert("환자가 삭제되었습니다.");
       fetchPatients();
     }
+  };
+
+  // 🟢 특정 환자의 상담 이력 불러오기
+  const handleOpenHistoryModal = async (patient: any) => {
+    setSelectedPatientForHistory(patient);
+    setLoadingHistory(true);
+    const { data, error } = await supabase
+      .from("consultations")
+      .select("*")
+      .eq("patient_id", patient.id)
+      .order("created_at", { ascending: false });
+    
+    if (data) setPatientConsultations(data);
+    setLoadingHistory(false);
   };
 
   const filteredPatients = patients.filter(p =>
@@ -141,7 +160,7 @@ export default function PatientsPage() {
                 <th className="p-4 font-semibold">성별 / 출생연도</th>
                 <th className="p-4 font-semibold">연락처</th>
                 <th className="p-4 font-semibold">등록일자</th>
-                <th className="p-4 font-semibold text-center rounded-r-xl">관리</th>
+                <th className="p-4 font-semibold text-center rounded-r-xl">관리 / 이력</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -165,10 +184,16 @@ export default function PatientsPage() {
                     </td>
                     <td className="p-4 text-slate-600">{p.phone || "-"}</td>
                     <td className="p-4 text-slate-500">{new Date(p.created_at).toLocaleDateString()}</td>
-                    <td className="p-4 text-center">
+                    <td className="p-4 text-center space-x-2">
+                      <button
+                        onClick={() => handleOpenHistoryModal(p)}
+                        className="px-3 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-800 text-xs font-bold rounded-lg transition"
+                      >
+                        📂 상담 이력
+                      </button>
                       <button
                         onClick={() => handleDelete(p.id)}
-                        className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition"
+                        className="px-3.5 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-lg transition"
                       >
                         삭제
                       </button>
@@ -180,6 +205,83 @@ export default function PatientsPage() {
           </table>
         </div>
       </div>
+
+      {/* 🟢 환자별 상담 이력 모달 팝업 */}
+      {selectedPatientForHistory && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-xl max-w-3xl w-full max-h-[85vh] overflow-y-auto p-6 md:p-8 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center border-b pb-4 mb-6">
+              <div>
+                <h3 className="text-xl font-bold text-slate-900">
+                  📂 [{selectedPatientForHistory.name}] 님의 상담 이력 모음
+                </h3>
+                <p className="text-xs text-slate-400 mt-1">
+                  연락처: {selectedPatientForHistory.phone || "번호 없음"} | 성별/출생: {selectedPatientForHistory.gender || "남"} / {selectedPatientForHistory.birth_year || "-"}년생
+                </p>
+              </div>
+              <button 
+                onClick={() => setSelectedPatientForHistory(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-500 font-bold transition"
+              >
+                ✕
+              </button>
+            </div>
+
+            {loadingHistory ? (
+              <p className="text-center text-slate-400 py-12 text-sm">상담 기록을 불러오는 중...</p>
+            ) : patientConsultations.length === 0 ? (
+              <p className="text-center text-slate-400 py-12 text-sm">이 환자에 대한 상담 기록이 아직 없습니다.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm border border-slate-100 rounded-xl overflow-hidden">
+                  <thead className="bg-slate-50 text-slate-400 uppercase text-xs">
+                    <tr>
+                      <th className="p-3 font-semibold">상담 일시</th>
+                      <th className="p-3 font-semibold">주요 증상</th>
+                      <th className="p-3 font-semibold">체질/허실</th>
+                      <th className="p-3 font-semibold">권고 처방</th>
+                      <th className="p-3 font-semibold text-center">사진</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {patientConsultations.map((c) => (
+                      <tr key={c.id} className="hover:bg-slate-50/80 transition">
+                        <td className="p-3 text-slate-500 whitespace-nowrap text-xs">
+                          {new Date(c.created_at).toLocaleDateString()} <br />
+                          <span className="text-[10px] text-slate-400">{new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </td>
+                        <td className="p-3 font-semibold text-slate-900">{c.symptoms}</td>
+                        <td className="p-3 text-slate-600 text-xs">
+                          {c.body_type || "-"} / {c.deficiency_type || "-"}
+                        </td>
+                        <td className="p-3 font-bold text-teal-800">{c.prescription}</td>
+                        <td className="p-3 text-center">
+                          {c.image_urls && c.image_urls.length > 0 ? (
+                            <span className="text-xs bg-teal-50 text-teal-700 px-2 py-0.5 rounded font-semibold">
+                              📸 {c.image_urls.length}장
+                            </span>
+                          ) : (
+                            <span className="text-xs text-slate-300">-</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="mt-8 pt-4 border-t flex justify-end">
+              <button 
+                onClick={() => setSelectedPatientForHistory(null)}
+                className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white font-bold rounded-xl text-sm transition"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
