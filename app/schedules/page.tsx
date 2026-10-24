@@ -19,6 +19,13 @@ const THEME_CLASSES: Record<string, { bg: string, text: string }> = {
   rose: { bg: "bg-rose-50 border-rose-200", text: "text-rose-900" },
 };
 
+// 🟢 24시간제 30분 단위 시간 옵션 생성
+const TIME_OPTIONS = Array.from({ length: 48 }).map((_, i) => {
+  const hour = Math.floor(i / 2).toString().padStart(2, '0');
+  const minute = i % 2 === 0 ? '00' : '30';
+  return `${hour}:${minute}`;
+});
+
 export default function SchedulesPage() {
   const [schedules, setSchedules] = useState<any[]>([]);
   
@@ -350,7 +357,7 @@ export default function SchedulesPage() {
         )}
       </div>
 
-      {/* 이벤트 추가/수정 모달 (날짜 입력창 좌측 치우침 현상 해결) */}
+      {/* 이벤트 추가/수정 모달 (24시간제 셀렉트 박스 적용) */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
           <div className="bg-white w-full max-w-md p-6 sm:p-7 rounded-3xl shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
@@ -370,7 +377,6 @@ export default function SchedulesPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">날짜</label>
-                  {/* 🟢 모바일(iOS) 사파리에서 날짜 입력창이 우측으로 치우치는 현상 방지 스타일 적용 */}
                   <input
                     type="date"
                     value={scheduleDate}
@@ -380,15 +386,20 @@ export default function SchedulesPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">시간 (24시간제)</label>
-                  <input
-                    type="text"
+                  <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">시간 (24시간제 선택)</label>
+                  {/* 🟢 24시간제 드롭다운 선택 박스 적용 */}
+                  <select
                     value={scheduleTime}
                     onChange={(e) => setScheduleTime(e.target.value)}
                     className="w-full p-3 bg-slate-100/80 border border-transparent rounded-2xl text-sm font-medium focus:bg-white focus:border-blue-500 focus:outline-none transition text-left"
-                    placeholder="예: 14:00 또는 09:30"
                     required
-                  />
+                  >
+                    {TIME_OPTIONS.map((timeStr) => (
+                      <option key={timeStr} value={timeStr}>
+                        {timeStr}
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
