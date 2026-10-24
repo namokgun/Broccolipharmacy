@@ -37,6 +37,11 @@ export default function SchedulesPage() {
   useEffect(() => {
     setCurrentDate(new Date());
     fetchSchedules();
+    
+    // 📱 모바일 화면(768px 미만)일 경우 기본 뷰를 주간(week)으로 자동 설정
+    if (window.innerWidth < 768) {
+      setViewMode("week");
+    }
   }, []);
 
   const handleSubmitSchedule = async (e: React.FormEvent) => {
@@ -135,7 +140,7 @@ export default function SchedulesPage() {
     <div className="w-full space-y-6 flex flex-col">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
         <div className="flex items-center gap-4">
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900 truncate">
             {viewMode === "month" && `${year}년 ${month + 1}월`}
             {viewMode === "week" && `${year}년 ${month + 1}월 (주간)`}
             {viewMode === "day" && `${year}년 ${month + 1}월 ${day}일`}
@@ -147,11 +152,11 @@ export default function SchedulesPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between md:justify-end gap-3">
           <div className="flex bg-slate-200/80 p-1 rounded-xl text-xs font-bold text-slate-600">
-            <button onClick={() => setViewMode("month")} className={`px-4 py-1.5 rounded-lg transition ${viewMode === "month" ? "bg-white text-slate-900 shadow-xs" : "hover:text-slate-900"}`}>월간</button>
-            <button onClick={() => setViewMode("week")} className={`px-4 py-1.5 rounded-lg transition ${viewMode === "week" ? "bg-white text-slate-900 shadow-xs" : "hover:text-slate-900"}`}>주간</button>
-            <button onClick={() => setViewMode("day")} className={`px-4 py-1.5 rounded-lg transition ${viewMode === "day" ? "bg-white text-slate-900 shadow-xs" : "hover:text-slate-900"}`}>일간</button>
+            <button onClick={() => setViewMode("month")} className={`px-3 md:px-4 py-1.5 rounded-lg transition ${viewMode === "month" ? "bg-white text-slate-900 shadow-xs" : "hover:text-slate-900"}`}>월간</button>
+            <button onClick={() => setViewMode("week")} className={`px-3 md:px-4 py-1.5 rounded-lg transition ${viewMode === "week" ? "bg-white text-slate-900 shadow-xs" : "hover:text-slate-900"}`}>주간</button>
+            <button onClick={() => setViewMode("day")} className={`px-3 md:px-4 py-1.5 rounded-lg transition ${viewMode === "day" ? "bg-white text-slate-900 shadow-xs" : "hover:text-slate-900"}`}>일간</button>
           </div>
 
           <button
@@ -163,28 +168,28 @@ export default function SchedulesPage() {
               setTheme("blue");
               setIsModalOpen(true);
             }}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition text-sm shadow-sm flex items-center gap-1.5"
+            className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition text-xs md:text-sm shadow-sm flex items-center gap-1.5 whitespace-nowrap"
           >
             <span>+</span> 새로운 이벤트
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-xs border border-slate-200/80 flex flex-col overflow-hidden p-6">
+      <div className="bg-white rounded-3xl shadow-xs border border-slate-200/80 flex flex-col overflow-hidden p-4 md:p-6">
         {viewMode === "month" && (
           <div className="flex flex-col">
-            <div className="grid grid-cols-7 text-center text-xs font-bold text-slate-400 mb-3 pb-3 border-b border-slate-100">
-              <span className="text-red-500">일요일</span>
-              <span>월요일</span>
-              <span>화요일</span>
-              <span>수요일</span>
-              <span>목요일</span>
-              <span>금요일</span>
-              <span className="text-blue-500">토요일</span>
+            <div className="grid grid-cols-7 text-center text-[11px] md:text-xs font-bold text-slate-400 mb-3 pb-3 border-b border-slate-100">
+              <span className="text-red-500">일</span>
+              <span>월</span>
+              <span>화</span>
+              <span>수</span>
+              <span>목</span>
+              <span>금</span>
+              <span className="text-blue-500">토</span>
             </div>
-            <div className="grid grid-cols-7 text-center gap-1.5">
+            <div className="grid grid-cols-7 text-center gap-1">
               {Array.from({ length: firstDayOfMonth }).map((_, i) => (
-                <div key={`empty-${i}`} className="min-h-[110px] bg-slate-50/20 rounded-2xl" />
+                <div key={`empty-${i}`} className="min-h-[80px] md:min-h-[110px] bg-slate-50/20 rounded-xl" />
               ))}
               {Array.from({ length: daysInMonth }).map((_, i) => {
                 const d = i + 1;
@@ -199,14 +204,14 @@ export default function SchedulesPage() {
                   <div 
                     key={`day-${d}`}
                     onDoubleClick={() => handleDateDoubleClick(dateStr)}
-                    className={`min-h-[110px] rounded-2xl p-2.5 border transition flex flex-col items-start cursor-pointer hover:border-blue-400 overflow-hidden select-none ${
+                    className={`min-h-[80px] md:min-h-[110px] rounded-xl md:rounded-2xl p-1.5 md:p-2.5 border transition flex flex-col items-start cursor-pointer hover:border-blue-400 overflow-hidden select-none ${
                       isToday ? "bg-blue-50/40 border-blue-400 shadow-xs" : "bg-white border-slate-100 hover:bg-slate-50/50"
                     }`}
                   >
-                    <span className={`text-xs font-bold mb-2 w-6 h-6 flex items-center justify-center rounded-full ${isToday ? "bg-blue-600 text-white shadow-xs" : "text-slate-700"}`}>
+                    <span className={`text-[10px] md:text-xs font-bold mb-1 md:mb-2 w-5 h-5 md:w-6 md:h-6 flex items-center justify-center rounded-full ${isToday ? "bg-blue-600 text-white shadow-xs" : "text-slate-700"}`}>
                       {d}
                     </span>
-                    <div className="w-full space-y-1.5 text-left overflow-y-auto max-h-[75px] scrollbar-none">
+                    <div className="w-full space-y-1 text-left overflow-y-auto max-h-[50px] md:max-h-[75px] scrollbar-none">
                       {daySchedules.map((s, idx) => {
                         const t = THEMES[s.theme || "blue"] || THEMES.blue;
                         const isSelected = selectedScheduleId === s.id;
@@ -216,13 +221,12 @@ export default function SchedulesPage() {
                             key={idx} 
                             onClick={(e) => handleScheduleClick(e, s)}
                             onDoubleClick={(e) => handleScheduleDoubleClick(e, s)}
-                            className={`text-[11px] px-2.5 py-1 rounded-xl truncate flex items-center justify-between transition cursor-pointer font-semibold border ${t.bg} ${t.text} ${
+                            className={`text-[10px] md:text-[11px] px-1.5 md:px-2.5 py-0.5 md:py-1 rounded-lg truncate flex items-center justify-between transition cursor-pointer font-semibold border ${t.bg} ${t.text} ${
                               isSelected ? "ring-2 ring-blue-600 shadow-sm font-bold scale-[1.02]" : "opacity-80 hover:opacity-100"
                             }`}
                             title="한 번 클릭: 선택 / 두 번 클릭: 수정"
                           >
                             <span className="truncate">
-                              <span className="opacity-70 font-normal mr-1">{s.time || ""}</span>
                               {s.title}
                             </span>
                           </div>
@@ -238,8 +242,8 @@ export default function SchedulesPage() {
 
         {viewMode === "week" && (
           <div className="flex flex-col">
-            <div className="text-sm font-bold text-slate-700 mb-4">
-              🗓️ 이번 주 타임라인 (일정을 한 번 클릭해 선택하고, 두 번 클릭하면 수정할 수 있습니다)
+            <div className="text-xs md:text-sm font-bold text-slate-700 mb-4">
+              🗓️ 이번 주 타임라인 (일정을 터치 또는 클릭하여 선택하고, 더블클릭하면 수정할 수 있습니다)
             </div>
             <div className="space-y-3">
               {Array.from({ length: 7 }).map((_, i) => {
@@ -251,12 +255,12 @@ export default function SchedulesPage() {
                   <div 
                     key={i} 
                     onDoubleClick={() => handleDateDoubleClick(dateStr)}
-                    className="flex border border-slate-100 rounded-2xl p-4 bg-slate-50/40 items-start gap-4 cursor-pointer hover:border-blue-300 transition"
+                    className="flex flex-col md:flex-row border border-slate-100 rounded-2xl p-4 bg-slate-50/40 items-start gap-3 md:gap-4 cursor-pointer hover:border-blue-300 transition"
                   >
-                    <div className="w-32 font-bold text-sm text-slate-800 border-r border-slate-200/80 pr-4">
+                    <div className="w-full md:w-32 font-bold text-xs md:text-sm text-slate-800 border-b md:border-b-0 md:border-r border-slate-200/80 pb-2 md:pb-0 md:pr-4">
                       {targetDate.toLocaleDateString('ko-KR', { weekday: 'short', month: 'long', day: 'numeric' })}
                     </div>
-                    <div className="flex-1 space-y-2">
+                    <div className="flex-1 space-y-2 w-full">
                       {daySchedules.length === 0 ? (
                         <span className="text-xs text-slate-400">등록된 일정이 없습니다.</span>
                       ) : (
@@ -269,16 +273,16 @@ export default function SchedulesPage() {
                               key={idx} 
                               onClick={(e) => handleScheduleClick(e, s)}
                               onDoubleClick={(e) => handleScheduleDoubleClick(e, s)}
-                              className={`flex justify-between items-center p-3 rounded-2xl border transition cursor-pointer ${t.bg} ${t.text} ${
+                              className={`flex flex-col md:flex-row justify-between items-start md:items-center p-3 rounded-2xl border transition cursor-pointer gap-2 ${t.bg} ${t.text} ${
                                 isSelected ? "ring-2 ring-blue-600 shadow-sm scale-[1.01]" : "opacity-90"
                               }`}
                             >
                               <div>
-                                <span className="text-xs font-bold bg-white/60 px-2.5 py-1 rounded-xl mr-3">{s.time || "종일"}</span>
+                                <span className="text-[11px] font-bold bg-white/60 px-2.5 py-1 rounded-xl mr-3">{s.time || "종일"}</span>
                                 <span className="font-bold text-sm">{s.title}</span>
                                 {s.content && <p className="text-xs opacity-75 mt-0.5">{s.content}</p>}
                               </div>
-                              <span className="text-xs font-semibold opacity-70">더블클릭하여 수정</span>
+                              <span className="text-[11px] font-semibold opacity-70">더블클릭하여 수정</span>
                             </div>
                           );
                         })
@@ -293,7 +297,7 @@ export default function SchedulesPage() {
 
         {viewMode === "day" && (
           <div className="flex flex-col">
-            <div className="text-sm font-bold text-slate-700 mb-4">
+            <div className="text-xs md:text-sm font-bold text-slate-700 mb-4">
               📅 {year}년 {month + 1}월 {day}일 상세 일정 타임라인
             </div>
             <div className="space-y-3">
@@ -316,18 +320,18 @@ export default function SchedulesPage() {
                       key={idx} 
                       onClick={(e) => handleScheduleClick(e, s)}
                       onDoubleClick={(e) => handleScheduleDoubleClick(e, s)}
-                      className={`p-4 rounded-2xl border flex items-center justify-between transition cursor-pointer ${t.bg} ${t.text} ${
+                      className={`p-4 rounded-2xl border flex flex-col md:flex-row items-start md:items-center justify-between transition cursor-pointer gap-2 ${t.bg} ${t.text} ${
                         isSelected ? "ring-2 ring-blue-600 shadow-sm scale-[1.01]" : "opacity-90"
                       }`}
                     >
-                      <div className="flex items-center gap-4">
-                        <span className="text-sm font-bold bg-white/70 px-3.5 py-1.5 rounded-xl shadow-xs">{s.time || "종일"}</span>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs font-bold bg-white/70 px-3 py-1 rounded-xl shadow-xs">{s.time || "종일"}</span>
                         <div>
-                          <h4 className="font-bold text-base">{s.title}</h4>
+                          <h4 className="font-bold text-sm md:text-base">{s.title}</h4>
                           {s.content && <p className="text-xs opacity-75 mt-1">{s.content}</p>}
                         </div>
                       </div>
-                      <span className="text-xs font-semibold px-3 py-1.5 bg-white/60 rounded-xl">더블클릭하여 수정</span>
+                      <span className="text-[11px] font-semibold px-3 py-1 bg-white/60 rounded-xl self-end md:self-auto">더블클릭하여 수정</span>
                     </div>
                   );
                 });
@@ -434,7 +438,7 @@ export default function SchedulesPage() {
                   type="submit"
                   className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition text-sm shadow-sm"
                 >
-                  {editingId ? "수정 내용 저장" : "이벤트 추가"}
+                  {editingId ? "수정 내용 저장하기" : "이벤트 추가"}
                 </button>
               </div>
             </form>
