@@ -19,8 +19,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* 네비게이션 영역 */}
         <Sidebar />
         
-        {/* 본문 영역: PC에서는 왼쪽 여백(md:pl-64), 모바일에서는 상단/하단 고정 바에 안 가리게 pt-16 pb-24 적용 */}
-        <main className="flex-1 md:pl-64 w-full min-h-screen pt-16 pb-24 md:py-6 px-4 md:px-8 bg-slate-50">
+        {/* 본문 영역: 모바일 좌우 패딩을 px-3으로 줄여서 좌우로 넓게 확장 */}
+        <main className="flex-1 md:pl-64 w-full min-h-screen pt-16 pb-24 md:py-6 px-3 md:px-8 bg-slate-50">
           {children}
         </main>
       </body>
