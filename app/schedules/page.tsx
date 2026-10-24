@@ -40,11 +40,15 @@ export default function SchedulesPage() {
   const [content, setContent] = useState("");
   const [theme, setTheme] = useState("blue");
 
+  // 🟢 하루 일정 상세 팝업용 상태 추가
+  const [dayDetailDate, setDayDetailDate] = useState<string | null>(null);
+
   const fetchSchedules = async () => {
     const { data } = await supabase
       .from("schedules")
       .select("*")
-      .order("schedule_date", { ascending: true });
+      .order("schedule_date", { ascending: true })
+      .order("time", { ascending: true }); // 시간순 정렬 추가
     if (data) setSchedules(data);
   };
 
@@ -146,7 +150,7 @@ export default function SchedulesPage() {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
   return (
-    <div className="w-full space-y-6 flex flex-col">
+    <div className="w-full space-y-6 flex flex-col relative">
       {/* 상단 헤더 및 컨트롤러 */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
         <div className="flex items-center gap-4">
@@ -201,7 +205,7 @@ export default function SchedulesPage() {
             </div>
             <div className="grid grid-cols-7 text-center gap-1.5">
               {Array.from({ length: firstDayOfMonth }).map((_, i) => (
-                <div key={`empty-${i}`} className="min-h-[85px] md:min-h-[110px] bg-slate-50/30 rounded-2xl" />
+                <div key={`empty-${i}`} className="min-h-[90px] md:min-h-[120px] bg-slate-50/30 rounded-2xl" />
               ))}
               {Array.from({ length: daysInMonth }).map((_, i) => {
                 const d = i + 1;
@@ -212,19 +216,24 @@ export default function SchedulesPage() {
                 const daySchedules = schedules.filter(s => s.schedule_date === dateStr);
                 const isToday = d === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear();
 
+                // 🟢 2개까지만 노출, 3개 이상이면 "및 N개..." 표시[cite: 4]
+                const MAX_VISIBLE = 2;
+                const visibleSchedules = daySchedules.slice(0, MAX_VISIBLE);
+                const hiddenCount = daySchedules.length - MAX_VISIBLE;
+
                 return (
                   <div 
                     key={`day-${d}`}
                     onDoubleClick={() => handleDateDoubleClick(dateStr)}
-                    className={`min-h-[85px] md:min-h-[110px] rounded-2xl p-1.5 md:p-2.5 border transition flex flex-col items-start cursor-pointer hover:border-blue-400 overflow-hidden select-none ${
+                    className={`min-h-[90px] md:min-h-[120px] rounded-2xl p-1.5 md:p-2.5 border transition flex flex-col items-start cursor-pointer hover:border-blue-400 overflow-hidden select-none ${
                       isToday ? "bg-blue-50/30 border-blue-400 shadow-2xs" : "bg-white border-slate-100 hover:bg-slate-50/50"
                     }`}
                   >
                     <span className={`text-[10px] md:text-xs font-bold mb-1 md:mb-2 w-5 h-5 md:w-6 md:h-6 flex items-center justify-center rounded-full ${isToday ? "bg-blue-600 text-white shadow-2xs" : "text-slate-700"}`}>
                       {d}
                     </span>
-                    <div className="w-full space-y-1 text-left overflow-y-auto max-h-[50px] md:max-h-[75px] scrollbar-none">
-                      {daySchedules.map((s, idx) => {
+                    <div className="w-full space-y-1 text-left flex-1">
+                      {visibleSchedules.map((s, idx) => {
                         const tc = THEME_CLASSES[s.theme || "blue"] || THEME_CLASSES.blue;
                         const isSelected = selectedScheduleId === s.id;
 
@@ -242,6 +251,19 @@ export default function SchedulesPage() {
                           </div>
                         );
                       })}
+                      
+                      {/* 🟢 숨겨진 일정이 있을 경우 "및 N개..." 텍스트 버튼 표시[cite: 4] */}
+                      {hiddenCount > 0 && (
+                        <div 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDayDetailDate(dateStr);
+                          }}
+                          className="text-[10px] md:text-xs font-semibold text-slate-500 hover:text-slate-800 transition px-1 pt-0.5"
+                        >
+                          및 {hiddenCount}개...
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -351,9 +373,66 @@ export default function SchedulesPage() {
         )}
       </div>
 
-      {/* 이벤트 추가/수정 모달 (원래의 type="time" 네이티브 스크롤 복구) */}
+      {/* 🟢 애플 캘린더 스타일 다크 테마 상세보기 팝업 모달[cite: 5] */}
+      {dayDetailDate && (
+        <div 
+          className="fixed inset-0 z-[60] bg-transparent flex items-center justify-center p-4 backdrop-blur-[2px]" 
+          onClick={() => setDayDetailDate(null)}
+        >
+          <div 
+            className="bg-[#2a2a2c] text-white rounded-2xl shadow-2xl border border-slate-700 max-w-[280px] w-full p-4 animate-in fade-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="font-semibold text-lg">{parseInt(dayDetailDate.split('-')[2])}일 일정</h3>
+              <button 
+                onClick={() => setDayDetailDate(null)}
+                className="w-7 h-7 rounded-full bg-slate-700/50 hover:bg-slate-600 flex items-center justify-center text-sm font-bold text-slate-300 transition"
+              >
+                ✕
+              </button>
+            </div>
+            
+            <div className="space-y-1.5 max-h-[50vh] overflow-y-auto scrollbar-none pr-1">
+              {schedules.filter(s => s.schedule_date === dayDetailDate).map((s) => {
+                const themeData = THEMES[s.theme || "blue"];
+                // 14:00 형식의 24시간제를 애플 캘린더 감성의 오전/오후로 변환 표시[cite: 5]
+                let displayTime = "종일";
+                if (s.time) {
+                  const [h, m] = s.time.split(':');
+                  const hour = parseInt(h);
+                  const ampm = hour < 12 ? "오전" : "오후";
+                  const displayH = hour % 12 === 0 ? 12 : hour % 12;
+                  displayTime = `${ampm} ${displayH}${m !== "00" ? `:${m}` : "시"}`;
+                }
+
+                return (
+                  <div 
+                    key={s.id}
+                    onClick={(e) => {
+                      setDayDetailDate(null);
+                      handleScheduleDoubleClick(e, s); // 🟢 클릭 시 바로 수정창 띄움
+                    }}
+                    className="flex justify-between items-center px-3 py-2.5 rounded-xl hover:bg-white/10 cursor-pointer transition gap-3"
+                  >
+                    <div className="flex items-center gap-2.5 overflow-hidden">
+                      {/*[cite: 5] */}
+                      <span className={`flex-shrink-0 w-2.5 h-2.5 rounded-full ${themeData.bg}`}></span>
+                      <span className="truncate text-[13px] font-medium">{s.title}</span>
+                    </div>
+                    {/*[cite: 5] */}
+                    <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap flex-shrink-0">{displayTime}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 이벤트 추가/수정 모달 (네이티브 type="time" 유지) */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-[70] p-4">
           <div className="bg-white w-full max-w-md p-6 sm:p-7 rounded-3xl shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center mb-5 border-b border-slate-100 pb-3">
               <h3 className="text-lg font-bold text-slate-900">
@@ -381,7 +460,6 @@ export default function SchedulesPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">시간</label>
-                  {/* 🟢 수동 입력창 버리고 네이티브 스크롤(type="time") 복구 */}
                   <input
                     type="time"
                     value={scheduleTime}
