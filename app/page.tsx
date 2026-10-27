@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/app/lib/supabase";
+import Link from "next/link";
 
 export default function DashboardPage() {
   const [patients, setPatients] = useState<any[]>([]);
@@ -41,6 +42,22 @@ export default function DashboardPage() {
   const month = currentDate.getMonth();
   const day = currentDate.getDate();
 
+  // 🟢 이번 달 매출 및 일평균 매출 계산 로직
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth();
+  const currentDay = currentDate.getDate();
+
+  const thisMonthConsultations = consultations.filter(c => {
+    const dateStr = c.consultation_date || c.created_at?.split('T')[0];
+    if (!dateStr) return false;
+    const [y, m] = dateStr.split('-').map(Number);
+    return y === currentYear && m === (currentMonth + 1);
+  });
+
+  const thisMonthSales = thisMonthConsultations.reduce((sum, c) => sum + (c.amount || 0), 0);
+  const daysElapsed = Math.max(1, currentDay);
+  const dailyAverageSales = Math.round(thisMonthSales / daysElapsed);
+
   const firstDayOfMonth = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
@@ -58,9 +75,41 @@ export default function DashboardPage() {
 
   return (
     <div className="w-full space-y-6">
-      <h1 className="text-2xl font-bold text-slate-900">📊 대시보드</h1>
+      <div className="flex justify-between items-center border-b pb-4">
+        <h1 className="text-2xl font-bold text-slate-900">📊 대시보드</h1>
+        <p className="text-xs text-slate-500 font-semibold">{currentYear}년 {currentMonth + 1}월 현황</p>
+      </div>
 
-      {/* 상단 통계 요약 카드 (등록된 일정 제외) */}
+      {/* 🟢 상단 핵심 지표: 이번달 매출 / 일평균매출 카드 (새로 추가됨) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-gradient-to-br from-teal-900 to-teal-800 text-white p-6 rounded-3xl shadow-sm flex flex-col justify-between">
+          <div>
+            <p className="text-xs font-bold text-teal-300 uppercase tracking-wider mb-2">이번 달 총 매출</p>
+            <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight mt-1">
+              {thisMonthSales.toLocaleString()} <span className="text-xl font-medium">원</span>
+            </h2>
+          </div>
+          <div className="mt-4 pt-3 border-t border-teal-800/60 flex justify-between items-center text-xs text-teal-200">
+            <span>이번 달 상담 건수: {thisMonthConsultations.length}건</span>
+            <span>실시간 집계</span>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-purple-900 to-purple-800 text-white p-6 rounded-3xl shadow-sm flex flex-col justify-between">
+          <div>
+            <p className="text-xs font-bold text-purple-300 uppercase tracking-wider mb-2">이번 달 일평균 매출</p>
+            <h2 className="text-3xl md:text-4xl font-extrabold tracking-tight mt-1">
+              {dailyAverageSales.toLocaleString()} <span className="text-xl font-medium">원</span>
+            </h2>
+          </div>
+          <div className="mt-4 pt-3 border-t border-purple-800/60 flex justify-between items-center text-xs text-purple-200">
+            <span>산출 기준: 이달 1일 ~ 오늘 ({currentDay}일간)</span>
+            <span>자동 계산</span>
+          </div>
+        </div>
+      </div>
+
+      {/* 상단 통계 요약 카드 (기존 환자수, 상담기록수 유지) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
           <div>
@@ -78,7 +127,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 대시보드 캘린더 영역 */}
+      {/* 대시보드 캘린더 영역 (원래 코드 그대로 복구) */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex items-center gap-3">
