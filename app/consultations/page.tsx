@@ -331,7 +331,6 @@ export default function ConsultationsPage() {
               </div>
               <div className="flex-1 text-right text-xs text-slate-400">※ [Ctrl+V]로 사진 붙여넣기 가능</div>
               
-              {/* 수정 모드일 때만 나타나는 빨간색 삭제 버튼 */}
               {editingId && (
                 <button type="button" onClick={() => handleDeleteConsultation(editingId)} className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-lg transition text-sm">
                   삭제
@@ -344,7 +343,7 @@ export default function ConsultationsPage() {
             </div>
           </div>
 
-          {/* 🟢 오른쪽: 사진 뷰어 영역 (중간값 크기 h-56) */}
+          {/* 🟢 오른쪽: 사진 뷰어 영역 (object-contain 적용으로 원본 비율 유지) */}
           <div className="flex-1 flex flex-col gap-3 min-w-[280px]">
             <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-xl p-3 overflow-hidden">
               <div className="flex justify-between items-center mb-2">
@@ -362,15 +361,15 @@ export default function ConsultationsPage() {
                   </div>
                 )}
                 {existingImagePreviews.map((item, idx) => (
-                  <div key={`ex-${idx}`} className="relative w-full h-56 border-2 border-slate-200 rounded-xl overflow-hidden group shadow-xs bg-white">
-                    <img src={item.url} onClick={() => setPreviewImageUrl(item.url)} className="w-full h-full object-cover cursor-pointer group-hover:scale-105 transition" />
-                    <button type="button" onClick={() => { setExistingImageUrls(prev => prev.filter((_, i) => i !== idx)); setExistingImagePreviews(prev => prev.filter((_, i) => i !== idx)); }} className="absolute top-2 right-2 bg-red-600 text-white w-7 h-7 rounded-full text-xs hidden group-hover:flex items-center justify-center font-bold shadow-md">✕</button>
+                  <div key={`ex-${idx}`} className="relative w-full h-56 border-2 border-slate-200 rounded-xl overflow-hidden group shadow-xs bg-slate-900/5 flex items-center justify-center">
+                    <img src={item.url} onClick={() => setPreviewImageUrl(item.url)} className="w-full h-full object-contain cursor-pointer group-hover:scale-105 transition" />
+                    <button type="button" onClick={() => { setExistingImageUrls(prev => prev.filter((_, i) => i !== idx)); setExistingImagePreviews(prev => prev.filter((_, i) => i !== idx)); }} className="absolute top-2 right-2 bg-red-600 text-white w-7 h-7 rounded-full text-xs hidden group-hover:flex items-center justify-center font-bold shadow-md z-10">✕</button>
                   </div>
                 ))}
                 {imageFiles.map((file, idx) => (
-                  <div key={`nw-${idx}`} className="relative w-full h-56 border-2 border-teal-400 rounded-xl overflow-hidden group shadow-xs bg-white">
-                    <img src={URL.createObjectURL(file)} onClick={() => setPreviewImageUrl(URL.createObjectURL(file))} className="w-full h-full object-cover cursor-pointer group-hover:scale-105 transition" />
-                    <button type="button" onClick={() => setImageFiles(prev => prev.filter((_, i) => i !== idx))} className="absolute top-2 right-2 bg-red-600 text-white w-7 h-7 rounded-full text-xs hidden group-hover:flex items-center justify-center font-bold shadow-md">✕</button>
+                  <div key={`nw-${idx}`} className="relative w-full h-56 border-2 border-teal-400 rounded-xl overflow-hidden group shadow-xs bg-slate-900/5 flex items-center justify-center">
+                    <img src={URL.createObjectURL(file)} onClick={() => setPreviewImageUrl(URL.createObjectURL(file))} className="w-full h-full object-contain cursor-pointer group-hover:scale-105 transition" />
+                    <button type="button" onClick={() => setImageFiles(prev => prev.filter((_, i) => i !== idx))} className="absolute top-2 right-2 bg-red-600 text-white w-7 h-7 rounded-full text-xs hidden group-hover:flex items-center justify-center font-bold shadow-md z-10">✕</button>
                   </div>
                 ))}
               </div>
@@ -381,8 +380,8 @@ export default function ConsultationsPage() {
               <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-3 content-start pr-1">
                 {patientPastPhotos.length === 0 ? <div className="col-span-2 text-center text-xs text-slate-500 py-8 font-semibold">선택된 환자의 과거 사진이 없습니다.</div> : 
                   patientPastPhotos.map((photo, idx) => (
-                    <div key={idx} className="relative w-full h-44 border border-slate-300 rounded-xl overflow-hidden bg-white group cursor-pointer shadow-2xs" onClick={() => setPreviewImageUrl(photo.url)}>
-                      <img src={photo.url} className="w-full h-full object-cover group-hover:scale-110 transition" />
+                    <div key={idx} className="relative w-full h-44 border border-slate-300 rounded-xl overflow-hidden bg-slate-900/5 group cursor-pointer shadow-2xs flex items-center justify-center" onClick={() => setPreviewImageUrl(photo.url)}>
+                      <img src={photo.url} className="w-full h-full object-contain group-hover:scale-110 transition" />
                       <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[10px] font-semibold px-1.5 py-0.5 truncate">{photo.date}</div>
                     </div>
                   ))
@@ -414,7 +413,6 @@ export default function ConsultationsPage() {
                 <div className="flex items-center gap-2">
                   <button onClick={() => setSelectedDetailConsultation(c)} className="px-3 py-1.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-200 transition">자세히</button>
                   <button onClick={() => handleEditClick(c)} className="px-3 py-1.5 bg-teal-50 text-teal-800 text-xs font-bold rounded-lg hover:bg-teal-100 transition">수정</button>
-                  {/* 🟢 기록 조회 목록에서도 바로 삭제 가능하도록 빨간색 삭제 버튼 추가 */}
                   <button onClick={() => handleDeleteConsultation(c.id)} className="px-3 py-1.5 bg-red-50 text-red-600 text-xs font-bold rounded-lg hover:bg-red-100 transition">삭제</button>
                 </div>
               </div>
@@ -464,8 +462,8 @@ export default function ConsultationsPage() {
                   <span className="text-xs font-bold text-slate-500 block">첨부된 사진 ({selectedDetailConsultation.display_image_urls.length}장)</span>
                   <div className="grid grid-cols-2 gap-2">
                     {selectedDetailConsultation.display_image_urls.map((imgUrl: string, imgIdx: number) => (
-                      <div key={imgIdx} className="relative h-44 border rounded-xl overflow-hidden cursor-pointer" onClick={() => setPreviewImageUrl(imgUrl)}>
-                        <img src={imgUrl} className="w-full h-full object-cover hover:scale-105 transition" />
+                      <div key={imgIdx} className="relative h-44 border rounded-xl overflow-hidden bg-slate-900/5 flex items-center justify-center cursor-pointer" onClick={() => setPreviewImageUrl(imgUrl)}>
+                        <img src={imgUrl} className="w-full h-full object-contain hover:scale-105 transition" />
                       </div>
                     ))}
                   </div>
@@ -474,7 +472,6 @@ export default function ConsultationsPage() {
             </div>
 
             <div className="flex justify-between pt-2 border-t">
-              {/* 상세 팝업 창 안에서도 바로 삭제 가능 */}
               <button onClick={() => { handleDeleteConsultation(selectedDetailConsultation.id); setSelectedDetailConsultation(null); }} className="px-4 py-2 bg-red-50 text-red-600 font-bold rounded-xl text-sm hover:bg-red-100">
                 기록 삭제
               </button>
