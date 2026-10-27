@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/app/lib/supabase";
 
-const CONSTITUTION_OPTIONS = ["태양인", "태음인", "소양인", "소음인"];
+const CONSTITUTION_OPTIONS = ["선택 안함", "태양인", "태음인", "소양인", "소음인"];
 
 export default function PatientsPage() {
   const [patients, setPatients] = useState<any[]>([]);
@@ -19,8 +19,7 @@ export default function PatientsPage() {
   const [phone, setPhone] = useState("");
   const [gender, setGender] = useState("남");
   const [birthYear, setBirthYear] = useState("");
-  const [address, setAddress] = useState("");
-  const [bodyType, setBodyType] = useState("태음인");
+  const [bodyType, setBodyType] = useState("선택 안함");
 
   useEffect(() => {
     fetchData();
@@ -34,7 +33,6 @@ export default function PatientsPage() {
     if (cData) setConsultations(cData);
   };
 
-  // 환자별 누적 상담 횟수, 누적 구매 금액, 최종 상담일 계산
   const getPatientStats = (patientId: string) => {
     const pConsults = consultations.filter(c => c.patient_id === patientId);
     const count = pConsults.length;
@@ -45,7 +43,7 @@ export default function PatientsPage() {
 
   const handleOpenRegister = () => {
     setEditingPatientId(null);
-    setName(""); setCustomId(""); setPhone(""); setGender("남"); setBirthYear(""); setAddress(""); setBodyType("태음인");
+    setName(""); setCustomId(""); setPhone(""); setGender("남"); setBirthYear(""); setBodyType("선택 안함");
     setIsModalOpen(true);
   };
 
@@ -56,8 +54,7 @@ export default function PatientsPage() {
     setPhone(p.phone || "");
     setGender(p.gender || "남");
     setBirthYear(p.birth_year ? p.birth_year.toString() : "");
-    setAddress(p.address || "");
-    setBodyType(p.body_type || "태음인");
+    setBodyType(p.body_type || "선택 안함");
     setIsModalOpen(true);
   };
 
@@ -74,8 +71,7 @@ export default function PatientsPage() {
       phone,
       gender,
       birth_year: birthYear ? parseInt(birthYear) : null,
-      address,
-      body_type: bodyType,
+      body_type: bodyType === "선택 안함" ? null : bodyType,
       user_id: user.id
     };
 
@@ -170,12 +166,12 @@ export default function PatientsPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">환자명 *</label>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">환자명</label>
                   <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl text-sm font-semibold" required />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">아이디</label>
-                  <input type="text" value={customId} onChange={(e) => setCustomId(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl text-sm font-semibold" placeholder="예: id001" />
+                  <input type="text" value={customId} onChange={(e) => setCustomId(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl text-sm font-semibold" />
                 </div>
               </div>
 
@@ -189,7 +185,7 @@ export default function PatientsPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">출생년도</label>
-                  <input type="number" value={birthYear} onChange={(e) => setBirthYear(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl text-sm font-semibold" placeholder="1990" />
+                  <input type="number" value={birthYear} onChange={(e) => setBirthYear(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl text-sm font-semibold" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">체질</label>
@@ -202,11 +198,6 @@ export default function PatientsPage() {
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">연락처</label>
                 <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl text-sm font-semibold" placeholder="010-0000-0000" />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">주소 (선택)</label>
-                <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl text-sm font-semibold" placeholder="상세 주소 입력..." />
               </div>
 
               <div className="flex gap-2 pt-3">
