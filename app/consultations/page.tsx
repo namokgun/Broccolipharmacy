@@ -31,7 +31,7 @@ export default function ConsultationsPage() {
   const [symptomDetail, setSymptomDetail] = useState(""); // 증상 상세
   const [prescription, setPrescription] = useState(""); // 처방
   const [consultMemo, setConsultMemo] = useState(""); // 코멘트
-  const [followUp, setFollowUp] = useState(""); // 추후관리 (종합판단 대체)
+  const [followUp, setFollowUp] = useState(""); // 추후관리
   const [feedbackDays, setFeedbackDays] = useState(""); // 피드백일정
   const [amount, setAmount] = useState(""); // 금액
 
@@ -40,10 +40,28 @@ export default function ConsultationsPage() {
   const [existingImagePreviews, setExistingImagePreviews] = useState<{ path: string; url: string }[]>([]);
   const [uploading, setUploading] = useState(false);
 
-  const patientHistory = selectedPatient ? consultations.filter(c => c.patient_id === selectedPatient && c.id !== editingId) : [];
-  const patientPastPhotos = patientHistory.flatMap(c => 
-    (c.display_image_urls || []).map((url: string) => ({ url, date: c.consultation_date || c.created_at.split('T')[0], symptoms: c.symptoms }))
-  );
+  // 🟢 환자 이름 포맷 함수 (아이디가 없으면 괄호 아예 생략)
+  const formatPatientDisplayName = (p: any) => {
+    if (!p) return "";
+    return p.custom_id ? `${p.name} (${p.custom_id})` : p.name;
+  };
+
+  // 🟢 해시 변경 감지 (상담조회 탭 이동 버그 해결)
+  useEffect(() => {
+    const handleHashCheck = () => {
+      if (window.location.hash === "#history") {
+        setActiveTab("history");
+      } else {
+        setActiveTab("write");
+      }
+    };
+
+    handleHashCheck();
+    window.addEventListener("hashchange", handleHashCheck);
+    return () => {
+      window.removeEventListener("hashchange", handleHashCheck);
+    };
+  }, []);
 
   useEffect(() => {
     setConsultationDate(new Date().toISOString().split('T')[0]);
@@ -56,7 +74,7 @@ export default function ConsultationsPage() {
 
     const { data: cData } = await supabase
       .from("consultations")
-      .select("*, patients(name, gender, birth_year, phone)")
+      .select("*, patients(name, custom_id, gender, birth_year, phone)")
       .order("created_at", { ascending: false });
     
     if (cData) {
@@ -76,6 +94,22 @@ export default function ConsultationsPage() {
         })
       );
       setConsultations(consultationsWithSignedUrls);
+    }
+  };
+
+  // 🟢 사진 붙여넣기(Ctrl+V) 기능 다시 추가
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const files: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf("image") !== -1) {
+        const file = items[i].getAsFile();
+        if (file) files.push(file);
+      }
+    }
+    if (files.length > 0) {
+      setImageFiles(prev => [...prev, ...files]);
     }
   };
 
@@ -120,11 +154,11 @@ export default function ConsultationsPage() {
       if (editingId) {
         const { error } = await supabase.from("consultations").update(payload).eq("id", editingId);
         if (error) alert("수정 실패: " + error.message);
-        else { alert("수정되었습니다."); resetForm(); setActiveTab("history"); fetchData(); }
+        else { alert("수정되었습니다."); resetForm(); window.location.hash = "history"; setActiveTab("history"); fetchData(); }
       } else {
         const { error } = await supabase.from("consultations").insert([payload]);
         if (error) alert("등록 실패: " + error.message);
-        else { alert("등록되었습니다."); resetForm(); setActiveTab("history"); fetchData(); }
+        else { alert("등록되었습니다."); resetForm(); window.location.hash = "history"; setActiveTab("history"); fetchData(); }
       }
     } finally {
       setUploading(false);
@@ -142,7 +176,7 @@ export default function ConsultationsPage() {
   const handleEditClick = async (c: any) => {
     setEditingId(c.id);
     setSelectedPatient(c.patient_id || "");
-    setSelectedPatientNameDisplay(c.patients?.name ? `${c.patients.name} (${c.patients.phone || "번호없음"})` : "");
+    setSelectedPatientNameDisplay(formatPatientDisplayName(c.patients));
     setConsultationDate(c.consultation_date || c.created_at.split('T')[0]);
     setSymptoms(c.symptoms || ""); setDigestionStool(c.digestion_stool || ""); setSleepState(c.sleep_state || "");
     setSymptomDetail(c.symptom_detail || ""); setPrescription(c.prescription || ""); setConsultMemo(c.consult_memo || "");
@@ -160,18 +194,24 @@ export default function ConsultationsPage() {
     );
     setExistingImagePreviews(previews);
     setImageFiles([]);
+    window.location.hash = "";
     setActiveTab("write");
   };
 
-  const filteredPatients = patients.filter(p => p.name?.includes(patientSearchQuery) || p.phone?.includes(patientSearchQuery));
+  const patientHistory = selectedPatient ? consultations.filter(c => c.patient_id === selectedPatient && c.id !== editingId) : [];
+  const patientPastPhotos = patientHistory.flatMap(c => 
+    (c.display_image_urls || []).map((url: string) => ({ url, date: c.consultation_date || c.created_at.split('T')[0], symptoms: c.symptoms }))
+  );
+
+  const filteredPatients = patients.filter(p => p.name?.includes(patientSearchQuery) || p.custom_id?.includes(patientSearchQuery) || p.phone?.includes(patientSearchQuery));
   const filteredConsultations = consultations.filter(c => c.patients?.name?.includes(searchTerm) || c.symptoms?.includes(searchTerm) || c.prescription?.includes(searchTerm));
 
   return (
-    <div className="w-full h-[calc(100vh-80px)] flex flex-col space-y-4">
+    <div className="w-full h-[calc(100vh-80px)] flex flex-col space-y-4" onPaste={handlePaste}>
       {/* 상단 탭 헤더 */}
       <div className="flex gap-2 border-b pb-2 flex-shrink-0">
-        <button onClick={() => { resetForm(); setActiveTab("write"); }} className={`px-4 py-2 rounded-lg font-bold text-sm transition ${activeTab === "write" ? "bg-teal-900 text-white" : "bg-white text-slate-600 border"}`}>📝 상담작성</button>
-        <button onClick={() => setActiveTab("history")} className={`px-4 py-2 rounded-lg font-bold text-sm transition ${activeTab === "history" ? "bg-teal-900 text-white" : "bg-white text-slate-600 border"}`}>📂 기록 조회 ({consultations.length})</button>
+        <button onClick={() => { resetForm(); window.location.hash = ""; setActiveTab("write"); }} className={`px-4 py-2 rounded-lg font-bold text-sm transition ${activeTab === "write" ? "bg-teal-900 text-white" : "bg-white text-slate-600 border"}`}>📝 상담작성</button>
+        <button onClick={() => { window.location.hash = "history"; setActiveTab("history"); }} className={`px-4 py-2 rounded-lg font-bold text-sm transition ${activeTab === "history" ? "bg-teal-900 text-white" : "bg-white text-slate-600 border"}`}>📂 기록 조회 ({consultations.length})</button>
       </div>
 
       {activeTab === "write" && (
@@ -189,11 +229,11 @@ export default function ConsultationsPage() {
                 </div>
                 {isPatientDropdownOpen && (
                   <div className="absolute top-full left-0 w-[60%] mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto p-2 z-30">
-                    <input type="text" placeholder="이름 검색..." value={patientSearchQuery} onChange={(e) => setPatientSearchQuery(e.target.value)} className="w-full p-2 mb-1 bg-slate-50 border rounded text-sm font-bold text-slate-900 focus:outline-none" autoFocus />
+                    <input type="text" placeholder="이름 또는 아이디 검색..." value={patientSearchQuery} onChange={(e) => setPatientSearchQuery(e.target.value)} className="w-full p-2 mb-1 bg-slate-50 border rounded text-sm font-bold text-slate-900 focus:outline-none" autoFocus />
                     {filteredPatients.map(p => (
-                      <div key={p.id} onClick={() => { setSelectedPatient(p.id); setSelectedPatientNameDisplay(`${p.name} (${p.phone || ""})`); setIsPatientDropdownOpen(false); }} className="p-2.5 hover:bg-teal-50 rounded cursor-pointer text-sm font-bold text-slate-900 flex justify-between items-center">
-                        <span>{p.name}</span>
-                        <span className="text-xs font-normal text-slate-600">({p.gender}/{p.birth_year}) {p.phone}</span>
+                      <div key={p.id} onClick={() => { setSelectedPatient(p.id); setSelectedPatientNameDisplay(formatPatientDisplayName(p)); setIsPatientDropdownOpen(false); }} className="p-2.5 hover:bg-teal-50 rounded cursor-pointer text-sm font-bold text-slate-900 flex justify-between items-center">
+                        <span>{formatPatientDisplayName(p)}</span>
+                        <span className="text-xs font-normal text-slate-600">({p.gender}/{p.birth_year || "-"})</span>
                       </div>
                     ))}
                   </div>
@@ -265,7 +305,7 @@ export default function ConsultationsPage() {
               </div>
             </div>
 
-            {/* 5. 피드백일정, 금액 & 저장 버튼 (숫자 전용 입력) */}
+            {/* 5. 피드백일정, 금액 & 저장 버튼 */}
             <div className="flex items-center gap-3 pt-1">
               <div className="flex items-center gap-2">
                 <label className="text-xs font-bold text-slate-700">피드백일정(일)</label>
@@ -275,7 +315,7 @@ export default function ConsultationsPage() {
                 <label className="text-xs font-bold text-slate-700">금액</label>
                 <input type="text" inputMode="numeric" pattern="[0-9]*" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ''))} className="w-28 p-2 bg-slate-50 border rounded-lg text-sm font-bold text-slate-900" placeholder="숫자만" />
               </div>
-              <div className="flex-1"></div>
+              <div className="flex-1 text-right text-xs text-slate-400">※ [Ctrl+V]로 사진 붙여넣기 가능</div>
               <button type="submit" disabled={uploading} className="px-6 py-2.5 bg-teal-900 hover:bg-teal-800 text-white font-bold rounded-lg transition disabled:opacity-50 shadow-sm">
                 {uploading ? "저장 중..." : (editingId ? "수정 저장" : "상담 등록")}
               </button>
@@ -293,7 +333,7 @@ export default function ConsultationsPage() {
                 </label>
               </div>
               <div className="flex-1 border-2 border-dashed border-slate-300 bg-slate-50 rounded-lg p-2 overflow-y-auto flex flex-wrap gap-2 content-start">
-                {(existingImagePreviews.length === 0 && imageFiles.length === 0) && <div className="w-full h-full flex items-center justify-center text-xs font-bold text-slate-500">버튼을 눌러 사진 파일을 선택해주세요.</div>}
+                {(existingImagePreviews.length === 0 && imageFiles.length === 0) && <div className="w-full h-full flex items-center justify-center text-xs font-bold text-slate-500 text-center">버튼을 눌러 사진을 선택하거나<br/>화면에 [Ctrl+V]를 누르세요.</div>}
                 {existingImagePreviews.map((item, idx) => (
                   <div key={`ex-${idx}`} className="relative w-20 h-20 border rounded-lg overflow-hidden group">
                     <img src={item.url} onClick={() => setPreviewImageUrl(item.url)} className="w-full h-full object-cover cursor-pointer" />
@@ -338,7 +378,7 @@ export default function ConsultationsPage() {
               <div key={c.id} className="p-4 bg-white border rounded-xl shadow-xs hover:shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="space-y-1 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-900">{c.patients?.name || "알 수 없음"}</span>
+                    <span className="font-bold text-slate-900">{formatPatientDisplayName(c.patients)}</span>
                     <span className="text-xs text-slate-600 font-semibold">({c.consultation_date || c.created_at.split('T')[0]})</span>
                   </div>
                   <p className="text-sm font-bold text-slate-800"><span className="text-slate-400 font-normal">주호소:</span> {c.symptoms}</p>
@@ -354,7 +394,7 @@ export default function ConsultationsPage() {
         </div>
       )}
 
-      {/* 🟢 최근방문내역 클릭 시 뜨는 상세 보기 전용 팝업 */}
+      {/* 최근방문내역 상세 보기 팝업 */}
       {historyDetailModal && (
         <div onClick={() => setHistoryDetailModal(null)} className="fixed inset-0 z-[110] bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-4 cursor-default" onClick={(e) => e.stopPropagation()}>
