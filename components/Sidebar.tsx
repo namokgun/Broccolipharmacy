@@ -95,14 +95,26 @@ export default function Sidebar() {
 
           <div>
             <p className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">일정 관리</p>
-            <Link 
-              href="/schedules" 
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium ${
-                pathname === "/schedules" ? "bg-teal-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"
-              }`}
-            >
-              <span>📅</span> 일정 캘린더
-            </Link>
+            <div className="space-y-1">
+              <Link 
+                href="/schedules" 
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium ${
+                  pathname === "/schedules" ? "bg-teal-900 text-white shadow-sm" : "text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                <span>📅</span> 일반 일정 캘린더
+              </Link>
+              
+              {/* 🟢 PC용 피드백 캘린더 메뉴 추가 */}
+              <Link 
+                href="/feedbacks" 
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition font-medium ${
+                  pathname === "/feedbacks" ? "bg-purple-900 text-white shadow-sm" : "text-slate-600 hover:bg-purple-50"
+                }`}
+              >
+                <span>📌</span> 피드백 모니터링
+              </Link>
+            </div>
           </div>
 
           <div>
@@ -137,56 +149,68 @@ export default function Sidebar() {
       </div>
 
       {/* 📱 모바일 전용 하단 고정 탭 바 */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 z-50 flex justify-around items-center px-2 shadow-lg">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 z-50 flex justify-around items-center px-1 shadow-lg">
+        {/* 모바일 탭 수가 많아지면 텍스트가 깨질 수 있어 간격을 살짝 조정했습니다 */}
         <Link 
           href="/" 
-          className={`flex flex-col items-center flex-1 py-1 text-xs font-medium transition ${
+          className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
             pathname === "/" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
           }`}
         >
-          <span className="text-base">📊</span>
+          <span className="text-lg mb-0.5">📊</span>
           <span>대시보드</span>
         </Link>
 
         <Link 
           href="/consultations" 
           onClick={() => handleNavClick("")}
-          className={`flex flex-col items-center flex-1 py-1 text-xs font-medium transition ${
+          className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
             isWriteActive ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
           }`}
         >
-          <span className="text-base">📝</span>
+          <span className="text-lg mb-0.5">📝</span>
           <span>상담등록</span>
         </Link>
 
         <Link 
           href="/consultations#history" 
           onClick={() => handleNavClick("#history")}
-          className={`flex flex-col items-center flex-1 py-1 text-xs font-medium transition ${
+          className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
             isHistoryActive ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
           }`}
         >
-          <span className="text-base">📂</span>
+          <span className="text-lg mb-0.5">📂</span>
           <span>기록조회</span>
+        </Link>
+
+        {/* 🟢 모바일용 피드백 캘린더 메뉴 추가 */}
+        <Link 
+          href="/feedbacks" 
+          className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
+            pathname === "/feedbacks" ? "text-purple-900 font-bold" : "text-slate-500 hover:text-purple-800"
+          }`}
+        >
+          <span className="text-lg mb-0.5">📌</span>
+          <span>피드백</span>
         </Link>
 
         <Link 
           href="/schedules" 
-          className={`flex flex-col items-center flex-1 py-1 text-xs font-medium transition ${
+          className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
             pathname === "/schedules" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
           }`}
         >
-          <span className="text-base">📅</span>
+          <span className="text-lg mb-0.5">📅</span>
           <span>일정</span>
         </Link>
 
         <Link 
           href="/patients" 
-          className={`flex flex-col items-center flex-1 py-1 text-xs font-medium transition ${
+          className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
             pathname === "/patients" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
           }`}
         >
-          <span className="text-base">👥</span>
+          <span className="text-lg mb-0.5">👥</span>
           <span>환자</span>
         </Link>
       </nav>
