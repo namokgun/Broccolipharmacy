@@ -14,7 +14,7 @@ export default function ManagementDailyPage() {
   }, []);
 
   const fetchConsultations = async () => {
-    const { data } = await supabase.from("consultations").select("*, patients(name, phone)").order("consultation_date", { ascending: false });
+    const { data } = await supabase.from("consultations").select("*, patients(name, phone, custom_id)").order("consultation_date", { ascending: false });
     if (data) setConsultations(data);
   };
 
@@ -22,32 +22,33 @@ export default function ManagementDailyPage() {
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
-  const firstDayOfMonth = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-
   const handlePrev = () => setCurrentDate(new Date(year, month - 1, 1));
   const handleNext = () => setCurrentDate(new Date(year, month + 1, 1));
   const handleToday = () => setCurrentDate(new Date());
+  const firstDayOfMonth = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+  const formatName = (p: any) => p?.custom_id ? `${p.name} (${p.custom_id})` : p?.name;
 
   return (
-    <div className="w-full space-y-6 flex flex-col">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="w-full h-[calc(100vh-80px)] flex flex-col space-y-4 overflow-hidden">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 flex-shrink-0">
         <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900">
           📈 일별 경영 관리 ({year}년 {month + 1}월)
         </h1>
-        <div className="flex items-center bg-white border border-slate-200 rounded-xl p-1 shadow-sm">
+        <div className="flex items-center bg-white border border-slate-200 rounded-xl p-1 shadow-2xs">
           <button onClick={handlePrev} className="px-3 py-1 hover:bg-slate-100 rounded-lg text-xs font-bold text-slate-600 transition">&lt;</button>
           <button onClick={handleToday} className="px-3 py-1 hover:bg-slate-100 rounded-lg text-xs font-bold text-slate-800 transition">오늘</button>
           <button onClick={handleNext} className="px-3 py-1 hover:bg-slate-100 rounded-lg text-xs font-bold text-slate-600 transition">&gt;</button>
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-4 md:p-6">
-        <div className="grid grid-cols-7 text-center text-xs font-bold text-slate-400 mb-3 pb-3 border-b border-slate-100">
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 flex flex-col flex-1 overflow-hidden p-4 md:p-6">
+        <div className="grid grid-cols-7 text-center text-xs font-bold text-slate-400 mb-2 pb-2 border-b border-slate-100 flex-shrink-0">
           <span className="text-red-500">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span className="text-blue-500">토</span>
         </div>
-        <div className="grid grid-cols-7 text-center gap-2">
-          {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`empty-${i}`} className="min-h-[110px] bg-slate-50/20 rounded-2xl" />)}
+        <div className="grid grid-cols-7 text-center gap-1.5 flex-1 min-h-0 overflow-y-auto">
+          {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`empty-${i}`} className="bg-slate-50/20 rounded-2xl" />)}
           
           {Array.from({ length: daysInMonth }).map((_, i) => {
             const d = i + 1;
@@ -60,12 +61,12 @@ export default function ManagementDailyPage() {
               <div 
                 key={`day-${d}`} 
                 onClick={() => dayItems.length > 0 && setSelectedDayConsults({ dateStr, items: dayItems })}
-                className={`min-h-[110px] rounded-2xl p-2.5 border flex flex-col justify-between transition ${dayItems.length > 0 ? "cursor-pointer hover:border-teal-400 hover:shadow-sm bg-teal-50/20" : "bg-white"} ${isToday ? "border-teal-500 bg-teal-50/40" : "border-slate-100"}`}
+                className={`rounded-2xl p-2 border flex flex-col justify-between transition ${dayItems.length > 0 ? "cursor-pointer hover:border-teal-400 bg-teal-50/20" : "bg-white"} ${isToday ? "border-teal-500 bg-teal-50/40" : "border-slate-100"}`}
               >
                 <div className="flex justify-between items-center w-full">
-                  <span className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${isToday ? "bg-teal-900 text-white" : "text-slate-700"}`}>{d}</span>
+                  <span className={`text-[10px] md:text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full ${isToday ? "bg-teal-900 text-white" : "text-slate-700"}`}>{d}</span>
                   {dayItems.length > 0 && (
-                    <span className="text-[10px] bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded-md font-bold">상담 {dayItems.length}건</span>
+                    <span className="text-[10px] bg-teal-100 text-teal-800 px-1.5 py-0.5 rounded-md font-bold">상담 {dayItems.length}</span>
                   )}
                 </div>
 
@@ -84,20 +85,19 @@ export default function ManagementDailyPage() {
         </div>
       </div>
 
-      {/* 날짜별 상세 상담 및 매출 내역 팝업 */}
+      {/* 팝업 모달 */}
       {selectedDayConsults && (
         <div onClick={() => setSelectedDayConsults(null)} className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center border-b pb-3">
               <h3 className="text-lg font-bold text-slate-900">📅 {selectedDayConsults.dateStr} 경영 상세 내역</h3>
-              <button onClick={() => setSelectedDayConsults(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
+              <button onClick={() => setSelectedDayConsults(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600">✕</button>
             </div>
-            
             <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
               {selectedDayConsults.items.map((item, idx) => (
                 <div key={idx} className="p-3.5 bg-slate-50 border rounded-2xl flex justify-between items-center">
                   <div>
-                    <span className="font-bold text-slate-900 text-base">{item.patients?.name || "환자"}</span>
+                    <span className="font-bold text-slate-900 text-base">{formatName(item.patients)}</span>
                     <p className="text-xs text-slate-600 mt-0.5"><span className="font-semibold text-teal-800">처방:</span> {item.prescription || "미기재"}</p>
                   </div>
                   <div className="text-right">
@@ -106,7 +106,6 @@ export default function ManagementDailyPage() {
                 </div>
               ))}
             </div>
-
             <div className="flex justify-between items-center pt-3 border-t">
               <span className="text-xs font-bold text-slate-500">총 합계 매출</span>
               <span className="text-lg font-extrabold text-teal-900">
