@@ -268,7 +268,7 @@ export default function ConsultationsPage() {
                   <table className="w-full text-left">
                     <thead className="bg-slate-100 sticky top-0 text-slate-900 font-bold">
                       <tr>
-                        <th className="p-1.5 text-slate-900 font-bold">내방일</th>
+                        <th className="p-1.5"></th>
                         <th className="p-1.5 text-slate-900 font-bold">주호소</th>
                         <th className="p-1.5 text-slate-900 font-bold">처방</th>
                       </tr>
@@ -322,7 +322,7 @@ export default function ConsultationsPage() {
             </div>
           </div>
 
-          {/* 🟢 오른쪽: 사진 뷰어 영역 (1열로 배치하고 높이를 대폭 확대하여 틀에 꽉 맞게 꽉 채움) */}
+          {/* 🟢 오른쪽: 사진 뷰어 영역 (1열 배치, 대형 크기) */}
           <div className="flex-1 flex flex-col gap-3 min-w-[280px]">
             <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-xl p-3 overflow-hidden">
               <div className="flex justify-between items-center mb-2">
@@ -333,7 +333,6 @@ export default function ConsultationsPage() {
                 </label>
               </div>
               
-              {/* 썸네일 컨테이너: 1열(grid-cols-1) 배치 및 대형 높이(h-80)로 틀에 꽉 차게 설정 */}
               <div className="flex-1 border-2 border-dashed border-slate-300 bg-slate-50 rounded-lg p-3 overflow-y-auto grid grid-cols-1 gap-4 content-start">
                 {(existingImagePreviews.length === 0 && imageFiles.length === 0) && (
                   <div className="w-full h-48 flex items-center justify-center text-xs font-bold text-slate-500 text-center">
@@ -400,7 +399,7 @@ export default function ConsultationsPage() {
         </div>
       )}
 
-      {/* 🟢 기록 조회 탭에서 [자세히] 클릭 시 뜨는 상세 보기 팝업 */}
+      {/* 기록 조회 탭 [자세히] 상세 보기 팝업 */}
       {selectedDetailConsultation && (
         <div onClick={() => setSelectedDetailConsultation(null)} className="fixed inset-0 z-[110] bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={(e) => e.stopPropagation()}>
