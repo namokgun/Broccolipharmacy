@@ -40,7 +40,7 @@ export default function ConsultationsPage() {
   const [existingImagePreviews, setExistingImagePreviews] = useState<{ path: string; url: string }[]>([]);
   const [uploading, setUploading] = useState(false);
 
-  // 🟢 환자 이름 포맷 함수 (아이디가 없으면 괄호 아예 생략)
+  // 🟢 환자 이름 포맷 함수
   const formatPatientDisplayName = (p: any) => {
     if (!p) return "";
     return p.custom_id ? `${p.name} (${p.custom_id})` : p.name;
@@ -162,6 +162,20 @@ export default function ConsultationsPage() {
       }
     } finally {
       setUploading(false);
+    }
+  };
+
+  // 🟢 상담 삭제 핸들러 (확인창 포함)
+  const handleDeleteConsultation = async (id: string) => {
+    if (!window.confirm("정말로 이 상담 기록을 삭제하시겠습니까?")) return;
+
+    const { error } = await supabase.from("consultations").delete().eq("id", id);
+    if (error) {
+      alert("삭제 실패: " + error.message);
+    } else {
+      alert("삭제되었습니다.");
+      resetForm();
+      fetchData();
     }
   };
 
@@ -305,7 +319,7 @@ export default function ConsultationsPage() {
               </div>
             </div>
 
-            {/* 5. 피드백일정, 금액 & 저장 버튼 */}
+            {/* 5. 피드백일정, 금액 & 저장 및 삭제 버튼 */}
             <div className="flex items-center gap-3 pt-1">
               <div className="flex items-center gap-2">
                 <label className="text-xs font-bold text-slate-700">피드백일정(일)</label>
@@ -316,13 +330,21 @@ export default function ConsultationsPage() {
                 <input type="text" inputMode="numeric" pattern="[0-9]*" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ''))} className="w-28 p-2 bg-slate-50 border rounded-lg text-sm font-bold text-slate-900" placeholder="숫자만" />
               </div>
               <div className="flex-1 text-right text-xs text-slate-400">※ [Ctrl+V]로 사진 붙여넣기 가능</div>
+              
+              {/* 수정 모드일 때만 나타나는 빨간색 삭제 버튼 */}
+              {editingId && (
+                <button type="button" onClick={() => handleDeleteConsultation(editingId)} className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-lg transition text-sm">
+                  삭제
+                </button>
+              )}
+
               <button type="submit" disabled={uploading} className="px-6 py-2.5 bg-teal-900 hover:bg-teal-800 text-white font-bold rounded-lg transition disabled:opacity-50 shadow-sm">
                 {uploading ? "저장 중..." : (editingId ? "수정 저장" : "상담 등록")}
               </button>
             </div>
           </div>
 
-          {/* 🟢 오른쪽: 사진 뷰어 영역 (2열 그리드, 중간값 사이즈 h-56 적용) */}
+          {/* 🟢 오른쪽: 사진 뷰어 영역 (중간값 크기 h-56) */}
           <div className="flex-1 flex flex-col gap-3 min-w-[280px]">
             <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-xl p-3 overflow-hidden">
               <div className="flex justify-between items-center mb-2">
@@ -392,6 +414,8 @@ export default function ConsultationsPage() {
                 <div className="flex items-center gap-2">
                   <button onClick={() => setSelectedDetailConsultation(c)} className="px-3 py-1.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-200 transition">자세히</button>
                   <button onClick={() => handleEditClick(c)} className="px-3 py-1.5 bg-teal-50 text-teal-800 text-xs font-bold rounded-lg hover:bg-teal-100 transition">수정</button>
+                  {/* 🟢 기록 조회 목록에서도 바로 삭제 가능하도록 빨간색 삭제 버튼 추가 */}
+                  <button onClick={() => handleDeleteConsultation(c.id)} className="px-3 py-1.5 bg-red-50 text-red-600 text-xs font-bold rounded-lg hover:bg-red-100 transition">삭제</button>
                 </div>
               </div>
             ))}
@@ -449,7 +473,11 @@ export default function ConsultationsPage() {
               )}
             </div>
 
-            <div className="flex justify-end pt-2 border-t">
+            <div className="flex justify-between pt-2 border-t">
+              {/* 상세 팝업 창 안에서도 바로 삭제 가능 */}
+              <button onClick={() => { handleDeleteConsultation(selectedDetailConsultation.id); setSelectedDetailConsultation(null); }} className="px-4 py-2 bg-red-50 text-red-600 font-bold rounded-xl text-sm hover:bg-red-100">
+                기록 삭제
+              </button>
               <button onClick={() => setSelectedDetailConsultation(null)} className="px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800">확인 완료</button>
             </div>
           </div>
