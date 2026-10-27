@@ -334,7 +334,7 @@ export default function ConsultationsPage() {
             </div>
           </div>
 
-          {/* 🟢 오른쪽: 사진 뷰어 영역 (모바일에서는 세로로 나열) */}
+          {/* 🟢 오른쪽: 사진 뷰어 영역 (과거 사진 스크롤 기능 적용) */}
           <div className="flex-1 flex flex-col gap-4 min-w-[280px]">
             <div className="flex flex-col bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
               <div className="flex justify-between items-center mb-3">
@@ -368,13 +368,14 @@ export default function ConsultationsPage() {
               </div>
             </div>
 
+            {/* 🟢 과거 사진 데이터 모아보기 (스크롤 영역 추가: max-h-[320px] 및 overflow-y-auto) */}
             <div className="flex flex-col bg-slate-100 border border-slate-200 rounded-2xl p-4 shadow-sm">
-              <label className="text-xs font-bold text-slate-800 mb-3">🎞️ 과거 사진 데이터 모아보기</label>
-              <div className="flex flex-col justify-center items-center">
+              <label className="text-xs font-bold text-slate-800 mb-3 flex-shrink-0">🎞️ 과거 사진 데이터 모아보기</label>
+              <div className="max-h-[320px] overflow-y-auto pr-1">
                 {patientPastPhotos.length === 0 ? (
                   <div className="w-full text-center text-xs text-slate-500 font-semibold py-6">선택된 환자의 과거 사진이 없습니다.</div>
                 ) : (
-                  <div className={`w-full ${patientPastPhotos.length > 1 ? "grid grid-cols-2 gap-3" : "flex justify-center"}`}>
+                  <div className="grid grid-cols-2 gap-3">
                     {patientPastPhotos.map((photo, idx) => (
                       <div key={idx} className="relative w-full aspect-square flex items-center justify-center group bg-white rounded-xl shadow-2xs border border-slate-300 p-1 cursor-pointer" onClick={() => setPreviewImageUrl(photo.url)}>
                         <img src={photo.url} className="max-w-full max-h-full object-contain group-hover:scale-105 transition rounded-lg" />
