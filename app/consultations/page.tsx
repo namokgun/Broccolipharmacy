@@ -46,7 +46,7 @@ export default function ConsultationsPage() {
     return p.custom_id ? `${p.name} (${p.custom_id})` : p.name;
   };
 
-  // 🟢 해시 변경 감지 (상담조회 탭 이동 버그 해결)
+  // 🟢 해시 변경 감지 (상담조회 탭 이동)
   useEffect(() => {
     const handleHashCheck = () => {
       if (window.location.hash === "#history") {
@@ -322,7 +322,7 @@ export default function ConsultationsPage() {
             </div>
           </div>
 
-          {/* 🟢 오른쪽: 사진 뷰어 영역 (썸네일 크기 대폭 확대 및 꽉 차게 수정) */}
+          {/* 🟢 오른쪽: 사진 뷰어 영역 (썸네일 크기 대폭 확대하여 틀에 꽉 맞게 수정) */}
           <div className="flex-1 flex flex-col gap-3 min-w-[280px]">
             <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-xl p-3 overflow-hidden">
               <div className="flex justify-between items-center mb-2">
@@ -333,23 +333,23 @@ export default function ConsultationsPage() {
                 </label>
               </div>
               
-              {/* 썸네일 컨테이너: 크기를 큼직하게(w-28 h-28 또는 grid 형태) 변경하여 꽉 차게 노출 */}
-              <div className="flex-1 border-2 border-dashed border-slate-300 bg-slate-50 rounded-lg p-3 overflow-y-auto flex flex-wrap gap-3 content-start">
+              {/* 썸네일 컨테이너: 꽉 차는 큰 카드 형태 (grid-cols-2, w-full h-36) */}
+              <div className="flex-1 border-2 border-dashed border-slate-300 bg-slate-50 rounded-lg p-3 overflow-y-auto grid grid-cols-2 gap-3 content-start">
                 {(existingImagePreviews.length === 0 && imageFiles.length === 0) && (
-                  <div className="w-full h-full flex items-center justify-center text-xs font-bold text-slate-500 text-center">
+                  <div className="col-span-2 h-40 flex items-center justify-center text-xs font-bold text-slate-500 text-center">
                     버튼을 눌러 사진을 선택하거나<br/>화면에 [Ctrl+V]를 누르세요.
                   </div>
                 )}
                 {existingImagePreviews.map((item, idx) => (
-                  <div key={`ex-${idx}`} className="relative w-28 h-28 border-2 border-slate-200 rounded-xl overflow-hidden group shadow-xs bg-white">
+                  <div key={`ex-${idx}`} className="relative w-full h-36 border-2 border-slate-200 rounded-xl overflow-hidden group shadow-xs bg-white">
                     <img src={item.url} onClick={() => setPreviewImageUrl(item.url)} className="w-full h-full object-cover cursor-pointer group-hover:scale-105 transition" />
-                    <button type="button" onClick={() => { setExistingImageUrls(prev => prev.filter((_, i) => i !== idx)); setExistingImagePreviews(prev => prev.filter((_, i) => i !== idx)); }} className="absolute top-1 right-1 bg-red-600 text-white w-6 h-6 rounded-full text-xs hidden group-hover:flex items-center justify-center font-bold shadow-md">✕</button>
+                    <button type="button" onClick={() => { setExistingImageUrls(prev => prev.filter((_, i) => i !== idx)); setExistingImagePreviews(prev => prev.filter((_, i) => i !== idx)); }} className="absolute top-2 right-2 bg-red-600 text-white w-7 h-7 rounded-full text-xs hidden group-hover:flex items-center justify-center font-bold shadow-md">✕</button>
                   </div>
                 ))}
                 {imageFiles.map((file, idx) => (
-                  <div key={`nw-${idx}`} className="relative w-28 h-28 border-2 border-teal-300 rounded-xl overflow-hidden group shadow-xs bg-white">
+                  <div key={`nw-${idx}`} className="relative w-full h-36 border-2 border-teal-400 rounded-xl overflow-hidden group shadow-xs bg-white">
                     <img src={URL.createObjectURL(file)} onClick={() => setPreviewImageUrl(URL.createObjectURL(file))} className="w-full h-full object-cover cursor-pointer group-hover:scale-105 transition" />
-                    <button type="button" onClick={() => setImageFiles(prev => prev.filter((_, i) => i !== idx))} className="absolute top-1 right-1 bg-red-600 text-white w-6 h-6 rounded-full text-xs hidden group-hover:flex items-center justify-center font-bold shadow-md">✕</button>
+                    <button type="button" onClick={() => setImageFiles(prev => prev.filter((_, i) => i !== idx))} className="absolute top-2 right-2 bg-red-600 text-white w-7 h-7 rounded-full text-xs hidden group-hover:flex items-center justify-center font-bold shadow-md">✕</button>
                   </div>
                 ))}
               </div>
@@ -357,12 +357,12 @@ export default function ConsultationsPage() {
 
             <div className="flex-1 flex flex-col bg-slate-100 border border-slate-200 rounded-xl p-3 overflow-hidden">
               <label className="text-xs font-bold text-slate-800 mb-2">🎞️ 과거 사진 데이터 모아보기</label>
-              <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 gap-2.5 content-start pr-1">
-                {patientPastPhotos.length === 0 ? <div className="col-span-full text-center text-xs text-slate-500 py-8 font-semibold">선택된 환자의 과거 사진이 없습니다.</div> : 
+              <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-3 content-start pr-1">
+                {patientPastPhotos.length === 0 ? <div className="col-span-2 text-center text-xs text-slate-500 py-8 font-semibold">선택된 환자의 과거 사진이 없습니다.</div> : 
                   patientPastPhotos.map((photo, idx) => (
-                    <div key={idx} className="relative aspect-square border border-slate-300 rounded-xl overflow-hidden bg-white group cursor-pointer shadow-2xs" onClick={() => setPreviewImageUrl(photo.url)}>
+                    <div key={idx} className="relative w-full h-32 border border-slate-300 rounded-xl overflow-hidden bg-white group cursor-pointer shadow-2xs" onClick={() => setPreviewImageUrl(photo.url)}>
                       <img src={photo.url} className="w-full h-full object-cover group-hover:scale-110 transition" />
-                      <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[10px] font-semibold px-1.5 py-0.5 truncate">{photo.date}</div>
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[10px] font-semibold px-2 py-1 truncate">{photo.date}</div>
                     </div>
                   ))
                 }
@@ -391,11 +391,70 @@ export default function ConsultationsPage() {
                   <p className="text-sm font-bold text-teal-900"><span className="text-slate-400 font-normal">처방:</span> {c.prescription}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <button onClick={() => setSelectedDetailConsultation(c)} className="px-3 py-1.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg">자세히</button>
-                  <button onClick={() => handleEditClick(c)} className="px-3 py-1.5 bg-teal-50 text-teal-800 text-xs font-bold rounded-lg">수정</button>
+                  {/* 🟢 자세히 버튼 클릭 시 selectedDetailConsultation 세팅하여 팝업 오픈 */}
+                  <button onClick={() => setSelectedDetailConsultation(c)} className="px-3 py-1.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-200 transition">자세히</button>
+                  <button onClick={() => handleEditClick(c)} className="px-3 py-1.5 bg-teal-50 text-teal-800 text-xs font-bold rounded-lg hover:bg-teal-100 transition">수정</button>
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* 🟢 기록 조회 탭에서 [자세히] 클릭 시 뜨는 상세 보기 팝업 */}
+      {selectedDetailConsultation && (
+        <div onClick={() => setSelectedDetailConsultation(null)} className="fixed inset-0 z-[110] bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
+          <div className="bg-white w-full max-w-xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b pb-3">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">📄 상담 상세 내역</h3>
+                <p className="text-xs text-slate-500">
+                  환자: <strong className="text-slate-800">{formatPatientDisplayName(selectedDetailConsultation.patients)}</strong> | 내방일: {selectedDetailConsultation.consultation_date || selectedDetailConsultation.created_at.split('T')[0]}
+                </p>
+              </div>
+              <button onClick={() => setSelectedDetailConsultation(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1 text-sm">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">주호소</span><span className="font-semibold text-slate-800">{selectedDetailConsultation.symptoms || "-"}</span></div>
+                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">금액</span><span className="font-semibold text-purple-800">{selectedDetailConsultation.amount ? `${selectedDetailConsultation.amount.toLocaleString()}원` : "-"}</span></div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">소화배변</span><span className="font-semibold text-slate-800">{selectedDetailConsultation.digestion_stool || "-"}</span></div>
+                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">수면상태</span><span className="font-semibold text-slate-800">{selectedDetailConsultation.sleep_state || "-"}</span></div>
+              </div>
+              {selectedDetailConsultation.symptom_detail && (
+                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">증상 상세</span><p className="text-slate-800 whitespace-pre-line">{selectedDetailConsultation.symptom_detail}</p></div>
+              )}
+              {selectedDetailConsultation.prescription && (
+                <div className="p-3 bg-teal-50/60 rounded-xl border border-teal-200"><span className="text-xs font-bold text-teal-700 block mb-0.5">처방 내용</span><p className="font-bold text-teal-950 whitespace-pre-line">{selectedDetailConsultation.prescription}</p></div>
+              )}
+              {selectedDetailConsultation.consult_memo && (
+                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">코멘트</span><p className="text-slate-800 whitespace-pre-line">{selectedDetailConsultation.consult_memo}</p></div>
+              )}
+              {selectedDetailConsultation.follow_up && (
+                <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-200"><span className="text-xs font-bold text-purple-700 block mb-0.5">추후관리</span><p className="font-bold text-purple-950 whitespace-pre-line">{selectedDetailConsultation.follow_up}</p></div>
+              )}
+
+              {/* 🟢 등록된 사진 목록 표시 */}
+              {selectedDetailConsultation.display_image_urls && selectedDetailConsultation.display_image_urls.length > 0 && (
+                <div className="p-3 bg-slate-50 rounded-xl border space-y-2">
+                  <span className="text-xs font-bold text-slate-500 block">첨부된 사진 ({selectedDetailConsultation.display_image_urls.length}장)</span>
+                  <div className="grid grid-cols-3 gap-2">
+                    {selectedDetailConsultation.display_image_urls.map((imgUrl: string, imgIdx: number) => (
+                      <div key={imgIdx} className="relative h-28 border rounded-lg overflow-hidden cursor-pointer" onClick={() => setPreviewImageUrl(imgUrl)}>
+                        <img src={imgUrl} className="w-full h-full object-cover hover:scale-105 transition" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t">
+              <button onClick={() => setSelectedDetailConsultation(null)} className="px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800">확인 완료</button>
+            </div>
           </div>
         </div>
       )}
