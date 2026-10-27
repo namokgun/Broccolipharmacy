@@ -33,6 +33,10 @@ export default function ConsultationsPage() {
   const [comprehensiveJudgment, setComprehensiveJudgment] = useState("");
   const [prescription, setPrescription] = useState(""); 
   const [consultMemo, setConsultMemo] = useState("");
+  
+  // 🟢 새로 추가된 상태(State): 피드백 일정 및 모니터링 내용
+  const [feedbackDays, setFeedbackDays] = useState("");
+  const [monitoringContent, setMonitoringContent] = useState("");
 
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
@@ -150,7 +154,10 @@ export default function ConsultationsPage() {
         expert_opinion: expertOpinion,
         comprehensive_judgment: comprehensiveJudgment,
         consult_memo: consultMemo,
-        image_urls: finalImagePaths
+        image_urls: finalImagePaths,
+        // 🟢 추가된 데이터 저장
+        feedback_days: feedbackDays ? parseInt(feedbackDays) : null,
+        monitoring_content: monitoringContent,
       };
 
       if (editingId) {
@@ -196,6 +203,9 @@ export default function ConsultationsPage() {
     setComprehensiveJudgment("");
     setPrescription("");
     setConsultMemo("");
+    // 🟢 폼 초기화 시 피드백 항목 초기화
+    setFeedbackDays("");
+    setMonitoringContent("");
     setImageFiles([]);
     setExistingImageUrls([]);
     setExistingImagePreviews([]);
@@ -218,6 +228,9 @@ export default function ConsultationsPage() {
     setComprehensiveJudgment(c.comprehensive_judgment || "");
     setPrescription(c.prescription || "");
     setConsultMemo(c.consult_memo || "");
+    // 🟢 수정 모드일 때 기존에 입력한 피드백 정보 불러오기
+    setFeedbackDays(c.feedback_days ? c.feedback_days.toString() : "");
+    setMonitoringContent(c.monitoring_content || "");
     
     const rawPaths = c.image_urls || [];
     setExistingImageUrls(rawPaths);
@@ -354,7 +367,7 @@ export default function ConsultationsPage() {
                   type="text"
                   value={symptoms} 
                   onChange={(e) => setSymptoms(e.target.value)} 
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" 
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-teal-500 focus:outline-none" 
                   placeholder="예: 두통, 소화불량, 피로감" 
                 />
               </div>
@@ -365,14 +378,14 @@ export default function ConsultationsPage() {
                     type="text"
                     value={bodyType} 
                     onChange={(e) => setBodyType(e.target.value)} 
-                    className="w-1/2 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" 
+                    className="w-1/2 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-teal-500 focus:outline-none" 
                     placeholder="체질 (예: 태음인)" 
                   />
                   <input 
                     type="text"
                     value={deficiencyType} 
                     onChange={(e) => setDeficiencyType(e.target.value)} 
-                    className="w-1/2 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" 
+                    className="w-1/2 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-teal-500 focus:outline-none" 
                     placeholder="허실 유형 (예: 기허증)" 
                   />
                 </div>
@@ -384,7 +397,7 @@ export default function ConsultationsPage() {
               <textarea 
                 value={symptomDetail} 
                 onChange={(e) => setSymptomDetail(e.target.value)} 
-                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" 
+                className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-teal-500 focus:outline-none" 
                 rows={3} 
                 placeholder="환자의 호소 내용을 구체적으로 기록하세요..." 
               />
@@ -397,7 +410,7 @@ export default function ConsultationsPage() {
                   type="text"
                   value={digestionStool} 
                   onChange={(e) => setDigestionStool(e.target.value)} 
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" 
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-teal-500 focus:outline-none" 
                   placeholder="예: 식후 더부룩함, 변비 경향" 
                 />
               </div>
@@ -407,7 +420,7 @@ export default function ConsultationsPage() {
                   type="text"
                   value={sleepState} 
                   onChange={(e) => setSleepState(e.target.value)} 
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" 
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-teal-500 focus:outline-none" 
                   placeholder="예: 입면 난조, 자주 깸" 
                 />
               </div>
@@ -419,7 +432,7 @@ export default function ConsultationsPage() {
                 <textarea 
                   value={expertOpinion} 
                   onChange={(e) => setExpertOpinion(e.target.value)} 
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" 
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-teal-500 focus:outline-none" 
                   rows={2} 
                   placeholder="전문가 관점의 소견..." 
                 />
@@ -429,7 +442,7 @@ export default function ConsultationsPage() {
                 <textarea 
                   value={comprehensiveJudgment} 
                   onChange={(e) => setComprehensiveJudgment(e.target.value)} 
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" 
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-teal-500 focus:outline-none" 
                   rows={2} 
                   placeholder="종합적인 건강 상태 진단..." 
                 />
@@ -442,7 +455,7 @@ export default function ConsultationsPage() {
                 <textarea 
                   value={prescription} 
                   onChange={(e) => setPrescription(e.target.value)} 
-                  className="w-full p-3 bg-teal-50/50 border border-teal-200 rounded-xl text-sm" 
+                  className="w-full p-3 bg-teal-50/50 border border-teal-200 rounded-xl text-sm focus:border-teal-500 focus:outline-none" 
                   rows={2} 
                   placeholder="추천 영양제 및 일반의약품..." 
                 />
@@ -453,18 +466,46 @@ export default function ConsultationsPage() {
                   <textarea 
                     value={patientMemo} 
                     onChange={(e) => setPatientMemo(e.target.value)} 
-                    className="w-1/2 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" 
+                    className="w-1/2 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-teal-500 focus:outline-none" 
                     rows={2} 
                     placeholder="환자 특이사항 메모" 
                   />
                   <textarea 
                     value={consultMemo} 
                     onChange={(e) => setConsultMemo(e.target.value)} 
-                    className="w-1/2 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" 
+                    className="w-1/2 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-teal-500 focus:outline-none" 
                     rows={2} 
                     placeholder="상담 특이사항 메모" 
                   />
                 </div>
+              </div>
+            </div>
+
+            {/* 🟢 새로 추가된 피드백 / 모니터링 입력 섹션 */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-slate-100 pt-4 mt-2">
+              <div>
+                <label className="block text-sm font-semibold text-purple-800 mb-1">피드백 일정 지정 (숫자만 입력)</label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    value={feedbackDays}
+                    onChange={(e) => setFeedbackDays(e.target.value)}
+                    className="w-full p-3 bg-purple-50/50 border border-purple-200 rounded-xl text-sm focus:border-purple-500 focus:outline-none pr-12 transition"
+                    placeholder="예: 30"
+                  />
+                  <span className="absolute right-4 top-1/2 -translate-y-1/2 text-purple-600 text-sm font-bold">일 후</span>
+                </div>
+                <p className="text-[11px] text-slate-400 mt-1.5 ml-1">입력 시 피드백 전용 캘린더에 일정이 자동 등록됩니다.</p>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-purple-800 mb-1">모니터링 체크 내용</label>
+                <input
+                  type="text"
+                  value={monitoringContent}
+                  onChange={(e) => setMonitoringContent(e.target.value)}
+                  className="w-full p-3 bg-purple-50/50 border border-purple-200 rounded-xl text-sm focus:border-purple-500 focus:outline-none transition"
+                  placeholder="예: 소화 불량 개선 여부 확인"
+                />
               </div>
             </div>
 
@@ -527,7 +568,7 @@ export default function ConsultationsPage() {
         </div>
       )}
 
-      {/* 2. 전체 기록 조회 탭 (whitespace-nowrap 적용으로 두 줄 방지) */}
+      {/* 2. 전체 기록 조회 탭 */}
       {activeTab === "history" && (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
           <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
@@ -537,7 +578,7 @@ export default function ConsultationsPage() {
               placeholder="환자명, 증상, 처방약 검색..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full md:w-80 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm"
+              className="w-full md:w-80 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:border-teal-500 focus:outline-none"
             />
           </div>
 
@@ -548,13 +589,20 @@ export default function ConsultationsPage() {
               filteredConsultations.map((c) => (
                 <div key={c.id} className="p-5 bg-white border border-slate-200/80 rounded-2xl shadow-xs hover:shadow-md transition flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                   <div className="space-y-1.5 flex-1">
-                    {/* 🟢 환자 정보 영역: whitespace-nowrap으로 두 줄 꺾임 방지 */}
                     <div className="flex items-center gap-2 flex-wrap whitespace-nowrap">
                       <span className="font-bold text-base text-slate-900">{c.patients?.name || "알 수 없음"}</span>
                       <span className="text-xs text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full font-medium">
                         {c.patients?.gender || "남"} / {c.patients?.birth_year || "-"}년생
                       </span>
                       <span className="text-xs text-slate-400">· {new Date(c.created_at).toLocaleDateString()}</span>
+                      
+                      {/* 🟢 리스트에도 피드백 일정이 있으면 뱃지로 표시되게 추가 */}
+                      {c.feedback_days && (
+                        <span className="text-xs bg-purple-50 text-purple-700 px-2.5 py-0.5 rounded-md font-semibold border border-purple-100">
+                          🔔 {c.feedback_days}일 후 피드백
+                        </span>
+                      )}
+
                       {c.display_image_urls && c.display_image_urls.length > 0 && (
                         <span className="text-xs bg-teal-50 text-teal-700 px-2.5 py-0.5 rounded-md font-semibold">
                           📸 사진 {c.display_image_urls.length}장
@@ -683,6 +731,19 @@ export default function ConsultationsPage() {
                 <p className="text-xs font-semibold text-teal-300 uppercase tracking-wider mb-1">권고 의약품 (처방)</p>
                 <p className="font-bold text-base whitespace-pre-line">{selectedDetailConsultation.prescription || "미기재"}</p>
               </div>
+
+              {/* 🟢 자세히 보기 팝업에서도 피드백 정보가 나오도록 추가 */}
+              {(selectedDetailConsultation.feedback_days || selectedDetailConsultation.monitoring_content) && (
+                <div className="p-4 bg-purple-50/50 border border-purple-200 rounded-2xl space-y-2 text-xs">
+                  <p className="font-bold text-purple-900 text-sm mb-2">🔔 피드백 및 모니터링 계획</p>
+                  {selectedDetailConsultation.feedback_days && (
+                    <p><strong className="text-purple-800">피드백 일정:</strong> <span className="text-slate-700">{selectedDetailConsultation.feedback_days}일 후 진행 예정</span></p>
+                  )}
+                  {selectedDetailConsultation.monitoring_content && (
+                    <p><strong className="text-purple-800">체크할 내용:</strong> <span className="text-slate-700">{selectedDetailConsultation.monitoring_content}</span></p>
+                  )}
+                </div>
+              )}
 
               {(selectedDetailConsultation.patient_memo || selectedDetailConsultation.consult_memo) && (
                 <div className="p-4 bg-amber-50/50 border border-amber-200 rounded-2xl space-y-2 text-xs">
