@@ -25,15 +25,15 @@ export default function ConsultationsPage() {
   const [selectedPatientNameDisplay, setSelectedPatientNameDisplay] = useState("");
   const [consultationDate, setConsultationDate] = useState(""); 
   
-  const [symptoms, setSymptoms] = useState(""); 
-  const [digestionStool, setDigestionStool] = useState(""); 
-  const [sleepState, setSleepState] = useState(""); 
-  const [symptomDetail, setSymptomDetail] = useState(""); 
-  const [prescription, setPrescription] = useState(""); 
-  const [consultMemo, setConsultMemo] = useState(""); 
-  const [followUp, setFollowUp] = useState(""); 
-  const [feedbackDays, setFeedbackDays] = useState(""); 
-  const [amount, setAmount] = useState(""); 
+  const [symptoms, setSymptoms] = useState("");
+  const [digestionStool, setDigestionStool] = useState("");
+  const [sleepState, setSleepState] = useState("");
+  const [symptomDetail, setSymptomDetail] = useState("");
+  const [prescription, setPrescription] = useState("");
+  const [consultMemo, setConsultMemo] = useState("");
+  const [followUp, setFollowUp] = useState("");
+  const [feedbackDays, setFeedbackDays] = useState("");
+  const [amount, setAmount] = useState("");
 
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
@@ -63,48 +63,32 @@ export default function ConsultationsPage() {
     fetchData();
   }, []);
 
-  // 🟢 에러를 눈으로 확인할 수 있도록 보완된 fetchData
   const fetchData = async () => {
-    try {
-      const { data: pData, error: pError } = await supabase.from("patients").select("*").order("name");
-      if (pError) {
-        console.error("환자 목록 조회 실패:", pError.message);
-      }
-      if (pData) setPatients(pData);
+    const { data: pData } = await supabase.from("patients").select("*").order("name");
+    if (pData) setPatients(pData);
 
-      // 외래키 명시적 연결(patients:patient_id)로 쿼리 안정성 강화
-      const { data: cData, error: cError } = await supabase
-        .from("consultations")
-        .select("*, patients:patient_id(name, custom_id, gender, birth_year, phone)")
-        .order("created_at", { ascending: false });
-      
-      if (cError) {
-        console.error("상담 기록 조회 실패:", cError.message);
-        alert("데이터를 불러오지 못했습니다. 에러: " + cError.message);
-        return;
-      }
-
-      if (cData) {
-        const consultationsWithSignedUrls = await Promise.all(
-          cData.map(async (c) => {
-            if (c.image_urls && Array.isArray(c.image_urls) && c.image_urls.length > 0) {
-              const signedUrls = await Promise.all(
-                c.image_urls.map(async (path: string) => {
-                  if (path.startsWith('http')) return path;
-                  const { data: signedData } = await supabase.storage.from('consultation-images').createSignedUrl(path, 60 * 60);
-                  return signedData?.signedUrl || '';
-                })
-              );
-              return { ...c, display_image_urls: signedUrls.filter(Boolean) };
-            }
-            return { ...c, display_image_urls: [] };
-          })
-        );
-        setConsultations(consultationsWithSignedUrls);
-      }
-    } catch (error: any) {
-      console.error("데이터 불러오기 치명적 오류:", error);
-      alert("데이터 통신 중 오류가 발생했습니다: " + (error?.message || error));
+    const { data: cData } = await supabase
+      .from("consultations")
+      .select("*, patients(name, custom_id, gender, birth_year, phone)")
+      .order("created_at", { ascending: false });
+    
+    if (cData) {
+      const consultationsWithSignedUrls = await Promise.all(
+        cData.map(async (c) => {
+          if (c.image_urls && c.image_urls.length > 0) {
+            const signedUrls = await Promise.all(
+              c.image_urls.map(async (path: string) => {
+                if (path.startsWith('http')) return path;
+                const { data: signedData } = await supabase.storage.from('consultation-images').createSignedUrl(path, 60 * 60);
+                return signedData?.signedUrl || '';
+              })
+            );
+            return { ...c, display_image_urls: signedUrls.filter(Boolean) };
+          }
+          return { ...c, display_image_urls: [] };
+        })
+      );
+      setConsultations(consultationsWithSignedUrls);
     }
   };
 
@@ -190,8 +174,7 @@ export default function ConsultationsPage() {
     setSymptoms(c.symptoms || ""); setDigestionStool(c.digestion_stool || ""); setSleepState(c.sleep_state || "");
     setSymptomDetail(c.symptom_detail || ""); setPrescription(c.prescription || ""); setConsultMemo(c.consult_memo || "");
     setFollowUp(c.follow_up || "");
-    setFeedbackDays(c.feedback_days ? c.feedback_days.toString() : ""); 
-    setAmount(c.amount != null ? c.amount.toString() : "");
+    setFeedbackDays(c.feedback_days ? c.feedback_days.toString() : ""); setAmount(c.amount ? c.amount.toString() : "");
     
     const rawPaths = c.image_urls || [];
     setExistingImageUrls(rawPaths);
@@ -210,31 +193,22 @@ export default function ConsultationsPage() {
 
   const patientHistory = selectedPatient ? consultations.filter(c => c.patient_id === selectedPatient && c.id !== editingId) : [];
   const patientPastPhotos = patientHistory.flatMap(c => 
-    (Array.isArray(c.display_image_urls) ? c.display_image_urls : []).map((url: string) => ({ url, date: c.consultation_date || c.created_at?.split('T')[0] || "", symptoms: c.symptoms }))
+    (c.display_image_urls || []).map((url: string) => ({ url, date: c.consultation_date || c.created_at.split('T')[0], symptoms: c.symptoms }))
   );
 
-  const filteredPatients = patients.filter(p => {
-    if (!patientSearchQuery) return true;
-    const term = patientSearchQuery.toLowerCase();
-    return p.name?.toLowerCase().includes(term) || p.custom_id?.toLowerCase().includes(term) || p.phone?.includes(term);
-  });
+  const filteredPatients = patients.filter(p => p.name?.includes(patientSearchQuery) || p.custom_id?.includes(patientSearchQuery) || p.phone?.includes(patientSearchQuery));
+  const filteredConsultations = consultations.filter(c => c.patients?.name?.includes(searchTerm) || c.symptoms?.includes(searchTerm) || c.prescription?.includes(searchTerm));
 
-  const filteredConsultations = consultations.filter(c => {
-    if (!searchTerm) return true;
-    const term = searchTerm.toLowerCase();
-    return c.patients?.name?.toLowerCase().includes(term) || 
-           c.symptoms?.toLowerCase().includes(term) || 
-           c.prescription?.toLowerCase().includes(term);
-  });
-
+  // 🟢 사진 개수에 따라 레이아웃 동적 변경 로직
   const totalCurrentPhotos = existingImagePreviews.length + imageFiles.length;
+  const currentPhotoLayoutClass = totalCurrentPhotos > 1 ? "grid grid-cols-2" : "flex";
+  const pastPhotoLayoutClass = patientPastPhotos.length > 1 ? "grid grid-cols-2" : "flex";
 
   return (
     <div className="w-full h-[calc(100vh-80px)] flex flex-col space-y-4" onPaste={handlePaste}>
-      {/* 상단 탭 헤더 */}
       <div className="flex gap-2 border-b pb-2 flex-shrink-0">
         <button onClick={() => { resetForm(); window.location.hash = ""; setActiveTab("write"); }} className={`px-4 py-2 rounded-lg font-bold text-sm transition ${activeTab === "write" ? "bg-teal-900 text-white" : "bg-white text-slate-600 border"}`}>📝 상담작성</button>
-        <button onClick={() => { window.location.hash = "history"; setActiveTab("history"); }} className={`px-4 py-2 rounded-lg font-bold text-sm transition ${activeTab === "history" ? "bg-teal-900 text-white" : "bg-white text-slate-600 border"}`}>📂 기록 조회 ({filteredConsultations.length})</button>
+        <button onClick={() => { window.location.hash = "history"; setActiveTab("history"); }} className={`px-4 py-2 rounded-lg font-bold text-sm transition ${activeTab === "history" ? "bg-teal-900 text-white" : "bg-white text-slate-600 border"}`}>📂 기록 조회 ({consultations.length})</button>
       </div>
 
       {activeTab === "write" && (
@@ -337,10 +311,10 @@ export default function ConsultationsPage() {
             </div>
           </div>
 
-          {/* 오른쪽 사진 영역 */}
+          {/* 🟢 오른쪽: 스크롤 없는 자동 맞춤형(Fit) 사진 뷰어 영역 */}
           <div className="flex-1 flex flex-col gap-3 min-w-[280px]">
-            <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-xl p-3 overflow-hidden min-h-[220px]">
-              <div className="flex justify-between items-center mb-2 flex-shrink-0">
+            <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-xl p-3 overflow-hidden">
+              <div className="flex justify-between items-center mb-2">
                 <label className="text-xs font-bold text-slate-900">📸 현재 상담 사진 첨부</label>
                 <label className="cursor-pointer px-3 py-1.5 bg-teal-800 text-white rounded-lg text-xs font-bold hover:bg-teal-700 transition shadow-xs flex items-center gap-1">
                   <span>📁 사진 파일 선택</span>
@@ -348,44 +322,39 @@ export default function ConsultationsPage() {
                 </label>
               </div>
               
-              <div className="flex-1 border-2 border-dashed border-slate-300 bg-slate-50 rounded-lg p-2 overflow-hidden flex flex-col justify-center items-center relative">
-                {totalCurrentPhotos === 0 && (
-                  <div className="text-center text-xs font-bold text-slate-500">버튼을 눌러 사진을 선택하거나<br/>화면에 [Ctrl+V]를 누르세요.</div>
-                )}
-                {totalCurrentPhotos > 0 && (
-                  <div className={`w-full h-full ${totalCurrentPhotos > 1 ? "grid grid-cols-2 gap-2" : "flex items-center justify-center"}`}>
-                    {existingImagePreviews.map((item, idx) => (
-                      <div key={`ex-${idx}`} className="relative w-full h-full flex items-center justify-center group bg-white rounded-xl shadow-xs border border-slate-200 p-1">
-                        <img src={item.url} onClick={() => setPreviewImageUrl(item.url)} className="max-w-full max-h-full object-contain cursor-pointer hover:scale-105 transition rounded-lg" />
-                        <button type="button" onClick={() => { setExistingImageUrls(prev => prev.filter((_, i) => i !== idx)); setExistingImagePreviews(prev => prev.filter((_, i) => i !== idx)); }} className="absolute top-2 right-2 bg-red-600 text-white w-7 h-7 rounded-full text-xs hidden group-hover:flex items-center justify-center font-bold shadow-md z-10">✕</button>
-                      </div>
-                    ))}
-                    {imageFiles.map((file, idx) => (
-                      <div key={`nw-${idx}`} className="relative w-full h-full flex items-center justify-center group bg-white rounded-xl shadow-xs border border-teal-400 p-1">
-                        <img src={URL.createObjectURL(file)} onClick={() => setPreviewImageUrl(URL.createObjectURL(file))} className="max-w-full max-h-full object-contain cursor-pointer hover:scale-105 transition rounded-lg" />
-                        <button type="button" onClick={() => setImageFiles(prev => prev.filter((_, i) => i !== idx))} className="absolute top-2 right-2 bg-red-600 text-white w-7 h-7 rounded-full text-xs hidden group-hover:flex items-center justify-center font-bold shadow-md z-10">✕</button>
-                      </div>
-                    ))}
+              {/* 스크롤 제거(overflow-hidden) & 자동 리사이징 설정 */}
+              <div className={`flex-1 border-2 border-dashed border-slate-300 bg-slate-50 rounded-lg p-2 overflow-hidden ${currentPhotoLayoutClass} gap-2 items-center justify-center content-center`}>
+                {(existingImagePreviews.length === 0 && imageFiles.length === 0) && (
+                  <div className="w-full flex items-center justify-center text-xs font-bold text-slate-500 text-center h-full">
+                    버튼을 눌러 사진을 선택하거나<br/>화면에 [Ctrl+V]를 누르세요.
                   </div>
                 )}
+                {existingImagePreviews.map((item, idx) => (
+                  <div key={`ex-${idx}`} className="relative w-full h-full flex items-center justify-center group bg-white rounded-xl shadow-xs border border-slate-200 p-1">
+                    <img src={item.url} onClick={() => setPreviewImageUrl(item.url)} className="max-w-full max-h-full object-contain cursor-pointer hover:scale-105 transition rounded-lg" />
+                    <button type="button" onClick={() => { setExistingImageUrls(prev => prev.filter((_, i) => i !== idx)); setExistingImagePreviews(prev => prev.filter((_, i) => i !== idx)); }} className="absolute top-2 right-2 bg-red-600 text-white w-7 h-7 rounded-full text-xs hidden group-hover:flex items-center justify-center font-bold shadow-md z-10">✕</button>
+                  </div>
+                ))}
+                {imageFiles.map((file, idx) => (
+                  <div key={`nw-${idx}`} className="relative w-full h-full flex items-center justify-center group bg-white rounded-xl shadow-xs border border-teal-400 p-1">
+                    <img src={URL.createObjectURL(file)} onClick={() => setPreviewImageUrl(URL.createObjectURL(file))} className="max-w-full max-h-full object-contain cursor-pointer hover:scale-105 transition rounded-lg" />
+                    <button type="button" onClick={() => setImageFiles(prev => prev.filter((_, i) => i !== idx))} className="absolute top-2 right-2 bg-red-600 text-white w-7 h-7 rounded-full text-xs hidden group-hover:flex items-center justify-center font-bold shadow-md z-10">✕</button>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <div className="flex-1 flex flex-col bg-slate-100 border border-slate-200 rounded-xl p-3 overflow-hidden min-h-[160px]">
-              <label className="text-xs font-bold text-slate-800 mb-2 flex-shrink-0">🎞️ 과거 사진 데이터 모아보기</label>
-              <div className="flex-1 overflow-hidden flex flex-col justify-center items-center relative">
-                {patientPastPhotos.length === 0 ? (
-                  <div className="w-full text-center text-xs text-slate-500 font-semibold">선택된 환자의 과거 사진이 없습니다.</div>
-                ) : (
-                  <div className={`w-full h-full ${patientPastPhotos.length > 1 ? "grid grid-cols-2 gap-2" : "flex items-center justify-center"}`}>
-                    {patientPastPhotos.map((photo, idx) => (
-                      <div key={idx} className="relative w-full h-full flex items-center justify-center group bg-white rounded-xl shadow-2xs border border-slate-300 p-1 cursor-pointer" onClick={() => setPreviewImageUrl(photo.url)}>
-                        <img src={photo.url} className="max-w-full max-h-full object-contain group-hover:scale-105 transition rounded-lg" />
-                        <div className="absolute bottom-1 left-1 right-1 bg-black/70 text-white text-[10px] font-semibold px-2 py-1 truncate rounded">{photo.date}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+            <div className="flex-1 flex flex-col bg-slate-100 border border-slate-200 rounded-xl p-3 overflow-hidden">
+              <label className="text-xs font-bold text-slate-800 mb-2">🎞️ 과거 사진 데이터 모아보기</label>
+              <div className={`flex-1 overflow-hidden ${pastPhotoLayoutClass} gap-2 items-center justify-center content-center`}>
+                {patientPastPhotos.length === 0 ? <div className="w-full text-center text-xs text-slate-500 flex items-center justify-center h-full font-semibold">선택된 환자의 과거 사진이 없습니다.</div> : 
+                  patientPastPhotos.map((photo, idx) => (
+                    <div key={idx} className="relative w-full h-full flex items-center justify-center group bg-white rounded-xl shadow-2xs border border-slate-300 p-1 cursor-pointer" onClick={() => setPreviewImageUrl(photo.url)}>
+                      <img src={photo.url} className="max-w-full max-h-full object-contain group-hover:scale-105 transition rounded-lg" />
+                      <div className="absolute bottom-1 left-1 right-1 bg-black/70 text-white text-[10px] font-semibold px-2 py-1 truncate rounded">{photo.date}</div>
+                    </div>
+                  ))
+                }
               </div>
             </div>
           </div>
@@ -397,7 +366,7 @@ export default function ConsultationsPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 overflow-y-auto flex-1">
           <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
             <h2 className="text-lg font-bold text-slate-900">전체 상담 기록 조회 ({filteredConsultations.length}건)</h2>
-            <input type="text" placeholder="환자명, 주호소, 처방약 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full md:w-80 px-4 py-2.5 bg-slate-50 border rounded-xl text-sm" />
+            <input type="text" placeholder="환자명, 주호소, 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full md:w-80 px-4 py-2.5 bg-slate-50 border rounded-xl text-sm" />
           </div>
           <div className="space-y-3">
             {filteredConsultations.map((c) => (
