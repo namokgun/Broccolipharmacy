@@ -322,7 +322,7 @@ export default function ConsultationsPage() {
             </div>
           </div>
 
-          {/* 🟢 오른쪽: 사진 뷰어 영역 (썸네일 크기 대폭 확대하여 틀에 꽉 맞게 수정) */}
+          {/* 🟢 오른쪽: 사진 뷰어 영역 (1열로 배치하고 높이를 대폭 확대하여 틀에 꽉 맞게 꽉 채움) */}
           <div className="flex-1 flex flex-col gap-3 min-w-[280px]">
             <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-xl p-3 overflow-hidden">
               <div className="flex justify-between items-center mb-2">
@@ -333,23 +333,23 @@ export default function ConsultationsPage() {
                 </label>
               </div>
               
-              {/* 썸네일 컨테이너: 꽉 차는 큰 카드 형태 (grid-cols-2, w-full h-36) */}
-              <div className="flex-1 border-2 border-dashed border-slate-300 bg-slate-50 rounded-lg p-3 overflow-y-auto grid grid-cols-2 gap-3 content-start">
+              {/* 썸네일 컨테이너: 1열(grid-cols-1) 배치 및 대형 높이(h-80)로 틀에 꽉 차게 설정 */}
+              <div className="flex-1 border-2 border-dashed border-slate-300 bg-slate-50 rounded-lg p-3 overflow-y-auto grid grid-cols-1 gap-4 content-start">
                 {(existingImagePreviews.length === 0 && imageFiles.length === 0) && (
-                  <div className="col-span-2 h-40 flex items-center justify-center text-xs font-bold text-slate-500 text-center">
+                  <div className="w-full h-48 flex items-center justify-center text-xs font-bold text-slate-500 text-center">
                     버튼을 눌러 사진을 선택하거나<br/>화면에 [Ctrl+V]를 누르세요.
                   </div>
                 )}
                 {existingImagePreviews.map((item, idx) => (
-                  <div key={`ex-${idx}`} className="relative w-full h-36 border-2 border-slate-200 rounded-xl overflow-hidden group shadow-xs bg-white">
-                    <img src={item.url} onClick={() => setPreviewImageUrl(item.url)} className="w-full h-full object-cover cursor-pointer group-hover:scale-105 transition" />
-                    <button type="button" onClick={() => { setExistingImageUrls(prev => prev.filter((_, i) => i !== idx)); setExistingImagePreviews(prev => prev.filter((_, i) => i !== idx)); }} className="absolute top-2 right-2 bg-red-600 text-white w-7 h-7 rounded-full text-xs hidden group-hover:flex items-center justify-center font-bold shadow-md">✕</button>
+                  <div key={`ex-${idx}`} className="relative w-full h-80 border-2 border-slate-200 rounded-2xl overflow-hidden group shadow-md bg-white">
+                    <img src={item.url} onClick={() => setPreviewImageUrl(item.url)} className="w-full h-full object-cover cursor-pointer group-hover:scale-102 transition" />
+                    <button type="button" onClick={() => { setExistingImageUrls(prev => prev.filter((_, i) => i !== idx)); setExistingImagePreviews(prev => prev.filter((_, i) => i !== idx)); }} className="absolute top-3 right-3 bg-red-600 text-white w-9 h-9 rounded-full text-sm hidden group-hover:flex items-center justify-center font-bold shadow-lg">✕</button>
                   </div>
                 ))}
                 {imageFiles.map((file, idx) => (
-                  <div key={`nw-${idx}`} className="relative w-full h-36 border-2 border-teal-400 rounded-xl overflow-hidden group shadow-xs bg-white">
-                    <img src={URL.createObjectURL(file)} onClick={() => setPreviewImageUrl(URL.createObjectURL(file))} className="w-full h-full object-cover cursor-pointer group-hover:scale-105 transition" />
-                    <button type="button" onClick={() => setImageFiles(prev => prev.filter((_, i) => i !== idx))} className="absolute top-2 right-2 bg-red-600 text-white w-7 h-7 rounded-full text-xs hidden group-hover:flex items-center justify-center font-bold shadow-md">✕</button>
+                  <div key={`nw-${idx}`} className="relative w-full h-80 border-2 border-teal-500 rounded-2xl overflow-hidden group shadow-md bg-white">
+                    <img src={URL.createObjectURL(file)} onClick={() => setPreviewImageUrl(URL.createObjectURL(file))} className="w-full h-full object-cover cursor-pointer group-hover:scale-102 transition" />
+                    <button type="button" onClick={() => setImageFiles(prev => prev.filter((_, i) => i !== idx))} className="absolute top-3 right-3 bg-red-600 text-white w-9 h-9 rounded-full text-sm hidden group-hover:flex items-center justify-center font-bold shadow-lg">✕</button>
                   </div>
                 ))}
               </div>
@@ -357,12 +357,12 @@ export default function ConsultationsPage() {
 
             <div className="flex-1 flex flex-col bg-slate-100 border border-slate-200 rounded-xl p-3 overflow-hidden">
               <label className="text-xs font-bold text-slate-800 mb-2">🎞️ 과거 사진 데이터 모아보기</label>
-              <div className="flex-1 overflow-y-auto grid grid-cols-2 gap-3 content-start pr-1">
-                {patientPastPhotos.length === 0 ? <div className="col-span-2 text-center text-xs text-slate-500 py-8 font-semibold">선택된 환자의 과거 사진이 없습니다.</div> : 
+              <div className="flex-1 overflow-y-auto grid grid-cols-1 gap-3 content-start pr-1">
+                {patientPastPhotos.length === 0 ? <div className="w-full text-center text-xs text-slate-500 py-8 font-semibold">선택된 환자의 과거 사진이 없습니다.</div> : 
                   patientPastPhotos.map((photo, idx) => (
-                    <div key={idx} className="relative w-full h-32 border border-slate-300 rounded-xl overflow-hidden bg-white group cursor-pointer shadow-2xs" onClick={() => setPreviewImageUrl(photo.url)}>
-                      <img src={photo.url} className="w-full h-full object-cover group-hover:scale-110 transition" />
-                      <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[10px] font-semibold px-2 py-1 truncate">{photo.date}</div>
+                    <div key={idx} className="relative w-full h-72 border border-slate-300 rounded-2xl overflow-hidden bg-white group cursor-pointer shadow-xs" onClick={() => setPreviewImageUrl(photo.url)}>
+                      <img src={photo.url} className="w-full h-full object-cover group-hover:scale-105 transition" />
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/75 text-white text-xs font-semibold px-3 py-1.5 truncate">{photo.date} - {photo.symptoms}</div>
                     </div>
                   ))
                 }
@@ -391,7 +391,6 @@ export default function ConsultationsPage() {
                   <p className="text-sm font-bold text-teal-900"><span className="text-slate-400 font-normal">처방:</span> {c.prescription}</p>
                 </div>
                 <div className="flex items-center gap-2">
-                  {/* 🟢 자세히 버튼 클릭 시 selectedDetailConsultation 세팅하여 팝업 오픈 */}
                   <button onClick={() => setSelectedDetailConsultation(c)} className="px-3 py-1.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-200 transition">자세히</button>
                   <button onClick={() => handleEditClick(c)} className="px-3 py-1.5 bg-teal-50 text-teal-800 text-xs font-bold rounded-lg hover:bg-teal-100 transition">수정</button>
                 </div>
@@ -437,14 +436,13 @@ export default function ConsultationsPage() {
                 <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-200"><span className="text-xs font-bold text-purple-700 block mb-0.5">추후관리</span><p className="font-bold text-purple-950 whitespace-pre-line">{selectedDetailConsultation.follow_up}</p></div>
               )}
 
-              {/* 🟢 등록된 사진 목록 표시 */}
               {selectedDetailConsultation.display_image_urls && selectedDetailConsultation.display_image_urls.length > 0 && (
                 <div className="p-3 bg-slate-50 rounded-xl border space-y-2">
                   <span className="text-xs font-bold text-slate-500 block">첨부된 사진 ({selectedDetailConsultation.display_image_urls.length}장)</span>
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 gap-2">
                     {selectedDetailConsultation.display_image_urls.map((imgUrl: string, imgIdx: number) => (
-                      <div key={imgIdx} className="relative h-28 border rounded-lg overflow-hidden cursor-pointer" onClick={() => setPreviewImageUrl(imgUrl)}>
-                        <img src={imgUrl} className="w-full h-full object-cover hover:scale-105 transition" />
+                      <div key={imgIdx} className="relative h-64 border rounded-xl overflow-hidden cursor-pointer" onClick={() => setPreviewImageUrl(imgUrl)}>
+                        <img src={imgUrl} className="w-full h-full object-cover hover:scale-102 transition" />
                       </div>
                     ))}
                   </div>
