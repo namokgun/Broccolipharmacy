@@ -13,6 +13,9 @@ export default function PatientsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPatientId, setEditingPatientId] = useState<string | null>(null);
 
+  // 🟢 특정 환자 기록 모아보기 팝업 상태
+  const [historyModalPatient, setHistoryModalPatient] = useState<any | null>(null);
+
   // 폼 필드
   const [name, setName] = useState("");
   const [customId, setCustomId] = useState("");
@@ -92,6 +95,11 @@ export default function PatientsPage() {
     p.phone?.includes(searchTerm)
   );
 
+  // 선택된 환자의 전체 상담 기록 필터링
+  const patientConsultations = historyModalPatient 
+    ? consultations.filter(c => c.patient_id === historyModalPatient.id) 
+    : [];
+
   return (
     <div className="w-full space-y-6">
       <div className="flex flex-col md:flex-row justify-between items-center gap-4 border-b pb-4">
@@ -141,7 +149,11 @@ export default function PatientsPage() {
                     <td className="p-4 text-slate-800 font-medium">{stats.lastDate}</td>
                     <td className="p-4 font-bold text-teal-800">{stats.count}회</td>
                     <td className="p-4 font-bold text-purple-800">{stats.totalAmount.toLocaleString()}원</td>
-                    <td className="p-4 text-right">
+                    <td className="p-4 text-right space-x-1.5">
+                      {/* 🟢 기록보기 버튼 추가 */}
+                      <button onClick={() => setHistoryModalPatient(p)} className="px-3 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs rounded-lg transition">
+                        기록보기
+                      </button>
                       <button onClick={() => handleOpenEdit(p)} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition">
                         수정
                       </button>
@@ -153,6 +165,59 @@ export default function PatientsPage() {
           </tbody>
         </table>
       </div>
+
+      {/* 🟢 환자별 전체 상담 기록 모아보기 팝업 */}
+      {historyModalPatient && (
+        <div onClick={() => setHistoryModalPatient(null)} className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
+          <div className="bg-white w-full max-w-2xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b pb-3">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">📂 {historyModalPatient.name} 님의 전체 상담 기록</h3>
+                <p className="text-xs text-slate-500">연락처: {historyModalPatient.phone || "없음"} | 총 상담 횟수: {patientConsultations.length}회</p>
+              </div>
+              <button onClick={() => setHistoryModalPatient(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+              {patientConsultations.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 text-sm">작성된 상담 기록이 없습니다.</div>
+              ) : (
+                patientConsultations.map((c, idx) => (
+                  <div key={c.id || idx} className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2">
+                    <div className="flex justify-between items-center border-b border-slate-200/60 pb-2">
+                      <span className="font-bold text-slate-900 text-sm">📅 내방일: {c.consultation_date || c.created_at.split('T')[0]}</span>
+                      {c.amount && <span className="font-extrabold text-purple-800 text-sm">{c.amount.toLocaleString()}원</span>}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div><span className="font-bold text-slate-400">주호소:</span> <span className="text-slate-800 font-semibold">{c.symptoms || "-"}</span></div>
+                      <div><span className="font-bold text-slate-400">처방:</span> <span className="text-teal-900 font-bold">{c.prescription || "-"}</span></div>
+                    </div>
+                    {c.symptom_detail && (
+                      <p className="text-xs text-slate-700 bg-white p-2.5 rounded-xl border border-slate-200/60">
+                        <strong className="text-slate-900">증상 상세:</strong> {c.symptom_detail}
+                      </p>
+                    )}
+                    {c.consult_memo && (
+                      <p className="text-xs text-slate-700 bg-white p-2.5 rounded-xl border border-slate-200/60">
+                        <strong className="text-slate-900">코멘트:</strong> {c.consult_memo}
+                      </p>
+                    )}
+                    {c.follow_up && (
+                      <p className="text-xs text-purple-900 bg-purple-50/60 p-2.5 rounded-xl border border-purple-200/60">
+                        <strong className="text-purple-700">추후관리:</strong> {c.follow_up}
+                      </p>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t">
+              <button onClick={() => setHistoryModalPatient(null)} className="px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800">닫기</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 환자 등록 / 수정 모달 */}
       {isModalOpen && (
