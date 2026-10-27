@@ -14,8 +14,6 @@ export default function ConsultationsPage() {
 
   const [selectedDetailConsultation, setSelectedDetailConsultation] = useState<any | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
-  
-  // 🟢 최근방문내역 클릭 시 띄울 상세 보기 팝업 상태
   const [historyDetailModal, setHistoryDetailModal] = useState<any | null>(null);
 
   const [patientSearchQuery, setPatientSearchQuery] = useState("");
@@ -33,6 +31,7 @@ export default function ConsultationsPage() {
   const [symptomDetail, setSymptomDetail] = useState(""); // 증상 상세
   const [prescription, setPrescription] = useState(""); // 처방
   const [consultMemo, setConsultMemo] = useState(""); // 코멘트
+  const [followUp, setFollowUp] = useState(""); // 추후관리 (종합판단 대체)
   const [feedbackDays, setFeedbackDays] = useState(""); // 피드백일정
   const [amount, setAmount] = useState(""); // 금액
 
@@ -41,7 +40,6 @@ export default function ConsultationsPage() {
   const [existingImagePreviews, setExistingImagePreviews] = useState<{ path: string; url: string }[]>([]);
   const [uploading, setUploading] = useState(false);
 
-  // 🟢 선택된 환자의 과거 데이터 추출 (시간역순)
   const patientHistory = selectedPatient ? consultations.filter(c => c.patient_id === selectedPatient && c.id !== editingId) : [];
   const patientPastPhotos = patientHistory.flatMap(c => 
     (c.display_image_urls || []).map((url: string) => ({ url, date: c.consultation_date || c.created_at.split('T')[0], symptoms: c.symptoms }))
@@ -112,6 +110,7 @@ export default function ConsultationsPage() {
         symptom_detail: symptomDetail,
         prescription, 
         consult_memo: consultMemo,
+        follow_up: followUp,
         feedback_days: feedbackDays ? parseInt(feedbackDays) : null,
         amount: amount ? parseInt(amount) : null,
         image_urls: finalImagePaths,
@@ -136,7 +135,7 @@ export default function ConsultationsPage() {
     setEditingId(null); setSelectedPatient(""); setSelectedPatientNameDisplay(""); setPatientSearchQuery("");
     setConsultationDate(new Date().toISOString().split('T')[0]);
     setSymptoms(""); setDigestionStool(""); setSleepState(""); setSymptomDetail(""); 
-    setPrescription(""); setConsultMemo(""); setFeedbackDays(""); setAmount("");
+    setPrescription(""); setConsultMemo(""); setFollowUp(""); setFeedbackDays(""); setAmount("");
     setImageFiles([]); setExistingImageUrls([]); setExistingImagePreviews([]);
   };
 
@@ -147,6 +146,7 @@ export default function ConsultationsPage() {
     setConsultationDate(c.consultation_date || c.created_at.split('T')[0]);
     setSymptoms(c.symptoms || ""); setDigestionStool(c.digestion_stool || ""); setSleepState(c.sleep_state || "");
     setSymptomDetail(c.symptom_detail || ""); setPrescription(c.prescription || ""); setConsultMemo(c.consult_memo || "");
+    setFollowUp(c.follow_up || "");
     setFeedbackDays(c.feedback_days ? c.feedback_days.toString() : ""); setAmount(c.amount ? c.amount.toString() : "");
     
     const rawPaths = c.image_urls || [];
@@ -170,8 +170,8 @@ export default function ConsultationsPage() {
     <div className="w-full h-[calc(100vh-80px)] flex flex-col space-y-4">
       {/* 상단 탭 헤더 */}
       <div className="flex gap-2 border-b pb-2 flex-shrink-0">
-        <button onClick={() => { resetForm(); setActiveTab("write"); }} className={`px-4 py-2 rounded-lg font-bold text-sm transition ${activeTab === "write" ? "bg-teal-900 text-white" : "bg-white text-slate-600 border"}`}>📝 상담 기록 작성 / 수정</button>
-        <button onClick={() => setActiveTab("history")} className={`px-4 py-2 rounded-lg font-bold text-sm transition ${activeTab === "history" ? "bg-teal-900 text-white" : "bg-white text-slate-600 border"}`}>📂 전체 기록 조회 ({consultations.length})</button>
+        <button onClick={() => { resetForm(); setActiveTab("write"); }} className={`px-4 py-2 rounded-lg font-bold text-sm transition ${activeTab === "write" ? "bg-teal-900 text-white" : "bg-white text-slate-600 border"}`}>📝 상담작성</button>
+        <button onClick={() => setActiveTab("history")} className={`px-4 py-2 rounded-lg font-bold text-sm transition ${activeTab === "history" ? "bg-teal-900 text-white" : "bg-white text-slate-600 border"}`}>📂 기록 조회 ({consultations.length})</button>
       </div>
 
       {activeTab === "write" && (
@@ -181,14 +181,14 @@ export default function ConsultationsPage() {
           <div className="flex-[2] flex flex-col gap-2.5 bg-white p-4 rounded-xl border border-slate-200 overflow-y-auto lg:overflow-visible">
             
             {/* 1. 이름 & 상담일자 */}
-            <div className="flex gap-2 relative z-20" ref={dropdownRef}>
+            <div className="flex gap-2 relative z-25" ref={dropdownRef}>
               <div className="flex-1">
                 <div onClick={() => setIsPatientDropdownOpen(true)} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer flex justify-between items-center text-sm font-bold text-slate-900">
                   <span>{selectedPatientNameDisplay || "환자 선택 (이름 검색)..."}</span>
                   <span className="text-xs">▼</span>
                 </div>
                 {isPatientDropdownOpen && (
-                  <div className="absolute top-full left-0 w-[60%] mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto p-2">
+                  <div className="absolute top-full left-0 w-[60%] mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto p-2 z-30">
                     <input type="text" placeholder="이름 검색..." value={patientSearchQuery} onChange={(e) => setPatientSearchQuery(e.target.value)} className="w-full p-2 mb-1 bg-slate-50 border rounded text-sm font-bold text-slate-900 focus:outline-none" autoFocus />
                     {filteredPatients.map(p => (
                       <div key={p.id} onClick={() => { setSelectedPatient(p.id); setSelectedPatientNameDisplay(`${p.name} (${p.phone || ""})`); setIsPatientDropdownOpen(false); }} className="p-2.5 hover:bg-teal-50 rounded cursor-pointer text-sm font-bold text-slate-900 flex justify-between items-center">
@@ -217,7 +217,7 @@ export default function ConsultationsPage() {
             </div>
 
             {/* 3. 증상 및 최근방문내역 */}
-            <div className="flex gap-4 flex-1 min-h-[120px]">
+            <div className="flex gap-4 flex-1 min-h-[110px]">
               <div className="flex-1 flex flex-col">
                 <label className="text-xs font-bold text-blue-700 mb-1">증상</label>
                 <textarea value={symptomDetail} onChange={(e) => setSymptomDetail(e.target.value)} className="flex-1 p-2 bg-slate-50 border rounded-lg text-sm font-semibold text-slate-900 resize-none" />
@@ -249,25 +249,24 @@ export default function ConsultationsPage() {
               </div>
             </div>
 
-            {/* 4. 처방 및 코멘트 */}
-            <div className="flex gap-4 flex-1 min-h-[120px]">
+            {/* 4. 처방, 코멘트 및 추후관리 */}
+            <div className="flex gap-4 flex-1 min-h-[110px]">
               <div className="flex-1 flex flex-col">
                 <label className="text-xs font-bold text-teal-900 mb-1">처방</label>
-                <textarea 
-                  value={prescription} 
-                  onChange={(e) => setPrescription(e.target.value)} 
-                  className="flex-1 p-2.5 bg-teal-50/80 border-2 border-teal-500 rounded-lg text-sm font-bold text-teal-950 resize-none shadow-xs" 
-                  placeholder="처방 내용을 입력하세요..."
-                />
+                <textarea value={prescription} onChange={(e) => setPrescription(e.target.value)} className="flex-1 p-2.5 bg-teal-50/80 border-2 border-teal-500 rounded-lg text-sm font-bold text-teal-950 resize-none shadow-xs" placeholder="처방 내용 입력..." />
               </div>
               <div className="flex-1 flex flex-col">
                 <label className="text-xs font-bold text-slate-700 mb-1">코멘트</label>
                 <textarea value={consultMemo} onChange={(e) => setConsultMemo(e.target.value)} className="flex-1 p-2 bg-slate-50 border rounded-lg text-sm font-semibold text-slate-900 resize-none" />
               </div>
+              <div className="flex-1 flex flex-col">
+                <label className="text-xs font-bold text-purple-800 mb-1">추후관리</label>
+                <textarea value={followUp} onChange={(e) => setFollowUp(e.target.value)} className="flex-1 p-2 bg-purple-50/50 border border-purple-200 rounded-lg text-sm font-semibold text-slate-900 resize-none" placeholder="추후관리 내용..." />
+              </div>
             </div>
 
             {/* 5. 피드백일정, 금액 & 저장 버튼 (숫자 전용 입력) */}
-            <div className="flex items-center gap-3 pt-2">
+            <div className="flex items-center gap-3 pt-1">
               <div className="flex items-center gap-2">
                 <label className="text-xs font-bold text-slate-700">피드백일정(일)</label>
                 <input type="text" inputMode="numeric" pattern="[0-9]*" value={feedbackDays} onChange={(e) => setFeedbackDays(e.target.value.replace(/[^0-9]/g, ''))} className="w-20 p-2 bg-slate-50 border rounded-lg text-sm font-bold text-slate-900" placeholder="예:30" />
@@ -285,7 +284,6 @@ export default function ConsultationsPage() {
 
           {/* 🟢 오른쪽: 사진 뷰어 영역 */}
           <div className="flex-1 flex flex-col gap-3 min-w-[280px]">
-            {/* 현재 상담 사진 첨부 영역 */}
             <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-xl p-3 overflow-hidden">
               <div className="flex justify-between items-center mb-2">
                 <label className="text-xs font-bold text-slate-900">📸 현재 상담 사진 첨부</label>
@@ -311,7 +309,6 @@ export default function ConsultationsPage() {
               </div>
             </div>
 
-            {/* 과거 사진 데이터 모아보기 */}
             <div className="flex-1 flex flex-col bg-slate-100 border border-slate-200 rounded-xl p-3 overflow-hidden">
               <label className="text-xs font-bold text-slate-800 mb-2">🎞️ 사진 데이터 (최신-과거순)</label>
               <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 gap-2 content-start pr-1">
@@ -326,7 +323,6 @@ export default function ConsultationsPage() {
               </div>
             </div>
           </div>
-
         </form>
       )}
 
@@ -335,7 +331,7 @@ export default function ConsultationsPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 overflow-y-auto flex-1">
           <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
             <h2 className="text-lg font-bold text-slate-900">전체 상담 기록 조회 ({filteredConsultations.length}건)</h2>
-            <input type="text" placeholder="환자명, 증상, 처방약 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full md:w-80 px-4 py-2.5 bg-slate-50 border rounded-xl text-sm" />
+            <input type="text" placeholder="환자명, 주호소, 처방약 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full md:w-80 px-4 py-2.5 bg-slate-50 border rounded-xl text-sm" />
           </div>
           <div className="space-y-3">
             {filteredConsultations.map((c) => (
@@ -345,7 +341,7 @@ export default function ConsultationsPage() {
                     <span className="font-bold text-slate-900">{c.patients?.name || "알 수 없음"}</span>
                     <span className="text-xs text-slate-600 font-semibold">({c.consultation_date || c.created_at.split('T')[0]})</span>
                   </div>
-                  <p className="text-sm font-bold text-slate-800"><span className="text-slate-400 font-normal">증상:</span> {c.symptoms}</p>
+                  <p className="text-sm font-bold text-slate-800"><span className="text-slate-400 font-normal">주호소:</span> {c.symptoms}</p>
                   <p className="text-sm font-bold text-teal-900"><span className="text-slate-400 font-normal">처방:</span> {c.prescription}</p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -375,31 +371,21 @@ export default function ConsultationsPage() {
                 <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">주호소</span><span className="font-semibold text-slate-800">{historyDetailModal.symptoms || "-"}</span></div>
                 <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">금액</span><span className="font-semibold text-slate-800">{historyDetailModal.amount ? `${historyDetailModal.amount.toLocaleString()}원` : "-"}</span></div>
               </div>
-
               <div className="grid grid-cols-2 gap-2">
                 <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">소화배변</span><span className="font-semibold text-slate-800">{historyDetailModal.digestion_stool || "-"}</span></div>
                 <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">수면상태</span><span className="font-semibold text-slate-800">{historyDetailModal.sleep_state || "-"}</span></div>
               </div>
-
               {historyDetailModal.symptom_detail && (
-                <div className="p-3 bg-slate-50 rounded-xl border">
-                  <span className="text-xs font-bold text-slate-400 block mb-0.5">증상 상세</span>
-                  <p className="text-slate-800 whitespace-pre-line">{historyDetailModal.symptom_detail}</p>
-                </div>
+                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">증상 상세</span><p className="text-slate-800 whitespace-pre-line">{historyDetailModal.symptom_detail}</p></div>
               )}
-
               {historyDetailModal.prescription && (
-                <div className="p-3 bg-teal-50/60 rounded-xl border border-teal-200">
-                  <span className="text-xs font-bold text-teal-700 block mb-0.5">처방 내용</span>
-                  <p className="font-bold text-teal-950 whitespace-pre-line">{historyDetailModal.prescription}</p>
-                </div>
+                <div className="p-3 bg-teal-50/60 rounded-xl border border-teal-200"><span className="text-xs font-bold text-teal-700 block mb-0.5">처방 내용</span><p className="font-bold text-teal-950 whitespace-pre-line">{historyDetailModal.prescription}</p></div>
               )}
-
               {historyDetailModal.consult_memo && (
-                <div className="p-3 bg-slate-50 rounded-xl border">
-                  <span className="text-xs font-bold text-slate-400 block mb-0.5">코멘트</span>
-                  <p className="text-slate-800 whitespace-pre-line">{historyDetailModal.consult_memo}</p>
-                </div>
+                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">코멘트</span><p className="text-slate-800 whitespace-pre-line">{historyDetailModal.consult_memo}</p></div>
+              )}
+              {historyDetailModal.follow_up && (
+                <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-200"><span className="text-xs font-bold text-purple-700 block mb-0.5">추후관리</span><p className="font-bold text-purple-950 whitespace-pre-line">{historyDetailModal.follow_up}</p></div>
               )}
             </div>
 
