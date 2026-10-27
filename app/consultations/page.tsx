@@ -14,6 +14,9 @@ export default function ConsultationsPage() {
 
   const [selectedDetailConsultation, setSelectedDetailConsultation] = useState<any | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+  
+  // 🟢 최근방문내역 클릭 시 띄울 상세 보기 팝업 상태
+  const [historyDetailModal, setHistoryDetailModal] = useState<any | null>(null);
 
   const [patientSearchQuery, setPatientSearchQuery] = useState("");
   const [isPatientDropdownOpen, setIsPatientDropdownOpen] = useState(false);
@@ -233,7 +236,7 @@ export default function ConsultationsPage() {
                     <tbody className="divide-y divide-slate-100">
                       {patientHistory.length === 0 ? <tr><td colSpan={3} className="text-center p-4 text-slate-400">내역 없음</td></tr> : 
                         patientHistory.map(h => (
-                          <tr key={h.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => handleEditClick(h)}>
+                          <tr key={h.id} className="hover:bg-teal-50 cursor-pointer" onClick={() => setHistoryDetailModal(h)}>
                             <td className="p-1 font-semibold text-slate-800">{h.consultation_date?.slice(2) || h.created_at.slice(2,10)}</td>
                             <td className="p-1 truncate max-w-[80px] font-bold text-slate-900">{h.symptoms}</td>
                             <td className="p-1 truncate max-w-[80px] text-teal-900 font-bold">{h.prescription}</td>
@@ -250,7 +253,6 @@ export default function ConsultationsPage() {
             <div className="flex gap-4 flex-1 min-h-[120px]">
               <div className="flex-1 flex flex-col">
                 <label className="text-xs font-bold text-teal-900 mb-1">처방</label>
-                {/* 🟢 처방내용 작성란 테두리 및 색상 강조 */}
                 <textarea 
                   value={prescription} 
                   onChange={(e) => setPrescription(e.target.value)} 
@@ -264,15 +266,15 @@ export default function ConsultationsPage() {
               </div>
             </div>
 
-            {/* 5. 피드백일정, 금액 & 저장 버튼 */}
+            {/* 5. 피드백일정, 금액 & 저장 버튼 (숫자 전용 입력) */}
             <div className="flex items-center gap-3 pt-2">
               <div className="flex items-center gap-2">
                 <label className="text-xs font-bold text-slate-700">피드백일정(일)</label>
-                <input type="number" value={feedbackDays} onChange={(e) => setFeedbackDays(e.target.value)} className="w-20 p-2 bg-slate-50 border rounded-lg text-sm font-bold text-slate-900" placeholder="예:30" />
+                <input type="text" inputMode="numeric" pattern="[0-9]*" value={feedbackDays} onChange={(e) => setFeedbackDays(e.target.value.replace(/[^0-9]/g, ''))} className="w-20 p-2 bg-slate-50 border rounded-lg text-sm font-bold text-slate-900" placeholder="예:30" />
               </div>
               <div className="flex items-center gap-2">
                 <label className="text-xs font-bold text-slate-700">금액</label>
-                <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-28 p-2 bg-slate-50 border rounded-lg text-sm font-bold text-slate-900" placeholder="숫자만" />
+                <input type="text" inputMode="numeric" pattern="[0-9]*" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ''))} className="w-28 p-2 bg-slate-50 border rounded-lg text-sm font-bold text-slate-900" placeholder="숫자만" />
               </div>
               <div className="flex-1"></div>
               <button type="submit" disabled={uploading} className="px-6 py-2.5 bg-teal-900 hover:bg-teal-800 text-white font-bold rounded-lg transition disabled:opacity-50 shadow-sm">
@@ -287,7 +289,6 @@ export default function ConsultationsPage() {
             <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-xl p-3 overflow-hidden">
               <div className="flex justify-between items-center mb-2">
                 <label className="text-xs font-bold text-slate-900">📸 현재 상담 사진 첨부</label>
-                {/* 🟢 직관적인 파일 선택 버튼 */}
                 <label className="cursor-pointer px-3 py-1.5 bg-teal-800 text-white rounded-lg text-xs font-bold hover:bg-teal-700 transition shadow-xs flex items-center gap-1">
                   <span>📁 사진 파일 선택</span>
                   <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { if(e.target.files) setImageFiles(prev => [...prev, ...Array.from(e.target.files!)]) }} />
@@ -353,6 +354,58 @@ export default function ConsultationsPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* 🟢 최근방문내역 클릭 시 뜨는 상세 보기 전용 팝업 */}
+      {historyDetailModal && (
+        <div onClick={() => setHistoryDetailModal(null)} className="fixed inset-0 z-[110] bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
+          <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-4 cursor-default" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b pb-3">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">📅 과거 방문 상세 내역</h3>
+                <p className="text-xs text-slate-500">내방일: {historyDetailModal.consultation_date || historyDetailModal.created_at.split('T')[0]}</p>
+              </div>
+              <button onClick={() => setHistoryDetailModal(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
+            </div>
+
+            <div className="space-y-3 text-sm max-h-[60vh] overflow-y-auto pr-1">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">주호소</span><span className="font-semibold text-slate-800">{historyDetailModal.symptoms || "-"}</span></div>
+                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">금액</span><span className="font-semibold text-slate-800">{historyDetailModal.amount ? `${historyDetailModal.amount.toLocaleString()}원` : "-"}</span></div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">소화배변</span><span className="font-semibold text-slate-800">{historyDetailModal.digestion_stool || "-"}</span></div>
+                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">수면상태</span><span className="font-semibold text-slate-800">{historyDetailModal.sleep_state || "-"}</span></div>
+              </div>
+
+              {historyDetailModal.symptom_detail && (
+                <div className="p-3 bg-slate-50 rounded-xl border">
+                  <span className="text-xs font-bold text-slate-400 block mb-0.5">증상 상세</span>
+                  <p className="text-slate-800 whitespace-pre-line">{historyDetailModal.symptom_detail}</p>
+                </div>
+              )}
+
+              {historyDetailModal.prescription && (
+                <div className="p-3 bg-teal-50/60 rounded-xl border border-teal-200">
+                  <span className="text-xs font-bold text-teal-700 block mb-0.5">처방 내용</span>
+                  <p className="font-bold text-teal-950 whitespace-pre-line">{historyDetailModal.prescription}</p>
+                </div>
+              )}
+
+              {historyDetailModal.consult_memo && (
+                <div className="p-3 bg-slate-50 rounded-xl border">
+                  <span className="text-xs font-bold text-slate-400 block mb-0.5">코멘트</span>
+                  <p className="text-slate-800 whitespace-pre-line">{historyDetailModal.consult_memo}</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2">
+              <button onClick={() => setHistoryDetailModal(null)} className="px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800">확인 완료</button>
+            </div>
           </div>
         </div>
       )}
