@@ -13,8 +13,10 @@ export default function PatientsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPatientId, setEditingPatientId] = useState<string | null>(null);
 
-  // 🟢 특정 환자 기록 모아보기 팝업 상태
+  // 팝업 상태들
   const [historyModalPatient, setHistoryModalPatient] = useState<any | null>(null);
+  const [photosModalPatient, setPhotosModalPatient] = useState<any | null>(null);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
   // 폼 필드
   const [name, setName] = useState("");
@@ -33,7 +35,25 @@ export default function PatientsPage() {
     if (pData) setPatients(pData);
 
     const { data: cData } = await supabase.from("consultations").select("*").order("created_at", { ascending: false });
-    if (cData) setConsultations(cData);
+    if (cData) {
+      // 이미지 URL에 대한 Signed URL 처리
+      const withSignedUrls = await Promise.all(
+        cData.map(async (c) => {
+          if (c.image_urls && c.image_urls.length > 0) {
+            const signedUrls = await Promise.all(
+              c.image_urls.map(async (path: string) => {
+                if (path.startsWith('http')) return path;
+                const { data: signedData } = await supabase.storage.from('consultation-images').createSignedUrl(path, 60 * 60);
+                return signedData?.signedUrl || '';
+              })
+            );
+            return { ...c, display_image_urls: signedUrls.filter(Boolean) };
+          }
+          return { ...c, display_image_urls: [] };
+        })
+      );
+      setConsultations(withSignedUrls);
+    }
   };
 
   const getPatientStats = (patientId: string) => {
@@ -95,9 +115,15 @@ export default function PatientsPage() {
     p.phone?.includes(searchTerm)
   );
 
-  // 선택된 환자의 전체 상담 기록 필터링
   const patientConsultations = historyModalPatient 
     ? consultations.filter(c => c.patient_id === historyModalPatient.id) 
+    : [];
+
+  // 환자별 모든 사진 모아보기 목록 추출
+  const patientAllPhotos = photosModalPatient
+    ? consultations
+        .filter(c => c.patient_id === photosModalPatient.id)
+        .flatMap(c => (c.display_image_urls || []).map((url: string) => ({ url, date: c.consultation_date || c.created_at.split('T')[0], symptoms: c.symptoms })))
     : [];
 
   return (
@@ -149,12 +175,17 @@ export default function PatientsPage() {
                     <td className="p-4 text-slate-800 font-medium">{stats.lastDate}</td>
                     <td className="p-4 font-bold text-teal-800">{stats.count}회</td>
                     <td className="p-4 font-bold text-purple-800">{stats.totalAmount.toLocaleString()}원</td>
-                    <td className="p-4 text-right space-x-1.5">
-                      {/* 🟢 기록보기 버튼 추가 */}
-                      <button onClick={() => setHistoryModalPatient(p)} className="px-3 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs rounded-lg transition">
+                    <td className="p-4 text-right space-x-1">
+                      {/* 기록보기 버튼 */}
+                      <button onClick={() => setHistoryModalPatient(p)} className="px-2.5 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs rounded-lg transition">
                         기록보기
                       </button>
-                      <button onClick={() => handleOpenEdit(p)} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition">
+                      {/* 🟢 사진모아보기 버튼 추가 */}
+                      <button onClick={() => setPhotosModalPatient(p)} className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition">
+                        사진모아보기
+                      </button>
+                      {/* 수정 버튼 */}
+                      <button onClick={() => handleOpenEdit(p)} className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition">
                         수정
                       </button>
                     </td>
@@ -166,7 +197,7 @@ export default function PatientsPage() {
         </table>
       </div>
 
-      {/* 🟢 환자별 전체 상담 기록 모아보기 팝업 */}
+      {/* 환자별 전체 상담 기록 모아보기 팝업 */}
       {historyModalPatient && (
         <div onClick={() => setHistoryModalPatient(null)} className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-2xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
@@ -185,7 +216,8 @@ export default function PatientsPage() {
                 patientConsultations.map((c, idx) => (
                   <div key={c.id || idx} className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2">
                     <div className="flex justify-between items-center border-b border-slate-200/60 pb-2">
-                      <span className="font-bold text-slate-900 text-sm">📅 내방일: {c.consultation_date || c.created_at.split('T')[0]}</span>
+                      {/* 🟢 '내방일' 글자 제거하고 날짜 숫자만 노출 */}
+                      <span className="font-bold text-slate-900 text-sm">{c.consultation_date || c.created_at.split('T')[0]}</span>
                       {c.amount && <span className="font-extrabold text-purple-800 text-sm">{c.amount.toLocaleString()}원</span>}
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs">
@@ -216,6 +248,48 @@ export default function PatientsPage() {
               <button onClick={() => setHistoryModalPatient(null)} className="px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800">닫기</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 🟢 환자별 사진 모아보기 팝업 */}
+      {photosModalPatient && (
+        <div onClick={() => setPhotosModalPatient(null)} className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
+          <div className="bg-white w-full max-w-2xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b pb-3">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">📸 {photosModalPatient.name} 님의 사진 모아보기</h3>
+                <p className="text-xs text-slate-500">총 첨부된 사진: {patientAllPhotos.length}장</p>
+              </div>
+              <button onClick={() => setPhotosModalPatient(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 gap-3 content-start pr-1">
+              {patientAllPhotos.length === 0 ? (
+                <div className="col-span-full text-center py-12 text-slate-400 text-sm">등록된 사진이 없습니다.</div>
+              ) : (
+                patientAllPhotos.map((photo: any, idx: number) => (
+                  <div key={idx} className="relative aspect-square border border-slate-200 rounded-2xl overflow-hidden bg-white group cursor-pointer shadow-xs" onClick={() => setPreviewImageUrl(photo.url)}>
+                    <img src={photo.url} className="w-full h-full object-cover group-hover:scale-105 transition" />
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[10px] font-semibold px-2 py-1 truncate">
+                      {photo.date} {photo.symptoms ? `(${photo.symptoms})` : ""}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t">
+              <button onClick={() => setPhotosModalPatient(null)} className="px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800">닫기</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 이미지 확대 라이트박스 팝업 */}
+      {previewImageUrl && (
+        <div onClick={() => setPreviewImageUrl(null)} className="fixed inset-0 z-[100] bg-slate-950/80 flex items-center justify-center p-4 cursor-pointer">
+          <img src={previewImageUrl} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
+          <button onClick={() => setPreviewImageUrl(null)} className="absolute top-4 right-4 text-white bg-slate-800 w-10 h-10 rounded-full font-bold">✕</button>
         </div>
       )}
 
