@@ -19,10 +19,10 @@ export default function ConsultationsPage() {
   const [isPatientDropdownOpen, setIsPatientDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // 📝 폼 상태값 (스케치 기준)
+  // 📝 폼 상태값 (빌드 에러 방지를 위해 초기값을 빈 문자열로 설정)
   const [selectedPatient, setSelectedPatient] = useState("");
   const [selectedPatientNameDisplay, setSelectedPatientNameDisplay] = useState("");
-  const [consultationDate, setConsultationDate] = useState(new Date().toISOString().split('T')[0]); // 오늘 날짜 디폴트
+  const [consultationDate, setConsultationDate] = useState(""); 
   
   const [symptoms, setSymptoms] = useState(""); // 주호소
   const [digestionStool, setDigestionStool] = useState(""); // 소화배변
@@ -45,6 +45,8 @@ export default function ConsultationsPage() {
   );
 
   useEffect(() => {
+    // 마운트 시점에 오늘 날짜 세팅 및 데이터 로드
+    setConsultationDate(new Date().toISOString().split('T')[0]);
     fetchData();
   }, []);
 
@@ -325,7 +327,7 @@ export default function ConsultationsPage() {
         </form>
       )}
 
-      {/* 2. 전체 기록 조회 탭 (기존 뷰 유지, 생략 없이 전체 동작) */}
+      {/* 2. 전체 기록 조회 탭 */}
       {activeTab === "history" && (
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 overflow-y-auto flex-1">
           <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
