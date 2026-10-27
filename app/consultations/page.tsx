@@ -40,7 +40,6 @@ export default function ConsultationsPage() {
   const [existingImagePreviews, setExistingImagePreviews] = useState<{ path: string; url: string }[]>([]);
   const [uploading, setUploading] = useState(false);
 
-  // 🟢 환자 이름 포맷
   const formatPatientDisplayName = (p: any) => {
     if (!p) return "";
     return p.custom_id ? `${p.name} (${p.custom_id})` : p.name;
@@ -64,20 +63,30 @@ export default function ConsultationsPage() {
     fetchData();
   }, []);
 
+  // 🟢 에러를 눈으로 확인할 수 있도록 보완된 fetchData
   const fetchData = async () => {
     try {
-      const { data: pData } = await supabase.from("patients").select("*").order("name");
+      const { data: pData, error: pError } = await supabase.from("patients").select("*").order("name");
+      if (pError) {
+        console.error("환자 목록 조회 실패:", pError.message);
+      }
       if (pData) setPatients(pData);
 
-      const { data: cData } = await supabase
+      // 외래키 명시적 연결(patients:patient_id)로 쿼리 안정성 강화
+      const { data: cData, error: cError } = await supabase
         .from("consultations")
-        .select("*, patients(name, custom_id, gender, birth_year, phone)")
+        .select("*, patients:patient_id(name, custom_id, gender, birth_year, phone)")
         .order("created_at", { ascending: false });
       
+      if (cError) {
+        console.error("상담 기록 조회 실패:", cError.message);
+        alert("데이터를 불러오지 못했습니다. 에러: " + cError.message);
+        return;
+      }
+
       if (cData) {
         const consultationsWithSignedUrls = await Promise.all(
           cData.map(async (c) => {
-            // 방어 코드: image_urls가 정상적인 배열일 때만 처리
             if (c.image_urls && Array.isArray(c.image_urls) && c.image_urls.length > 0) {
               const signedUrls = await Promise.all(
                 c.image_urls.map(async (path: string) => {
@@ -93,8 +102,9 @@ export default function ConsultationsPage() {
         );
         setConsultations(consultationsWithSignedUrls);
       }
-    } catch (error) {
-      console.error("데이터 불러오기 오류:", error);
+    } catch (error: any) {
+      console.error("데이터 불러오기 치명적 오류:", error);
+      alert("데이터 통신 중 오류가 발생했습니다: " + (error?.message || error));
     }
   };
 
@@ -181,7 +191,7 @@ export default function ConsultationsPage() {
     setSymptomDetail(c.symptom_detail || ""); setPrescription(c.prescription || ""); setConsultMemo(c.consult_memo || "");
     setFollowUp(c.follow_up || "");
     setFeedbackDays(c.feedback_days ? c.feedback_days.toString() : ""); 
-    setAmount(c.amount != null ? c.amount.toString() : ""); // 에러 방지
+    setAmount(c.amount != null ? c.amount.toString() : "");
     
     const rawPaths = c.image_urls || [];
     setExistingImageUrls(rawPaths);
@@ -198,7 +208,6 @@ export default function ConsultationsPage() {
     setActiveTab("write");
   };
 
-  // 🟢 데이터 필터링 안전 처리 강화 (에러 방지)
   const patientHistory = selectedPatient ? consultations.filter(c => c.patient_id === selectedPatient && c.id !== editingId) : [];
   const patientPastPhotos = patientHistory.flatMap(c => 
     (Array.isArray(c.display_image_urls) ? c.display_image_urls : []).map((url: string) => ({ url, date: c.consultation_date || c.created_at?.split('T')[0] || "", symptoms: c.symptoms }))
@@ -218,7 +227,6 @@ export default function ConsultationsPage() {
            c.prescription?.toLowerCase().includes(term);
   });
 
-  // 사진 개수 카운트
   const totalCurrentPhotos = existingImagePreviews.length + imageFiles.length;
 
   return (
@@ -232,7 +240,6 @@ export default function ConsultationsPage() {
       {activeTab === "write" && (
         <form onSubmit={handleSubmitConsultation} className="flex flex-col lg:flex-row gap-4 flex-1 min-h-0 overflow-hidden">
           
-          {/* 🟢 왼쪽: 텍스트 폼 영역 */}
           <div className="flex-[2] flex flex-col gap-2.5 bg-white p-4 rounded-xl border border-slate-200 overflow-y-auto lg:overflow-visible">
             <div className="flex gap-2 relative z-25" ref={dropdownRef}>
               <div className="flex-1">
@@ -330,7 +337,7 @@ export default function ConsultationsPage() {
             </div>
           </div>
 
-          {/* 🟢 오른쪽: 스크롤 제거 & 크기 자동 맞춤형 안전한 레이아웃 */}
+          {/* 오른쪽 사진 영역 */}
           <div className="flex-1 flex flex-col gap-3 min-w-[280px]">
             <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-xl p-3 overflow-hidden min-h-[220px]">
               <div className="flex justify-between items-center mb-2 flex-shrink-0">
