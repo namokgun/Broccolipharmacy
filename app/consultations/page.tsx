@@ -19,7 +19,7 @@ export default function ConsultationsPage() {
   const [isPatientDropdownOpen, setIsPatientDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // 📝 폼 상태값 (빌드 에러 방지를 위해 초기값을 빈 문자열로 설정)
+  // 📝 폼 상태값
   const [selectedPatient, setSelectedPatient] = useState("");
   const [selectedPatientNameDisplay, setSelectedPatientNameDisplay] = useState("");
   const [consultationDate, setConsultationDate] = useState(""); 
@@ -45,7 +45,6 @@ export default function ConsultationsPage() {
   );
 
   useEffect(() => {
-    // 마운트 시점에 오늘 날짜 세팅 및 데이터 로드
     setConsultationDate(new Date().toISOString().split('T')[0]);
     fetchData();
   }, []);
@@ -76,22 +75,6 @@ export default function ConsultationsPage() {
         })
       );
       setConsultations(consultationsWithSignedUrls);
-    }
-  };
-
-  // 🟢 붙여넣기(Ctrl+V) 이미지 첨부 핸들러
-  const handlePaste = (e: React.ClipboardEvent) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    const files: File[] = [];
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf("image") !== -1) {
-        const file = items[i].getAsFile();
-        if (file) files.push(file);
-      }
-    }
-    if (files.length > 0) {
-      setImageFiles(prev => [...prev, ...files]);
     }
   };
 
@@ -181,7 +164,7 @@ export default function ConsultationsPage() {
   const filteredConsultations = consultations.filter(c => c.patients?.name?.includes(searchTerm) || c.symptoms?.includes(searchTerm) || c.prescription?.includes(searchTerm));
 
   return (
-    <div className="w-full h-[calc(100vh-80px)] flex flex-col space-y-4" onPaste={handlePaste}>
+    <div className="w-full h-[calc(100vh-80px)] flex flex-col space-y-4">
       {/* 상단 탭 헤더 */}
       <div className="flex gap-2 border-b pb-2 flex-shrink-0">
         <button onClick={() => { resetForm(); setActiveTab("write"); }} className={`px-4 py-2 rounded-lg font-bold text-sm transition ${activeTab === "write" ? "bg-teal-900 text-white" : "bg-white text-slate-600 border"}`}>📝 상담 기록 작성 / 수정</button>
@@ -191,60 +174,69 @@ export default function ConsultationsPage() {
       {activeTab === "write" && (
         <form onSubmit={handleSubmitConsultation} className="flex flex-col lg:flex-row gap-4 flex-1 min-h-0 overflow-hidden">
           
-          {/* 🟢 왼쪽: 텍스트 폼 영역 (스크롤 없이 꽉 차게) */}
+          {/* 🟢 왼쪽: 텍스트 폼 영역 */}
           <div className="flex-[2] flex flex-col gap-2.5 bg-white p-4 rounded-xl border border-slate-200 overflow-y-auto lg:overflow-visible">
             
             {/* 1. 이름 & 상담일자 */}
             <div className="flex gap-2 relative z-20" ref={dropdownRef}>
               <div className="flex-1">
-                <div onClick={() => setIsPatientDropdownOpen(true)} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer flex justify-between items-center text-sm font-bold text-slate-800">
+                <div onClick={() => setIsPatientDropdownOpen(true)} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg cursor-pointer flex justify-between items-center text-sm font-bold text-slate-900">
                   <span>{selectedPatientNameDisplay || "환자 선택 (이름 검색)..."}</span>
                   <span className="text-xs">▼</span>
                 </div>
                 {isPatientDropdownOpen && (
                   <div className="absolute top-full left-0 w-[60%] mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto p-2">
-                    <input type="text" placeholder="이름 검색..." value={patientSearchQuery} onChange={(e) => setPatientSearchQuery(e.target.value)} className="w-full p-2 mb-1 bg-slate-50 border rounded text-sm focus:outline-none" autoFocus />
+                    <input type="text" placeholder="이름 검색..." value={patientSearchQuery} onChange={(e) => setPatientSearchQuery(e.target.value)} className="w-full p-2 mb-1 bg-slate-50 border rounded text-sm font-bold text-slate-900 focus:outline-none" autoFocus />
                     {filteredPatients.map(p => (
-                      <div key={p.id} onClick={() => { setSelectedPatient(p.id); setSelectedPatientNameDisplay(`${p.name} (${p.phone || ""})`); setIsPatientDropdownOpen(false); }} className="p-2 hover:bg-teal-50 rounded cursor-pointer text-sm font-semibold">{p.name} <span className="text-xs font-normal text-slate-500">({p.gender}/{p.birth_year})</span></div>
+                      <div key={p.id} onClick={() => { setSelectedPatient(p.id); setSelectedPatientNameDisplay(`${p.name} (${p.phone || ""})`); setIsPatientDropdownOpen(false); }} className="p-2.5 hover:bg-teal-50 rounded cursor-pointer text-sm font-bold text-slate-900 flex justify-between items-center">
+                        <span>{p.name}</span>
+                        <span className="text-xs font-normal text-slate-600">({p.gender}/{p.birth_year}) {p.phone}</span>
+                      </div>
                     ))}
                   </div>
                 )}
               </div>
-              <input type="date" value={consultationDate} onChange={(e) => setConsultationDate(e.target.value)} className="w-40 p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-800" required />
+              <input type="date" value={consultationDate} onChange={(e) => setConsultationDate(e.target.value)} className="w-40 p-2 bg-slate-50 border border-slate-200 rounded-lg text-sm font-bold text-slate-900" required />
             </div>
 
             {/* 2. 주호소, 소화배변, 수면상태 */}
             <div className="flex items-center gap-2">
-              <label className="w-16 text-xs font-bold text-slate-500 shrink-0">주호소</label>
-              <input type="text" value={symptoms} onChange={(e) => setSymptoms(e.target.value)} className="flex-1 p-2 bg-slate-50 border rounded-lg text-sm" />
+              <label className="w-16 text-xs font-bold text-slate-700 shrink-0">주호소</label>
+              <input type="text" value={symptoms} onChange={(e) => setSymptoms(e.target.value)} className="flex-1 p-2 bg-slate-50 border rounded-lg text-sm font-semibold text-slate-900" />
             </div>
             <div className="flex items-center gap-2">
-              <label className="w-16 text-xs font-bold text-slate-500 shrink-0">소화배변</label>
-              <input type="text" value={digestionStool} onChange={(e) => setDigestionStool(e.target.value)} className="flex-1 p-2 bg-slate-50 border rounded-lg text-sm" />
+              <label className="w-16 text-xs font-bold text-slate-700 shrink-0">소화배변</label>
+              <input type="text" value={digestionStool} onChange={(e) => setDigestionStool(e.target.value)} className="flex-1 p-2 bg-slate-50 border rounded-lg text-sm font-semibold text-slate-900" />
             </div>
             <div className="flex items-center gap-2">
-              <label className="w-16 text-xs font-bold text-slate-500 shrink-0">수면상태</label>
-              <input type="text" value={sleepState} onChange={(e) => setSleepState(e.target.value)} className="flex-1 p-2 bg-slate-50 border rounded-lg text-sm" />
+              <label className="w-16 text-xs font-bold text-slate-700 shrink-0">수면상태</label>
+              <input type="text" value={sleepState} onChange={(e) => setSleepState(e.target.value)} className="flex-1 p-2 bg-slate-50 border rounded-lg text-sm font-semibold text-slate-900" />
             </div>
 
-            {/* 3. 증상 및 최근방문내역 (반반 분할) */}
+            {/* 3. 증상 및 최근방문내역 */}
             <div className="flex gap-4 flex-1 min-h-[120px]">
               <div className="flex-1 flex flex-col">
-                <label className="text-xs font-bold text-blue-600 mb-1">증상</label>
-                <textarea value={symptomDetail} onChange={(e) => setSymptomDetail(e.target.value)} className="flex-1 p-2 bg-slate-50 border rounded-lg text-sm resize-none" />
+                <label className="text-xs font-bold text-blue-700 mb-1">증상</label>
+                <textarea value={symptomDetail} onChange={(e) => setSymptomDetail(e.target.value)} className="flex-1 p-2 bg-slate-50 border rounded-lg text-sm font-semibold text-slate-900 resize-none" />
               </div>
               <div className="flex-1 flex flex-col">
-                <label className="text-xs font-bold text-slate-800 mb-1">최근 방문내역 (선택 환자)</label>
+                <label className="text-xs font-bold text-slate-900 mb-1">최근 방문내역 (선택 환자)</label>
                 <div className="flex-1 border rounded-lg overflow-y-auto bg-white p-1 text-[11px]">
                   <table className="w-full text-left">
-                    <thead className="bg-slate-50 sticky top-0"><tr><th className="p-1">내방일</th><th className="p-1">주호소</th><th className="p-1">처방</th></tr></thead>
+                    <thead className="bg-slate-100 sticky top-0 text-slate-900 font-bold">
+                      <tr>
+                        <th className="p-1.5 text-slate-900 font-bold">내방일</th>
+                        <th className="p-1.5 text-slate-900 font-bold">주호소</th>
+                        <th className="p-1.5 text-slate-900 font-bold">처방</th>
+                      </tr>
+                    </thead>
                     <tbody className="divide-y divide-slate-100">
                       {patientHistory.length === 0 ? <tr><td colSpan={3} className="text-center p-4 text-slate-400">내역 없음</td></tr> : 
                         patientHistory.map(h => (
                           <tr key={h.id} className="hover:bg-slate-50 cursor-pointer" onClick={() => handleEditClick(h)}>
-                            <td className="p-1">{h.consultation_date?.slice(2) || h.created_at.slice(2,10)}</td>
-                            <td className="p-1 truncate max-w-[80px] font-semibold">{h.symptoms}</td>
-                            <td className="p-1 truncate max-w-[80px] text-teal-700 font-semibold">{h.prescription}</td>
+                            <td className="p-1 font-semibold text-slate-800">{h.consultation_date?.slice(2) || h.created_at.slice(2,10)}</td>
+                            <td className="p-1 truncate max-w-[80px] font-bold text-slate-900">{h.symptoms}</td>
+                            <td className="p-1 truncate max-w-[80px] text-teal-900 font-bold">{h.prescription}</td>
                           </tr>
                         ))
                       }
@@ -257,27 +249,33 @@ export default function ConsultationsPage() {
             {/* 4. 처방 및 코멘트 */}
             <div className="flex gap-4 flex-1 min-h-[120px]">
               <div className="flex-1 flex flex-col">
-                <label className="text-xs font-bold text-teal-800 mb-1">처방</label>
-                <textarea value={prescription} onChange={(e) => setPrescription(e.target.value)} className="flex-1 p-2 bg-teal-50/50 border border-teal-200 rounded-lg text-sm font-bold text-teal-900 resize-none" />
+                <label className="text-xs font-bold text-teal-900 mb-1">처방</label>
+                {/* 🟢 처방내용 작성란 테두리 및 색상 강조 */}
+                <textarea 
+                  value={prescription} 
+                  onChange={(e) => setPrescription(e.target.value)} 
+                  className="flex-1 p-2.5 bg-teal-50/80 border-2 border-teal-500 rounded-lg text-sm font-bold text-teal-950 resize-none shadow-xs" 
+                  placeholder="처방 내용을 입력하세요..."
+                />
               </div>
               <div className="flex-1 flex flex-col">
-                <label className="text-xs font-bold text-slate-600 mb-1">코멘트</label>
-                <textarea value={consultMemo} onChange={(e) => setConsultMemo(e.target.value)} className="flex-1 p-2 bg-slate-50 border rounded-lg text-sm resize-none" />
+                <label className="text-xs font-bold text-slate-700 mb-1">코멘트</label>
+                <textarea value={consultMemo} onChange={(e) => setConsultMemo(e.target.value)} className="flex-1 p-2 bg-slate-50 border rounded-lg text-sm font-semibold text-slate-900 resize-none" />
               </div>
             </div>
 
             {/* 5. 피드백일정, 금액 & 저장 버튼 */}
             <div className="flex items-center gap-3 pt-2">
               <div className="flex items-center gap-2">
-                <label className="text-xs font-bold text-slate-500">피드백일정(일)</label>
-                <input type="number" value={feedbackDays} onChange={(e) => setFeedbackDays(e.target.value)} className="w-20 p-2 bg-slate-50 border rounded-lg text-sm" placeholder="예:30" />
+                <label className="text-xs font-bold text-slate-700">피드백일정(일)</label>
+                <input type="number" value={feedbackDays} onChange={(e) => setFeedbackDays(e.target.value)} className="w-20 p-2 bg-slate-50 border rounded-lg text-sm font-bold text-slate-900" placeholder="예:30" />
               </div>
               <div className="flex items-center gap-2">
-                <label className="text-xs font-bold text-slate-500">금액</label>
-                <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-28 p-2 bg-slate-50 border rounded-lg text-sm" placeholder="숫자만" />
+                <label className="text-xs font-bold text-slate-700">금액</label>
+                <input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} className="w-28 p-2 bg-slate-50 border rounded-lg text-sm font-bold text-slate-900" placeholder="숫자만" />
               </div>
-              <div className="flex-1 text-right text-xs text-slate-400">※ 창 아무 곳에서나 [Ctrl+V]로 사진 첨부 가능</div>
-              <button type="submit" disabled={uploading} className="px-6 py-2.5 bg-teal-900 hover:bg-teal-800 text-white font-bold rounded-lg transition disabled:opacity-50">
+              <div className="flex-1"></div>
+              <button type="submit" disabled={uploading} className="px-6 py-2.5 bg-teal-900 hover:bg-teal-800 text-white font-bold rounded-lg transition disabled:opacity-50 shadow-sm">
                 {uploading ? "저장 중..." : (editingId ? "수정 저장" : "상담 등록")}
               </button>
             </div>
@@ -288,21 +286,25 @@ export default function ConsultationsPage() {
             {/* 현재 상담 사진 첨부 영역 */}
             <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-xl p-3 overflow-hidden">
               <div className="flex justify-between items-center mb-2">
-                <label className="text-xs font-bold text-slate-800">📸 현재 상담 사진 첨부</label>
-                <input type="file" accept="image/*" multiple onChange={(e) => { if(e.target.files) setImageFiles(prev => [...prev, ...Array.from(e.target.files!)]) }} className="text-[10px] w-48" />
+                <label className="text-xs font-bold text-slate-900">📸 현재 상담 사진 첨부</label>
+                {/* 🟢 직관적인 파일 선택 버튼 */}
+                <label className="cursor-pointer px-3 py-1.5 bg-teal-800 text-white rounded-lg text-xs font-bold hover:bg-teal-700 transition shadow-xs flex items-center gap-1">
+                  <span>📁 사진 파일 선택</span>
+                  <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { if(e.target.files) setImageFiles(prev => [...prev, ...Array.from(e.target.files!)]) }} />
+                </label>
               </div>
-              <div className="flex-1 border-2 border-dashed border-slate-200 bg-slate-50 rounded-lg p-2 overflow-y-auto flex flex-wrap gap-2 content-start">
-                {(existingImagePreviews.length === 0 && imageFiles.length === 0) && <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">클릭하여 파일 선택 또는 (Ctrl+V) 붙여넣기</div>}
+              <div className="flex-1 border-2 border-dashed border-slate-300 bg-slate-50 rounded-lg p-2 overflow-y-auto flex flex-wrap gap-2 content-start">
+                {(existingImagePreviews.length === 0 && imageFiles.length === 0) && <div className="w-full h-full flex items-center justify-center text-xs font-bold text-slate-500">버튼을 눌러 사진 파일을 선택해주세요.</div>}
                 {existingImagePreviews.map((item, idx) => (
                   <div key={`ex-${idx}`} className="relative w-20 h-20 border rounded-lg overflow-hidden group">
                     <img src={item.url} onClick={() => setPreviewImageUrl(item.url)} className="w-full h-full object-cover cursor-pointer" />
-                    <button type="button" onClick={() => { setExistingImageUrls(prev => prev.filter((_, i) => i !== idx)); setExistingImagePreviews(prev => prev.filter((_, i) => i !== idx)); }} className="absolute top-0 right-0 bg-red-500 text-white w-5 h-5 text-[10px] hidden group-hover:block">✕</button>
+                    <button type="button" onClick={() => { setExistingImageUrls(prev => prev.filter((_, i) => i !== idx)); setExistingImagePreviews(prev => prev.filter((_, i) => i !== idx)); }} className="absolute top-0 right-0 bg-red-500 text-white w-5 h-5 text-[10px] hidden group-hover:block font-bold">✕</button>
                   </div>
                 ))}
                 {imageFiles.map((file, idx) => (
                   <div key={`nw-${idx}`} className="relative w-20 h-20 border rounded-lg overflow-hidden group">
                     <img src={URL.createObjectURL(file)} onClick={() => setPreviewImageUrl(URL.createObjectURL(file))} className="w-full h-full object-cover cursor-pointer" />
-                    <button type="button" onClick={() => setImageFiles(prev => prev.filter((_, i) => i !== idx))} className="absolute top-0 right-0 bg-red-500 text-white w-5 h-5 text-[10px] hidden group-hover:block">✕</button>
+                    <button type="button" onClick={() => setImageFiles(prev => prev.filter((_, i) => i !== idx))} className="absolute top-0 right-0 bg-red-500 text-white w-5 h-5 text-[10px] hidden group-hover:block font-bold">✕</button>
                   </div>
                 ))}
               </div>
@@ -310,13 +312,13 @@ export default function ConsultationsPage() {
 
             {/* 과거 사진 데이터 모아보기 */}
             <div className="flex-1 flex flex-col bg-slate-100 border border-slate-200 rounded-xl p-3 overflow-hidden">
-              <label className="text-xs font-bold text-slate-600 mb-2">🎞️ 사진 데이터 (최신-과거순)</label>
+              <label className="text-xs font-bold text-slate-800 mb-2">🎞️ 사진 데이터 (최신-과거순)</label>
               <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 gap-2 content-start pr-1">
-                {patientPastPhotos.length === 0 ? <div className="col-span-full text-center text-xs text-slate-400 py-8">선택된 환자의 과거 사진이 없습니다.</div> : 
+                {patientPastPhotos.length === 0 ? <div className="col-span-full text-center text-xs text-slate-500 py-8 font-semibold">선택된 환자의 과거 사진이 없습니다.</div> : 
                   patientPastPhotos.map((photo, idx) => (
-                    <div key={idx} className="relative aspect-square border border-slate-300 rounded-lg overflow-hidden bg-white group cursor-pointer" onClick={() => setPreviewImageUrl(photo.url)}>
+                    <div key={idx} className="relative aspect-square border border-slate-300 rounded-lg overflow-hidden bg-white group cursor-pointer shadow-2xs" onClick={() => setPreviewImageUrl(photo.url)}>
                       <img src={photo.url} className="w-full h-full object-cover group-hover:scale-110 transition" />
-                      <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white text-[9px] px-1 py-0.5 truncate">{photo.date}</div>
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[10px] font-semibold px-1 py-0.5 truncate">{photo.date}</div>
                     </div>
                   ))
                 }
@@ -340,10 +342,10 @@ export default function ConsultationsPage() {
                 <div className="space-y-1 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="font-bold text-slate-900">{c.patients?.name || "알 수 없음"}</span>
-                    <span className="text-xs text-slate-500">({c.consultation_date || c.created_at.split('T')[0]})</span>
+                    <span className="text-xs text-slate-600 font-semibold">({c.consultation_date || c.created_at.split('T')[0]})</span>
                   </div>
-                  <p className="text-sm font-semibold"><span className="text-slate-400">증상:</span> {c.symptoms}</p>
-                  <p className="text-sm font-bold text-teal-800"><span className="text-slate-400">처방:</span> {c.prescription}</p>
+                  <p className="text-sm font-bold text-slate-800"><span className="text-slate-400 font-normal">증상:</span> {c.symptoms}</p>
+                  <p className="text-sm font-bold text-teal-900"><span className="text-slate-400 font-normal">처방:</span> {c.prescription}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button onClick={() => setSelectedDetailConsultation(c)} className="px-3 py-1.5 bg-slate-100 text-slate-700 text-xs font-bold rounded-lg">자세히</button>
