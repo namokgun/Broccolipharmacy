@@ -97,7 +97,7 @@ export default function ConsultationsPage() {
     }
   };
 
-  // 🟢 사진 붙여넣기(Ctrl+V) 기능 다시 추가
+  // 🟢 사진 붙여넣기(Ctrl+V) 기능
   const handlePaste = (e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items;
     if (!items) return;
@@ -322,7 +322,7 @@ export default function ConsultationsPage() {
             </div>
           </div>
 
-          {/* 🟢 오른쪽: 사진 뷰어 영역 */}
+          {/* 🟢 오른쪽: 사진 뷰어 영역 (썸네일 크기 대폭 확대 및 꽉 차게 수정) */}
           <div className="flex-1 flex flex-col gap-3 min-w-[280px]">
             <div className="flex-1 flex flex-col bg-white border border-slate-200 rounded-xl p-3 overflow-hidden">
               <div className="flex justify-between items-center mb-2">
@@ -332,31 +332,37 @@ export default function ConsultationsPage() {
                   <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { if(e.target.files) setImageFiles(prev => [...prev, ...Array.from(e.target.files!)]) }} />
                 </label>
               </div>
-              <div className="flex-1 border-2 border-dashed border-slate-300 bg-slate-50 rounded-lg p-2 overflow-y-auto flex flex-wrap gap-2 content-start">
-                {(existingImagePreviews.length === 0 && imageFiles.length === 0) && <div className="w-full h-full flex items-center justify-center text-xs font-bold text-slate-500 text-center">버튼을 눌러 사진을 선택하거나<br/>화면에 [Ctrl+V]를 누르세요.</div>}
+              
+              {/* 썸네일 컨테이너: 크기를 큼직하게(w-28 h-28 또는 grid 형태) 변경하여 꽉 차게 노출 */}
+              <div className="flex-1 border-2 border-dashed border-slate-300 bg-slate-50 rounded-lg p-3 overflow-y-auto flex flex-wrap gap-3 content-start">
+                {(existingImagePreviews.length === 0 && imageFiles.length === 0) && (
+                  <div className="w-full h-full flex items-center justify-center text-xs font-bold text-slate-500 text-center">
+                    버튼을 눌러 사진을 선택하거나<br/>화면에 [Ctrl+V]를 누르세요.
+                  </div>
+                )}
                 {existingImagePreviews.map((item, idx) => (
-                  <div key={`ex-${idx}`} className="relative w-20 h-20 border rounded-lg overflow-hidden group">
-                    <img src={item.url} onClick={() => setPreviewImageUrl(item.url)} className="w-full h-full object-cover cursor-pointer" />
-                    <button type="button" onClick={() => { setExistingImageUrls(prev => prev.filter((_, i) => i !== idx)); setExistingImagePreviews(prev => prev.filter((_, i) => i !== idx)); }} className="absolute top-0 right-0 bg-red-500 text-white w-5 h-5 text-[10px] hidden group-hover:block font-bold">✕</button>
+                  <div key={`ex-${idx}`} className="relative w-28 h-28 border-2 border-slate-200 rounded-xl overflow-hidden group shadow-xs bg-white">
+                    <img src={item.url} onClick={() => setPreviewImageUrl(item.url)} className="w-full h-full object-cover cursor-pointer group-hover:scale-105 transition" />
+                    <button type="button" onClick={() => { setExistingImageUrls(prev => prev.filter((_, i) => i !== idx)); setExistingImagePreviews(prev => prev.filter((_, i) => i !== idx)); }} className="absolute top-1 right-1 bg-red-600 text-white w-6 h-6 rounded-full text-xs hidden group-hover:flex items-center justify-center font-bold shadow-md">✕</button>
                   </div>
                 ))}
                 {imageFiles.map((file, idx) => (
-                  <div key={`nw-${idx}`} className="relative w-20 h-20 border rounded-lg overflow-hidden group">
-                    <img src={URL.createObjectURL(file)} onClick={() => setPreviewImageUrl(URL.createObjectURL(file))} className="w-full h-full object-cover cursor-pointer" />
-                    <button type="button" onClick={() => setImageFiles(prev => prev.filter((_, i) => i !== idx))} className="absolute top-0 right-0 bg-red-500 text-white w-5 h-5 text-[10px] hidden group-hover:block font-bold">✕</button>
+                  <div key={`nw-${idx}`} className="relative w-28 h-28 border-2 border-teal-300 rounded-xl overflow-hidden group shadow-xs bg-white">
+                    <img src={URL.createObjectURL(file)} onClick={() => setPreviewImageUrl(URL.createObjectURL(file))} className="w-full h-full object-cover cursor-pointer group-hover:scale-105 transition" />
+                    <button type="button" onClick={() => setImageFiles(prev => prev.filter((_, i) => i !== idx))} className="absolute top-1 right-1 bg-red-600 text-white w-6 h-6 rounded-full text-xs hidden group-hover:flex items-center justify-center font-bold shadow-md">✕</button>
                   </div>
                 ))}
               </div>
             </div>
 
             <div className="flex-1 flex flex-col bg-slate-100 border border-slate-200 rounded-xl p-3 overflow-hidden">
-              <label className="text-xs font-bold text-slate-800 mb-2">🎞️ 사진 데이터 (최신-과거순)</label>
-              <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 gap-2 content-start pr-1">
+              <label className="text-xs font-bold text-slate-800 mb-2">🎞️ 과거 사진 데이터 모아보기</label>
+              <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 gap-2.5 content-start pr-1">
                 {patientPastPhotos.length === 0 ? <div className="col-span-full text-center text-xs text-slate-500 py-8 font-semibold">선택된 환자의 과거 사진이 없습니다.</div> : 
                   patientPastPhotos.map((photo, idx) => (
-                    <div key={idx} className="relative aspect-square border border-slate-300 rounded-lg overflow-hidden bg-white group cursor-pointer shadow-2xs" onClick={() => setPreviewImageUrl(photo.url)}>
+                    <div key={idx} className="relative aspect-square border border-slate-300 rounded-xl overflow-hidden bg-white group cursor-pointer shadow-2xs" onClick={() => setPreviewImageUrl(photo.url)}>
                       <img src={photo.url} className="w-full h-full object-cover group-hover:scale-110 transition" />
-                      <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[10px] font-semibold px-1 py-0.5 truncate">{photo.date}</div>
+                      <div className="absolute bottom-0 left-0 right-0 bg-black/70 text-white text-[10px] font-semibold px-1.5 py-0.5 truncate">{photo.date}</div>
                     </div>
                   ))
                 }
