@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/app/lib/supabase";
 
-const CONSTITUTION_OPTIONS = ["태음인", "소음인", "태양인", "소양인", "기타"];
+const CONSTITUTION_OPTIONS = ["태양인", "태음인", "소양인", "소음인"];
 
 export default function PatientsPage() {
   const [patients, setPatients] = useState<any[]>([]);
