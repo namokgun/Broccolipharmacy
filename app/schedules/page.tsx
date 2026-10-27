@@ -156,7 +156,7 @@ export default function SchedulesPage() {
         </div>
       </div>
 
-      {/* 상세 보기 및 추가 모달 (기존 동일 유지) */}
+      {/* 상세 보기 모달 */}
       {selectedDetailSchedule && (
         <div className="fixed inset-0 z-[70] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setSelectedDetailSchedule(null)}>
           <div className="bg-white w-full max-w-sm p-6 rounded-3xl shadow-2xl border border-slate-100" onClick={e => e.stopPropagation()}>
@@ -179,6 +179,7 @@ export default function SchedulesPage() {
         </div>
       )}
 
+      {/* 이벤트 추가/수정 모달 */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-[80] p-4">
           <div className="bg-white w-full max-w-md p-6 rounded-3xl shadow-2xl border border-slate-100">
@@ -191,10 +192,19 @@ export default function SchedulesPage() {
                 <div><label className="block text-xs font-bold text-slate-400 mb-1">날짜</label><input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl font-semibold" required /></div>
                 <div><label className="block text-xs font-bold text-slate-400 mb-1">시간</label><input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl font-semibold" required /></div>
               </div>
-              <div><label className="block text-xs font-bold text-slate-400 mb-1">제목</label><input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl font-semibold" placeholder="예: 홍길동 / 한약 처방" required /></div>
+              <div>
+                <label className="block text-xs font-bold text-slate-400 mb-1">제목</label>
+                {/* 🟢 제목 예시(placeholder) 삭제 완료 */}
+                <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl font-semibold text-slate-900" required />
+              </div>
               <div><label className="block text-xs font-bold text-slate-400 mb-2">테마</label><div className="flex gap-3">{Object.entries(THEMES).map(([key, value]) => (<button key={key} type="button" onClick={() => setTheme(key)} className={`w-8 h-8 rounded-full ${value.bg} ${theme === key ? "ring-2 ring-offset-2 ring-teal-500 scale-110" : "opacity-70"}`}></button>))}</div></div>
-              <div><label className="block text-xs font-bold text-slate-400 mb-1">메모</label><textarea value={content} onChange={(e) => setContent(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl font-semibold" rows={2} /></div>
-              <div className="flex gap-2 pt-2"><button type="button" onClick={closeModal} className="flex-1 py-2.5 bg-slate-100 font-bold rounded-xl">취소</button><button type="submit" className="flex-1 py-2.5 bg-teal-900 text-white font-bold rounded-xl shadow-sm">{editingId ? "수정 저장" : "추가"}</button></div>
+              <div><label className="block text-xs font-bold text-slate-400 mb-1">메모</label><textarea value={content} onChange={(e) => setContent(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl font-semibold text-slate-900" rows={2} /></div>
+              
+              <div className="flex gap-2 pt-2">
+                {/* 🟢 취소 버튼 가독성 개선 (bg-slate-200, text-slate-700, font-bold) */}
+                <button type="button" onClick={closeModal} className="flex-1 py-2.5 bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold rounded-xl transition">취소</button>
+                <button type="submit" className="flex-1 py-2.5 bg-teal-900 hover:bg-teal-800 text-white font-bold rounded-xl shadow-sm transition">{editingId ? "수정 저장" : "추가"}</button>
+              </div>
             </form>
           </div>
         </div>
