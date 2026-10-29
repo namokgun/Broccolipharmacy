@@ -29,7 +29,6 @@ export default function PatientsPage() {
   const [consultations, setConsultations] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   
-  // 🟢 현재 활성화된 탭 상태 ("summary": 종합 목록, "info": 환자 정보 관리)
   const [activeTab, setActiveTab] = useState<"summary" | "info">("summary");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -148,14 +147,13 @@ export default function PatientsPage() {
     return matchNameOrId || matchTag || matchAddress;
   });
 
-  // 🟢 환자 상세 팝업창에서 보여줄 상담 기록 (설정해둔 상담일 consultation_date 기준 최신순 정렬)
   const patientConsultations = historyModalPatient 
     ? consultations
         .filter(c => c.patient_id === historyModalPatient.id)
         .sort((a, b) => {
           const dateA = new Date(a.consultation_date || a.created_at).getTime();
           const dateB = new Date(b.consultation_date || b.created_at).getTime();
-          return dateB - dateA; // 내림차순 (최신순)
+          return dateB - dateA;
         })
     : [];
 
@@ -183,7 +181,6 @@ export default function PatientsPage() {
         </div>
       </div>
 
-      {/* 탭 메뉴 영역 */}
       <div className="flex gap-2">
         <button 
           onClick={() => setActiveTab("summary")} 
@@ -205,23 +202,23 @@ export default function PatientsPage() {
           <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 whitespace-nowrap">
             {activeTab === "summary" ? (
               <tr>
-                <th className="p-4 font-bold">환자명</th>
-                <th className="p-4 font-bold">아이디</th>
-                <th className="p-4 font-bold">분류</th>
-                <th className="p-4 font-bold">최종상담일</th>
-                <th className="p-4 font-bold">최종처방</th>
-                <th className="p-4 font-bold text-center">상담횟수</th>
-                <th className="p-4 font-bold">누적액</th>
-                <th className="p-4 font-bold">등록일자</th>
-                <th className="p-4 font-bold text-right">관리</th>
+                <th className="py-4 px-3 font-bold w-[12%]">환자명</th>
+                <th className="py-4 px-3 font-bold w-[10%]">아이디</th>
+                <th className="py-4 px-3 font-bold w-[18%]">분류</th>
+                <th className="py-4 px-3 font-bold w-[11%]">최종상담일</th>
+                <th className="py-4 px-3 font-bold w-[13%]">최종처방</th>
+                <th className="py-4 px-3 font-bold text-center w-[8%]">상담횟수</th>
+                <th className="py-4 px-3 font-bold w-[11%]">누적액</th>
+                <th className="py-4 px-3 font-bold w-[9%]" style={{ paddingRight: '24px' }}>등록일자</th>
+                <th className="py-4 px-3 font-bold text-center w-[8%]">관리</th>
               </tr>
             ) : (
               <tr>
-                <th className="p-4 font-bold w-[20%]">환자명</th>
-                <th className="p-4 font-bold w-[15%]">아이디</th>
-                <th className="p-4 font-bold w-[20%]">연락처</th>
-                <th className="p-4 font-bold w-[35%]">주소</th>
-                <th className="p-4 font-bold text-right w-[10%]">관리</th>
+                <th className="py-4 px-4 font-bold w-[20%]">환자명</th>
+                <th className="py-4 px-4 font-bold w-[15%]">아이디</th>
+                <th className="py-4 px-4 font-bold w-[20%]">연락처</th>
+                <th className="py-4 px-4 font-bold w-[33%]">주소</th>
+                <th className="py-4 px-4 font-bold text-center w-[12%]">관리</th>
               </tr>
             )}
           </thead>
@@ -241,47 +238,53 @@ export default function PatientsPage() {
                     onDoubleClick={() => setHistoryModalPatient(p)}
                     title="더블클릭하여 상담 기록 보기"
                   >
-                    <td className="p-4 font-bold text-slate-900 group-hover:text-teal-800 transition whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <span>{p.name}</span>
-                        <span className="text-[10px] font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{p.gender} / {p.birth_year || "-"}</span>
-                      </div>
-                    </td>
-                    
-                    <td className="p-4 text-slate-600 font-semibold whitespace-nowrap">{p.custom_id || "-"}</td>
-                    
-                    {activeTab === "summary" && (
+                    {activeTab === "summary" ? (
                       <>
-                        <td className="p-4">
-                          <div className="flex flex-wrap gap-1.5 min-w-[120px]">
+                        <td className="py-3 px-3 font-bold text-slate-900 group-hover:text-teal-800 transition whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            <span>{p.name}</span>
+                            <span className="text-[10px] font-normal text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">{p.gender} / {p.birth_year || "-"}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-3 text-slate-600 font-semibold whitespace-nowrap">{p.custom_id || "-"}</td>
+                        <td className="py-3 px-3">
+                          <div className="flex flex-wrap gap-1">
                             {p.tags && p.tags.length > 0 ? (
                               p.tags.map((tag: string, idx: number) => (
-                                <span key={idx} className={`text-[11px] font-bold px-2 py-0.5 rounded-md border whitespace-nowrap ${getTagColor(tag)}`}>{tag}</span>
+                                <span key={idx} className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md border whitespace-nowrap ${getTagColor(tag)}`}>{tag}</span>
                               ))
                             ) : (
                               <span className="text-xs text-slate-400">-</span>
                             )}
                           </div>
                         </td>
-                        <td className="p-4 text-slate-800 font-medium whitespace-nowrap">{stats.lastDate}</td>
-                        <td className="p-4 text-teal-800 font-bold max-w-[150px] truncate" title={stats.lastPrescription}>{stats.lastPrescription}</td>
-                        <td className="p-4 font-bold text-slate-700 text-center whitespace-nowrap">{stats.count}회</td>
-                        <td className="p-4 font-bold text-purple-800 whitespace-nowrap">{stats.totalAmount.toLocaleString()}원</td>
-                        <td className="p-4 text-slate-500 whitespace-nowrap">{regDate}</td>
+                        <td className="py-3 px-3 text-slate-800 font-medium whitespace-nowrap">{stats.lastDate}</td>
+                        <td className="py-3 px-3 text-teal-800 font-bold truncate max-w-[130px]" title={stats.lastPrescription}>{stats.lastPrescription}</td>
+                        <td className="py-3 px-3 font-bold text-slate-700 text-center whitespace-nowrap">{stats.count}회</td>
+                        <td className="py-3 px-3 font-bold text-purple-800 whitespace-nowrap">{stats.totalAmount.toLocaleString()}원</td>
+                        <td className="py-3 px-3 text-slate-500 whitespace-nowrap" style={{ paddingRight: '24px' }}>{regDate}</td>
                       </>
-                    )}
-
-                    {activeTab === "info" && (
+                    ) : (
                       <>
-                        <td className="p-4 text-slate-700 font-bold whitespace-nowrap">{p.phone || "-"}</td>
-                        <td className="p-4 text-slate-600 font-medium truncate max-w-[300px]" title={p.address || ""}>{p.address || "-"}</td>
+                        <td className="py-3 px-4 font-bold text-slate-900 group-hover:text-teal-800 transition whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <span>{p.name}</span>
+                            <span className="text-[10px] font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{p.gender} / {p.birth_year || "-"}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-slate-600 font-semibold whitespace-nowrap">{p.custom_id || "-"}</td>
+                        <td className="py-3 px-4 text-slate-700 font-bold whitespace-nowrap">{p.phone || "-"}</td>
+                        <td className="py-3 px-4 text-slate-600 font-medium truncate max-w-[280px]" title={p.address || ""}>{p.address || "-"}</td>
                       </>
                     )}
 
-                    <td className="p-4 text-right space-x-1 whitespace-nowrap" onClick={e => e.stopPropagation()}> 
-                      <button onClick={() => setHistoryModalPatient(p)} className="px-2.5 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs rounded-lg transition">기록보기</button>
-                      <button onClick={() => setPhotosModalPatient(p)} className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition">사진보기</button>
-                      <button onClick={() => handleOpenEdit(p)} className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition">수정</button>
+                    {/* 🟢 관리 버튼 열이 오른쪽으로 밀리지 않도록 고정 너비와 중앙 정렬 부여 */}
+                    <td className="py-3 px-3 text-center whitespace-nowrap" onClick={e => e.stopPropagation()}> 
+                      <div className="inline-flex items-center gap-1">
+                        <button onClick={() => setHistoryModalPatient(p)} className="px-2 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-[11px] rounded-md transition">기록</button>
+                        <button onClick={() => setPhotosModalPatient(p)} className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-[11px] rounded-md transition">사진</button>
+                        <button onClick={() => handleOpenEdit(p)} className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-md transition">수정</button>
+                      </div>
                     </td>
                   </tr>
                 );
