@@ -29,6 +29,9 @@ export default function PatientsPage() {
   const [consultations, setConsultations] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   
+  // 🟢 현재 활성화된 탭 상태 ("summary": 종합 목록, "info": 환자 정보 관리)
+  const [activeTab, setActiveTab] = useState<"summary" | "info">("summary");
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPatientId, setEditingPatientId] = useState<string | null>(null);
 
@@ -45,8 +48,6 @@ export default function PatientsPage() {
   const [gender, setGender] = useState("남");
   const [birthYear, setBirthYear] = useState("");
   const [bodyType, setBodyType] = useState("선택 안함");
-  
-  // 쉼표로 텍스트를 직접 입력받을 상태값
   const [tagsInput, setTagsInput] = useState("");
 
   useEffect(() => {
@@ -83,7 +84,6 @@ export default function PatientsPage() {
     const count = pConsults.length;
     const totalAmount = pConsults.reduce((sum, c) => sum + (c.amount || 0), 0);
     const lastDate = count > 0 ? (pConsults[0].consultation_date || pConsults[0].created_at.split('T')[0]) : "-";
-    // 🟢 최종 처방 내역 추출
     const lastPrescription = count > 0 ? (pConsults[0].prescription || "-") : "-";
     
     return { count, totalAmount, lastDate, lastPrescription };
@@ -92,7 +92,7 @@ export default function PatientsPage() {
   const handleOpenRegister = () => {
     setEditingPatientId(null);
     setName(""); setCustomId(""); setPhone(""); setAddress(""); setGender("남"); setBirthYear(""); setBodyType("선택 안함");
-    setTagsInput(""); // 등록 시 빈 문자열
+    setTagsInput(""); 
     setIsModalOpen(true);
   };
 
@@ -105,8 +105,6 @@ export default function PatientsPage() {
     setGender(p.gender || "남");
     setBirthYear(p.birth_year ? p.birth_year.toString() : "");
     setBodyType(p.body_type || "선택 안함");
-    
-    // 배열로 저장된 태그들을 다시 쉼표로 이어서 텍스트창에 렌더링
     setTagsInput(p.tags && Array.isArray(p.tags) ? p.tags.join(", ") : "");
     setIsModalOpen(true);
   };
@@ -118,7 +116,6 @@ export default function PatientsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return alert("로그인 정보가 없습니다.");
 
-    // 쉼표(,)를 기준으로 문자열을 잘라내어 배열로 변환 후 DB에 저장
     const tagsArray = tagsInput
       .split(',')
       .map(t => t.trim())
@@ -147,7 +144,8 @@ export default function PatientsPage() {
     const term = searchTerm.toLowerCase();
     const matchNameOrId = p.name?.toLowerCase().includes(term) || p.custom_id?.toLowerCase().includes(term) || p.phone?.includes(term);
     const matchTag = p.tags?.some((t: string) => t.toLowerCase().includes(term));
-    return matchNameOrId || matchTag;
+    const matchAddress = p.address?.toLowerCase().includes(term);
+    return matchNameOrId || matchTag || matchAddress;
   });
 
   const patientConsultations = historyModalPatient 
@@ -167,7 +165,7 @@ export default function PatientsPage() {
         <div className="flex gap-3 w-full md:w-auto">
           <input 
             type="text" 
-            placeholder="환자명, 아이디, 질환태그 검색..." 
+            placeholder="이름, 번호, 주소, 태그 검색..." 
             value={searchTerm} 
             onChange={(e) => setSearchTerm(e.target.value)} 
             className="flex-1 md:w-80 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
@@ -178,25 +176,53 @@ export default function PatientsPage() {
         </div>
       </div>
 
+      {/* 🟢 탭 메뉴 영역 */}
+      <div className="flex gap-2">
+        <button 
+          onClick={() => setActiveTab("summary")} 
+          className={`px-5 py-2.5 rounded-xl font-bold text-sm transition shadow-sm ${activeTab === "summary" ? "bg-slate-900 text-white" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"}`}
+        >
+          📊 종합 목록
+        </button>
+        <button 
+          onClick={() => setActiveTab("info")} 
+          className={`px-5 py-2.5 rounded-xl font-bold text-sm transition shadow-sm ${activeTab === "info" ? "bg-slate-900 text-white" : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-50"}`}
+        >
+          👤 환자 정보 관리
+        </button>
+      </div>
+
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden overflow-x-auto">
         <table className="w-full text-left border-collapse text-sm min-w-[900px]">
+          
+          {/* 🟢 선택된 탭에 따라 테이블 헤더 변경 */}
           <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 whitespace-nowrap">
-            {/* 🟢 요청하신 순서대로 테이블 헤더 재배열 */}
-            <tr>
-              <th className="p-4 font-bold">환자명</th>
-              <th className="p-4 font-bold">아이디</th>
-              <th className="p-4 font-bold">분류</th>
-              <th className="p-4 font-bold">최종상담일</th>
-              <th className="p-4 font-bold">최종처방</th>
-              <th className="p-4 font-bold text-center">상담횟수</th>
-              <th className="p-4 font-bold">누적액</th>
-              <th className="p-4 font-bold">등록일자</th>
-              <th className="p-4 font-bold text-right">관리</th>
-            </tr>
+            {activeTab === "summary" ? (
+              <tr>
+                <th className="p-4 font-bold">환자명</th>
+                <th className="p-4 font-bold">아이디</th>
+                <th className="p-4 font-bold">분류</th>
+                <th className="p-4 font-bold">최종상담일</th>
+                <th className="p-4 font-bold">최종처방</th>
+                <th className="p-4 font-bold text-center">상담횟수</th>
+                <th className="p-4 font-bold">누적액</th>
+                <th className="p-4 font-bold">등록일자</th>
+                <th className="p-4 font-bold text-right">관리</th>
+              </tr>
+            ) : (
+              <tr>
+                <th className="p-4 font-bold w-[20%]">환자명</th>
+                <th className="p-4 font-bold w-[15%]">아이디</th>
+                <th className="p-4 font-bold w-[20%]">연락처</th>
+                <th className="p-4 font-bold w-[35%]">주소</th>
+                <th className="p-4 font-bold text-right w-[10%]">관리</th>
+              </tr>
+            )}
           </thead>
+
           <tbody className="divide-y divide-slate-100">
             {filteredPatients.length === 0 ? (
-              <tr><td colSpan={9} className="text-center py-12 text-slate-400">등록된 환자가 없습니다.</td></tr>
+              <tr><td colSpan={9} className="text-center py-12 text-slate-400">검색된 환자가 없습니다.</td></tr>
             ) : (
               filteredPatients.map(p => {
                 const stats = getPatientStats(p.id);
@@ -209,7 +235,7 @@ export default function PatientsPage() {
                     onDoubleClick={() => setHistoryModalPatient(p)}
                     title="더블클릭하여 상담 기록 보기"
                   >
-                    {/* 1. 환자명 */}
+                    {/* 공통: 환자명 */}
                     <td className="p-4 font-bold text-slate-900 group-hover:text-teal-800 transition whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <span>{p.name}</span>
@@ -217,45 +243,43 @@ export default function PatientsPage() {
                       </div>
                     </td>
                     
-                    {/* 2. 아이디 */}
+                    {/* 공통: 아이디 */}
                     <td className="p-4 text-slate-600 font-semibold whitespace-nowrap">{p.custom_id || "-"}</td>
                     
-                    {/* 3. 분류 (태그) */}
-                    <td className="p-4">
-                      <div className="flex flex-wrap gap-1.5 min-w-[120px]">
-                        {p.tags && p.tags.length > 0 ? (
-                          p.tags.map((tag: string, idx: number) => (
-                            <span key={idx} className={`text-[11px] font-bold px-2 py-0.5 rounded-md border whitespace-nowrap ${getTagColor(tag)}`}>
-                              {tag}
-                            </span>
-                          ))
-                        ) : (
-                          <span className="text-xs text-slate-400">-</span>
-                        )}
-                      </div>
-                    </td>
-                    
-                    {/* 4. 최종상담일 */}
-                    <td className="p-4 text-slate-800 font-medium whitespace-nowrap">{stats.lastDate}</td>
-                    
-                    {/* 5. 최종처방 (새로 추가됨) */}
-                    <td className="p-4 text-teal-800 font-bold max-w-[150px] truncate" title={stats.lastPrescription}>
-                      {stats.lastPrescription}
-                    </td>
-                    
-                    {/* 6. 상담횟수 */}
-                    <td className="p-4 font-bold text-slate-700 text-center whitespace-nowrap">{stats.count}회</td>
-                    
-                    {/* 7. 누적액 */}
-                    <td className="p-4 font-bold text-purple-800 whitespace-nowrap">{stats.totalAmount.toLocaleString()}원</td>
-                    
-                    {/* 8. 등록일자 */}
-                    <td className="p-4 text-slate-500 whitespace-nowrap">{regDate}</td>
+                    {/* 🟢 탭 1: 종합 목록 데이터 */}
+                    {activeTab === "summary" && (
+                      <>
+                        <td className="p-4">
+                          <div className="flex flex-wrap gap-1.5 min-w-[120px]">
+                            {p.tags && p.tags.length > 0 ? (
+                              p.tags.map((tag: string, idx: number) => (
+                                <span key={idx} className={`text-[11px] font-bold px-2 py-0.5 rounded-md border whitespace-nowrap ${getTagColor(tag)}`}>{tag}</span>
+                              ))
+                            ) : (
+                              <span className="text-xs text-slate-400">-</span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-4 text-slate-800 font-medium whitespace-nowrap">{stats.lastDate}</td>
+                        <td className="p-4 text-teal-800 font-bold max-w-[150px] truncate" title={stats.lastPrescription}>{stats.lastPrescription}</td>
+                        <td className="p-4 font-bold text-slate-700 text-center whitespace-nowrap">{stats.count}회</td>
+                        <td className="p-4 font-bold text-purple-800 whitespace-nowrap">{stats.totalAmount.toLocaleString()}원</td>
+                        <td className="p-4 text-slate-500 whitespace-nowrap">{regDate}</td>
+                      </>
+                    )}
 
-                    {/* 9. 관리 버튼 */}
+                    {/* 🟢 탭 2: 환자 정보 관리 데이터 */}
+                    {activeTab === "info" && (
+                      <>
+                        <td className="p-4 text-slate-700 font-bold whitespace-nowrap">{p.phone || "-"}</td>
+                        <td className="p-4 text-slate-600 font-medium truncate max-w-[300px]" title={p.address || ""}>{p.address || "-"}</td>
+                      </>
+                    )}
+
+                    {/* 공통: 관리 버튼 */}
                     <td className="p-4 text-right space-x-1 whitespace-nowrap" onClick={e => e.stopPropagation()}> 
                       <button onClick={() => setHistoryModalPatient(p)} className="px-2.5 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs rounded-lg transition">기록보기</button>
-                      <button onClick={() => setPhotosModalPatient(p)} className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition">사진모아보기</button>
+                      <button onClick={() => setPhotosModalPatient(p)} className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition">사진보기</button>
                       <button onClick={() => handleOpenEdit(p)} className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition">수정</button>
                     </td>
                   </tr>
@@ -266,7 +290,7 @@ export default function PatientsPage() {
         </table>
       </div>
 
-      {/* 기록 보기 팝업 */}
+      {/* 이하 기존 모달들 유지 (기록보기, 사진보기, 등록/수정) */}
       {historyModalPatient && (
         <div onClick={() => setHistoryModalPatient(null)} className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-3xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
@@ -277,7 +301,6 @@ export default function PatientsPage() {
               </div>
               <button onClick={() => setHistoryModalPatient(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
             </div>
-
             <div className="flex-1 overflow-y-auto space-y-4 pr-1">
               {patientConsultations.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 text-sm">작성된 상담 기록이 없습니다.</div>
@@ -323,7 +346,6 @@ export default function PatientsPage() {
         </div>
       )}
 
-      {/* 사진 모아보기 팝업 */}
       {photosModalPatient && (
         <div onClick={() => setPhotosModalPatient(null)} className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-2xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
@@ -351,7 +373,6 @@ export default function PatientsPage() {
         </div>
       )}
 
-      {/* 이미지 확대 팝업 */}
       {previewImageUrl && (
         <div onClick={() => setPreviewImageUrl(null)} className="fixed inset-0 z-[100] bg-slate-950/80 flex items-center justify-center p-4 cursor-pointer">
           <img src={previewImageUrl} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
@@ -359,7 +380,6 @@ export default function PatientsPage() {
         </div>
       )}
 
-      {/* 환자 등록 / 수정 모달 */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md p-6 rounded-3xl shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
