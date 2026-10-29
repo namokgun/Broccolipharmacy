@@ -46,7 +46,7 @@ export default function PatientsPage() {
   const [birthYear, setBirthYear] = useState("");
   const [bodyType, setBodyType] = useState("선택 안함");
   
-  // 🟢 쉼표로 텍스트를 직접 입력받을 상태값 (문자열)
+  // 쉼표로 텍스트를 직접 입력받을 상태값
   const [tagsInput, setTagsInput] = useState("");
 
   useEffect(() => {
@@ -83,7 +83,10 @@ export default function PatientsPage() {
     const count = pConsults.length;
     const totalAmount = pConsults.reduce((sum, c) => sum + (c.amount || 0), 0);
     const lastDate = count > 0 ? (pConsults[0].consultation_date || pConsults[0].created_at.split('T')[0]) : "-";
-    return { count, totalAmount, lastDate };
+    // 🟢 최종 처방 내역 추출
+    const lastPrescription = count > 0 ? (pConsults[0].prescription || "-") : "-";
+    
+    return { count, totalAmount, lastDate, lastPrescription };
   };
 
   const handleOpenRegister = () => {
@@ -103,7 +106,7 @@ export default function PatientsPage() {
     setBirthYear(p.birth_year ? p.birth_year.toString() : "");
     setBodyType(p.body_type || "선택 안함");
     
-    // 🟢 배열로 저장된 태그들을 다시 쉼표로 이어서 텍스트창에 렌더링
+    // 배열로 저장된 태그들을 다시 쉼표로 이어서 텍스트창에 렌더링
     setTagsInput(p.tags && Array.isArray(p.tags) ? p.tags.join(", ") : "");
     setIsModalOpen(true);
   };
@@ -115,7 +118,7 @@ export default function PatientsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return alert("로그인 정보가 없습니다.");
 
-    // 🟢 쉼표(,)를 기준으로 문자열을 잘라내어 배열로 변환 후 DB에 저장
+    // 쉼표(,)를 기준으로 문자열을 잘라내어 배열로 변환 후 DB에 저장
     const tagsArray = tagsInput
       .split(',')
       .map(t => t.trim())
@@ -125,7 +128,7 @@ export default function PatientsPage() {
       name, custom_id: customId, phone, address, gender,
       birth_year: birthYear ? parseInt(birthYear) : null,
       body_type: bodyType === "선택 안함" ? null : bodyType,
-      tags: tagsArray, // 🟢 DB에는 텍스트 배열로 들어감
+      tags: tagsArray, 
       user_id: user.id
     };
 
@@ -164,7 +167,7 @@ export default function PatientsPage() {
         <div className="flex gap-3 w-full md:w-auto">
           <input 
             type="text" 
-            placeholder="환자명, 전화번호, 질환태그 검색..." 
+            placeholder="환자명, 아이디, 질환태그 검색..." 
             value={searchTerm} 
             onChange={(e) => setSearchTerm(e.target.value)} 
             className="flex-1 md:w-80 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm"
@@ -175,24 +178,30 @@ export default function PatientsPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
-        <table className="w-full text-left border-collapse text-sm">
-          <thead className="bg-slate-50 border-b border-slate-200 text-slate-700">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden overflow-x-auto">
+        <table className="w-full text-left border-collapse text-sm min-w-[900px]">
+          <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 whitespace-nowrap">
+            {/* 🟢 요청하신 순서대로 테이블 헤더 재배열 */}
             <tr>
-              <th className="p-4 font-bold w-[15%]">환자명</th>
-              <th className="p-4 font-bold w-[12%]">아이디</th>
-              <th className="p-4 font-bold w-[25%]">분류 (태그)</th>
+              <th className="p-4 font-bold">환자명</th>
+              <th className="p-4 font-bold">아이디</th>
+              <th className="p-4 font-bold">분류</th>
               <th className="p-4 font-bold">최종상담일</th>
-              <th className="p-4 font-bold">상담횟수</th>
+              <th className="p-4 font-bold">최종처방</th>
+              <th className="p-4 font-bold text-center">상담횟수</th>
+              <th className="p-4 font-bold">누적액</th>
+              <th className="p-4 font-bold">등록일자</th>
               <th className="p-4 font-bold text-right">관리</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {filteredPatients.length === 0 ? (
-              <tr><td colSpan={6} className="text-center py-12 text-slate-400">등록된 환자가 없습니다.</td></tr>
+              <tr><td colSpan={9} className="text-center py-12 text-slate-400">등록된 환자가 없습니다.</td></tr>
             ) : (
               filteredPatients.map(p => {
                 const stats = getPatientStats(p.id);
+                const regDate = p.created_at ? p.created_at.split('T')[0] : "-";
+                
                 return (
                   <tr 
                     key={p.id} 
@@ -200,19 +209,23 @@ export default function PatientsPage() {
                     onDoubleClick={() => setHistoryModalPatient(p)}
                     title="더블클릭하여 상담 기록 보기"
                   >
-                    <td className="p-4 font-bold text-slate-900 group-hover:text-teal-800 transition">
+                    {/* 1. 환자명 */}
+                    <td className="p-4 font-bold text-slate-900 group-hover:text-teal-800 transition whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <span>{p.name}</span>
-                        <span className="text-[10px] font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full whitespace-nowrap">{p.gender} / {p.birth_year || "-"}</span>
+                        <span className="text-[10px] font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{p.gender} / {p.birth_year || "-"}</span>
                       </div>
                     </td>
-                    <td className="p-4 text-slate-600 font-semibold">{p.custom_id || "-"}</td>
                     
+                    {/* 2. 아이디 */}
+                    <td className="p-4 text-slate-600 font-semibold whitespace-nowrap">{p.custom_id || "-"}</td>
+                    
+                    {/* 3. 분류 (태그) */}
                     <td className="p-4">
-                      <div className="flex flex-wrap gap-1.5">
+                      <div className="flex flex-wrap gap-1.5 min-w-[120px]">
                         {p.tags && p.tags.length > 0 ? (
                           p.tags.map((tag: string, idx: number) => (
-                            <span key={idx} className={`text-xs font-bold px-2 py-0.5 rounded-md border ${getTagColor(tag)}`}>
+                            <span key={idx} className={`text-[11px] font-bold px-2 py-0.5 rounded-md border whitespace-nowrap ${getTagColor(tag)}`}>
                               {tag}
                             </span>
                           ))
@@ -222,9 +235,25 @@ export default function PatientsPage() {
                       </div>
                     </td>
                     
-                    <td className="p-4 text-slate-800 font-medium">{stats.lastDate}</td>
-                    <td className="p-4 font-bold text-teal-800">{stats.count}회</td>
-                    <td className="p-4 text-right space-x-1" onClick={e => e.stopPropagation()}> 
+                    {/* 4. 최종상담일 */}
+                    <td className="p-4 text-slate-800 font-medium whitespace-nowrap">{stats.lastDate}</td>
+                    
+                    {/* 5. 최종처방 (새로 추가됨) */}
+                    <td className="p-4 text-teal-800 font-bold max-w-[150px] truncate" title={stats.lastPrescription}>
+                      {stats.lastPrescription}
+                    </td>
+                    
+                    {/* 6. 상담횟수 */}
+                    <td className="p-4 font-bold text-slate-700 text-center whitespace-nowrap">{stats.count}회</td>
+                    
+                    {/* 7. 누적액 */}
+                    <td className="p-4 font-bold text-purple-800 whitespace-nowrap">{stats.totalAmount.toLocaleString()}원</td>
+                    
+                    {/* 8. 등록일자 */}
+                    <td className="p-4 text-slate-500 whitespace-nowrap">{regDate}</td>
+
+                    {/* 9. 관리 버튼 */}
+                    <td className="p-4 text-right space-x-1 whitespace-nowrap" onClick={e => e.stopPropagation()}> 
                       <button onClick={() => setHistoryModalPatient(p)} className="px-2.5 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs rounded-lg transition">기록보기</button>
                       <button onClick={() => setPhotosModalPatient(p)} className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition">사진모아보기</button>
                       <button onClick={() => handleOpenEdit(p)} className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition">수정</button>
@@ -382,7 +411,6 @@ export default function PatientsPage() {
                 </div>
               </div>
 
-              {/* 🟢 쉼표로 텍스트를 직접 입력하는 폼으로 변경 */}
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">분류 태그 (여러 개일 경우 쉼표로 구분)</label>
                 <input 
