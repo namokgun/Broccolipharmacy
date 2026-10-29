@@ -6,10 +6,8 @@ import Link from "next/link";
 
 export default function DashboardPage() {
   const [patients, setPatients] = useState<any[]>([]);
-  const [schedules, setSchedules] = useState<any[]>([]);
   const [consultations, setConsultations] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
-  const [viewMode, setViewMode] = useState<"month" | "week">("month");
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
 
   useEffect(() => {
@@ -21,20 +19,26 @@ export default function DashboardPage() {
     const { data: pData } = await supabase.from("patients").select("*").order("name");
     if (pData) setPatients(pData);
 
-    const { data: sData } = await supabase.from("schedules").select("*").order("schedule_date");
-    if (sData) setSchedules(sData);
-
+    // 🟢 상담 기록과 환자 정보를 함께 불러온 뒤, 피드백 예정일(target_date)을 계산하여 심어줍니다.
     const { data: cData } = await supabase
       .from("consultations")
-      .select("*, patients(name, gender, birth_year)")
+      .select("*, patients(name, phone, custom_id, gender, birth_year)")
       .order("created_at", { ascending: false });
-    if (cData) setConsultations(cData);
-  };
 
-  const filteredPatients = patients.filter(p =>
-    p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.phone?.includes(searchTerm)
-  );
+    if (cData) {
+      const processed = cData.map((c: any) => {
+        const baseDate = new Date(c.consultation_date || c.created_at);
+        const feedbackDays = c.feedback_days ? parseInt(c.feedback_days) : 0;
+        
+        // 피드백 예정일 계산 (상담일 + 피드백일)
+        const targetDate = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate() + feedbackDays);
+        const dateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
+        
+        return { ...c, target_date: dateStr };
+      });
+      setConsultations(processed);
+    }
+  };
 
   if (!currentDate) return <div className="p-8 text-center text-slate-400">대시보드 로딩 중...</div>;
 
@@ -42,7 +46,7 @@ export default function DashboardPage() {
   const month = currentDate.getMonth();
   const day = currentDate.getDate();
 
-  // 🟢 이번 달 매출 및 일평균 매출 계산 로직
+  // 이번 달 매출 및 일평균 매출 계산 로직
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth();
   const currentDay = currentDate.getDate();
@@ -61,26 +65,31 @@ export default function DashboardPage() {
   const firstDayOfMonth = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
-  const handlePrev = () => {
-    if (viewMode === "month") setCurrentDate(new Date(year, month - 1, 1));
-    else setCurrentDate(new Date(year, month, day - 7));
-  };
-
-  const handleNext = () => {
-    if (viewMode === "month") setCurrentDate(new Date(year, month + 1, 1));
-    else setCurrentDate(new Date(year, month, day + 7));
-  };
-
+  const handlePrev = () => setCurrentDate(new Date(year, month - 1, 1));
+  const handleNext = () => setCurrentDate(new Date(year, month + 1, 1));
   const handleToday = () => setCurrentDate(new Date());
 
+  const filteredPatients = patients.filter(p =>
+    p.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    p.phone?.includes(searchTerm)
+  );
+
+  // 오늘 날짜 스트링 (YYYY-MM-DD)
+  const todayStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
+  
+  // 오늘 완료해야 할 피드백 목록 필터링
+  const todayFeedbacks = consultations.filter(c => c.target_date === todayStr);
+
+  const formatName = (p: any) => p?.custom_id ? `${p.name} (${p.custom_id})` : p?.name;
+
   return (
-    <div className="w-full space-y-6">
+    <div className="w-full space-y-6 pb-12">
       <div className="flex justify-between items-center border-b pb-4">
         <h1 className="text-2xl font-bold text-slate-900">📊 대시보드</h1>
         <p className="text-xs text-slate-500 font-semibold">{currentYear}년 {currentMonth + 1}월 현황</p>
       </div>
 
-      {/* 🟢 상단 핵심 지표: 이번달 매출 / 일평균매출 카드 (새로 추가됨) */}
+      {/* 상단 핵심 지표: 이번달 매출 / 일평균매출 카드 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-gradient-to-br from-teal-900 to-teal-800 text-white p-6 rounded-3xl shadow-sm flex flex-col justify-between">
           <div>
@@ -109,7 +118,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 상단 통계 요약 카드 (기존 환자수, 상담기록수 유지) */}
+      {/* 상단 통계 요약 카드 (환자수, 상담기록수) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
           <div>
@@ -127,12 +136,14 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 대시보드 캘린더 영역 (원래 코드 그대로 복구) */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-bold text-slate-900 whitespace-nowrap">
-              {viewMode === "month" ? `${year}년 ${month + 1}월 캘린더` : `${year}년 ${month + 1}월 주간 타임라인`}
+      {/* 🟢 좌우 2분할 레이아웃 (좌측: 반으로 줄인 피드백 캘린더, 우측: 오늘 할 일 / 피드백 요약) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        {/* 좌측: 반으로 밀어버린 미니 캘린더 (lg:col-span-6) */}
+        <div className="lg:col-span-6 bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col h-[520px]">
+          <div className="flex justify-between items-center mb-4 flex-shrink-0">
+            <h2 className="text-base font-extrabold text-slate-900">
+              📅 피드백 미니 캘린더 ({year}년 {month + 1}월)
             </h2>
             <div className="flex items-center bg-slate-100 rounded-xl p-1">
               <button onClick={handlePrev} className="px-2.5 py-1 hover:bg-white rounded-lg text-xs font-bold text-slate-600 transition">&lt;</button>
@@ -141,103 +152,96 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          <div className="flex bg-slate-200/80 p-1 rounded-xl text-xs font-bold text-slate-600">
-            <button
-              onClick={() => setViewMode("month")}
-              className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap ${viewMode === "month" ? "bg-white text-slate-900 shadow-xs" : ""}`}
-            >
-              월간
-            </button>
-            <button
-              onClick={() => setViewMode("week")}
-              className={`px-3 py-1.5 rounded-lg transition whitespace-nowrap ${viewMode === "week" ? "bg-white text-slate-900 shadow-xs" : ""}`}
-            >
-              주간
-            </button>
+          <div className="grid grid-cols-7 text-center text-[11px] font-bold text-slate-400 mb-3 pb-2 border-b border-slate-100 flex-shrink-0">
+            <span className="text-red-500">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span className="text-blue-500">토</span>
           </div>
-        </div>
 
-        {viewMode === "month" ? (
-          <div className="flex flex-col pt-2">
-            <div className="grid grid-cols-7 text-center text-xs font-bold text-slate-400 mb-3 pb-3 border-b border-slate-100">
-              <span className="text-red-500">일</span>
-              <span>월</span>
-              <span>화</span>
-              <span>수</span>
-              <span>목</span>
-              <span>금</span>
-              <span className="text-blue-500">토</span>
-            </div>
-            <div className="grid grid-cols-7 text-center gap-1.5">
-              {Array.from({ length: firstDayOfMonth }).map((_, i) => (
-                <div key={`empty-${i}`} className="min-h-[90px] bg-slate-50/20 rounded-xl" />
-              ))}
-              {Array.from({ length: daysInMonth }).map((_, i) => {
-                const d = i + 1;
-                const formattedMonth = String(month + 1).padStart(2, '0');
-                const formattedDay = String(d).padStart(2, '0');
-                const dateStr = `${year}-${formattedMonth}-${formattedDay}`;
-                
-                const daySchedules = schedules.filter(s => s.schedule_date === dateStr);
-                const isToday = d === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear();
-
-                return (
-                  <div 
-                    key={`day-${d}`}
-                    className={`min-h-[90px] rounded-2xl p-2 border transition flex flex-col items-start overflow-hidden ${
-                      isToday ? "bg-blue-50/40 border-blue-400 shadow-xs" : "bg-white border-slate-100"
-                    }`}
-                  >
-                    <span className={`text-xs font-bold mb-1 w-6 h-6 flex items-center justify-center rounded-full ${isToday ? "bg-blue-600 text-white shadow-xs" : "text-slate-700"}`}>
-                      {d}
-                    </span>
-                    <div className="w-full space-y-1 text-left overflow-y-auto max-h-[60px] scrollbar-none">
-                      {daySchedules.map((s, idx) => (
-                        <div 
-                          key={idx} 
-                          className="text-[10px] px-2 py-0.5 rounded-md truncate font-semibold bg-blue-100 text-blue-900 border border-blue-300"
-                        >
-                          {s.title}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {Array.from({ length: 7 }).map((_, i) => {
-              const targetDate = new Date(year, month, day - currentDate.getDay() + i);
-              const dateStr = targetDate.toISOString().split('T')[0];
-              const daySchedules = schedules.filter(s => s.schedule_date === dateStr);
+          <div className="grid grid-cols-7 text-center gap-1.5 flex-1 overflow-y-auto">
+            {Array.from({ length: firstDayOfMonth }).map((_, i) => (
+              <div key={`empty-${i}`} className="bg-slate-50/20 rounded-xl" />
+            ))}
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const d = i + 1;
+              const formattedMonth = String(month + 1).padStart(2, '0');
+              const formattedDay = String(d).padStart(2, '0');
+              const dateStr = `${year}-${formattedMonth}-${formattedDay}`;
+              
+              const dayFeedbacks = consultations.filter(f => f.target_date === dateStr);
+              const isToday = dateStr === todayStr;
 
               return (
-                <div key={i} className="flex flex-col md:flex-row border border-slate-100 rounded-2xl p-4 bg-slate-50/40 items-start gap-3">
-                  <div className="w-full md:w-32 font-bold text-xs md:text-sm text-slate-800 border-b md:border-b-0 md:border-r border-slate-200/80 pb-2 md:pb-0 md:pr-4 whitespace-nowrap">
-                    {targetDate.toLocaleDateString('ko-KR', { weekday: 'short', month: 'long', day: 'numeric' })}
-                  </div>
-                  <div className="flex-1 space-y-2 w-full">
-                    {daySchedules.length === 0 ? (
-                      <span className="text-xs text-slate-400">등록된 일정이 없습니다.</span>
-                    ) : (
-                      daySchedules.map((s, idx) => (
-                        <div key={idx} className="p-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-900 text-sm font-semibold flex justify-between items-center gap-2">
-                          <span className="truncate">{s.title}</span>
-                          <span className="text-xs bg-white/70 px-2 py-0.5 rounded-md whitespace-nowrap">{s.time || "종일"}</span>
-                        </div>
-                      ))
-                    )}
-                  </div>
+                <div 
+                  key={`day-${d}`}
+                  className={`rounded-2xl p-1.5 border transition flex flex-col items-center justify-start overflow-hidden select-none ${
+                    isToday ? "bg-purple-50 border-purple-400 shadow-xs" : "bg-white border-slate-100"
+                  }`}
+                >
+                  <span className={`text-[11px] font-bold mb-1 w-5 h-5 flex items-center justify-center rounded-full ${
+                    isToday ? "bg-purple-700 text-white shadow-xs" : "text-slate-700"
+                  }`}>
+                    {d}
+                  </span>
+                  
+                  {dayFeedbacks.length > 0 && (
+                    <div className="w-full space-y-0.5">
+                      <div className={`text-[9px] px-1 py-0.5 rounded truncate font-bold ${
+                        dayFeedbacks.some(f => f.is_feedback_completed) 
+                          ? "bg-slate-100 text-slate-400 line-through" 
+                          : "bg-purple-100 text-purple-900"
+                      }`}>
+                        {formatName(dayFeedbacks[0].patients)} 외
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
-        )}
+        </div>
+
+        {/* 우측 공간: 오늘 해야 할 피드백 요약 리스트 */}
+        <div className="lg:col-span-6 bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between h-[520px]">
+          <div>
+            <div className="flex justify-between items-center border-b pb-3 mb-4">
+              <h2 className="text-base font-extrabold text-slate-900">📌 오늘 완료해야 할 피드백</h2>
+              <span className="text-xs font-bold bg-purple-100 text-purple-900 px-2.5 py-1 rounded-full">
+                {todayFeedbacks.length}건
+              </span>
+            </div>
+
+            <div className="space-y-3 overflow-y-auto max-h-[380px] pr-1">
+              {todayFeedbacks.length === 0 ? (
+                <div className="text-center py-20 text-slate-400 text-sm font-semibold">
+                  오늘 예정된 피드백이 없습니다. 🎉
+                </div>
+              ) : (
+                todayFeedbacks.map((f, idx) => (
+                  <div key={idx} className="p-3.5 bg-purple-50/50 border border-purple-200 rounded-2xl flex items-center justify-between">
+                    <div>
+                      <span className="text-xs font-bold text-purple-700 block mb-0.5">{formatName(f.patients)}</span>
+                      <p className="text-sm font-extrabold text-slate-900">처방: {f.prescription || "없음"}</p>
+                    </div>
+                    <span className={`text-xs font-bold px-3 py-1.5 rounded-xl ${
+                      f.is_feedback_completed ? "bg-slate-200 text-slate-600" : "bg-purple-600 text-white"
+                    }`}>
+                      {f.is_feedback_completed ? "완료됨" : "확인 필요"}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="pt-3 border-t text-right">
+            <Link href="/consultations" className="text-xs font-bold text-teal-900 hover:underline">
+              상담 기록 및 등록 바로가기 →
+            </Link>
+          </div>
+        </div>
+
       </div>
 
-      {/* 환자 목록 영역 (원래 레이아웃 복구) */}
+      {/* 환자 목록 영역 */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <h2 className="text-lg font-bold text-slate-900">환자 목록</h2>
