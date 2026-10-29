@@ -55,7 +55,6 @@ export default function Sidebar() {
           </div>
         </div>
 
-        {/* 🟢 큰 제목을 제거하고 space-y-1.5로 탭들을 매끄럽게 배치 */}
         <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto text-sm">
           <Link 
             href="/" 
@@ -86,13 +85,14 @@ export default function Sidebar() {
             <span>📂</span> 기록 조회
           </Link>
 
+          {/* 🟢 용어 변경 적용: 일반 일정 캘린더 -> 상담 캘린더 */}
           <Link 
             href="/schedules" 
             className={`flex items-center gap-3 px-3.5 py-3 rounded-2xl transition font-semibold ${
               pathname === "/schedules" ? "bg-teal-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
             }`}
           >
-            <span>📅</span> 일반 일정 캘린더
+            <span>📅</span> 상담 캘린더
           </Link>
           
           <Link 
@@ -183,7 +183,7 @@ export default function Sidebar() {
           }`}
         >
           <span className="text-lg mb-0.5">📅</span>
-          <span>일정</span>
+          <span>상담일정</span>
         </Link>
 
         <Link 
