@@ -79,13 +79,10 @@ export default function DashboardPage() {
 
   return (
     <div className="w-full space-y-4 pb-8 max-w-[1400px] mx-auto">
-      {/* 상단 간결한 인사말 및 날짜 */}
-      <div className="flex justify-between items-center bg-white px-5 py-3 rounded-2xl shadow-xs border border-slate-100">
-        <div>
-          <h1 className="text-lg font-extrabold text-slate-900">👋 안녕하세요, 약사님!</h1>
-          <p className="text-[11px] text-slate-500"></p>
-        </div>
-        <span className="text-xs font-bold bg-teal-50 text-teal-800 px-3 py-1 rounded-full">
+      {/* 상단 날짜만 작게 표기 */}
+      <div className="flex justify-between items-center bg-white px-5 py-2.5 rounded-2xl shadow-xs border border-slate-100">
+        <h1 className="text-base font-extrabold text-slate-900">📊 대시보드</h1>
+        <span className="text-[11px] font-semibold text-slate-500">
           {currentYear}년 {currentMonth + 1}월 {currentDay}일 현황
         </span>
       </div>
@@ -131,7 +128,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 📅 중단 영역: 캘린더 & 오늘 피드백 대상 (높이 최적화) */}
+      {/* 📅 중단 영역: 캘린더 & 오늘 피드백 대상 */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         
         {/* 좌측: 미니 캘린더 */}
@@ -163,7 +160,7 @@ export default function DashboardPage() {
               
               const daySchedules = schedules.filter(s => s.schedule_date === dateStr);
               const dayConsultations = consultations.filter(c => c.consult_date_str === dateStr);
-              const dayFeedbacks = consultations.filter(f => f.target_date === dateStr);
+              const dayFeedbacks = consultations.filter(f => f.target_date === dateStr && f.consult_date_str !== dateStr);
 
               const allItems = [
                 ...daySchedules.map(s => ({ title: s.title, style: "bg-teal-100 text-teal-900 border border-teal-200" })),
