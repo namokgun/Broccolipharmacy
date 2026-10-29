@@ -34,7 +34,7 @@ export default function ConsultationsPage() {
   const [followUp, setFollowUp] = useState(""); 
   const [feedbackDays, setFeedbackDays] = useState(""); 
   const [amount, setAmount] = useState(""); 
-  const [paymentMethod, setPaymentMethod] = useState(""); // 🟢 결제방식 상태 추가
+  const [paymentMethod, setPaymentMethod] = useState(""); // 결제방식 상태
 
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
@@ -71,8 +71,7 @@ export default function ConsultationsPage() {
 
       const { data: cData, error: cError } = await supabase
         .from("consultations")
-        .select("*, patients(name, custom_id, gender, birth_year, phone)")
-        .order("created_at", { ascending: false });
+        .select("*, patients(name, custom_id, gender, birth_year, phone)");
       
       if (cError) {
         console.error("상담 기록 조회 실패:", cError.message);
@@ -80,8 +79,20 @@ export default function ConsultationsPage() {
       }
 
       if (cData) {
+        // 🟢 상담일(consultation_date) 기준 최신순(내림차순) 정렬 적용
+        const sortedData = cData.sort((a, b) => {
+          const dateA = new Date(a.consultation_date || a.created_at).getTime();
+          const dateB = new Date(b.consultation_date || b.created_at).getTime();
+          
+          // 상담일이 같으면 데이터를 등록한 시간(created_at) 기준으로 최신순 정렬
+          if (dateA === dateB) {
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          }
+          return dateB - dateA;
+        });
+
         const consultationsWithSignedUrls = await Promise.all(
-          cData.map(async (c) => {
+          sortedData.map(async (c) => {
             if (c.image_urls && Array.isArray(c.image_urls) && c.image_urls.length > 0) {
               const signedUrls = await Promise.all(
                 c.image_urls.map(async (path: string) => {
@@ -144,7 +155,7 @@ export default function ConsultationsPage() {
         symptom_detail: symptomDetail, prescription, consult_memo: consultMemo, follow_up: followUp,
         feedback_days: feedbackDays ? parseInt(feedbackDays) : null,
         amount: amount ? parseInt(amount) : null,
-        payment_method: paymentMethod || null, // 🟢 DB 저장 시 결제방식 포함
+        payment_method: paymentMethod || null, 
         image_urls: finalImagePaths, user_id: user.id,
       };
 
@@ -174,7 +185,7 @@ export default function ConsultationsPage() {
     setConsultationDate(new Date().toISOString().split('T')[0]);
     setSymptoms(""); setDigestionStool(""); setSleepState(""); setSymptomDetail(""); 
     setPrescription(""); setConsultMemo(""); setFollowUp(""); setFeedbackDays(""); setAmount("");
-    setPaymentMethod(""); // 🟢 결제방식 초기화
+    setPaymentMethod(""); 
     setImageFiles([]); setExistingImageUrls([]); setExistingImagePreviews([]);
   };
 
@@ -188,7 +199,7 @@ export default function ConsultationsPage() {
     setFollowUp(c.follow_up || "");
     setFeedbackDays(c.feedback_days ? c.feedback_days.toString() : ""); 
     setAmount(c.amount != null ? c.amount.toString() : "");
-    setPaymentMethod(c.payment_method || ""); // 🟢 수정 시 결제방식 불러오기
+    setPaymentMethod(c.payment_method || ""); 
     
     const rawPaths = c.image_urls || [];
     setExistingImageUrls(rawPaths);
@@ -326,7 +337,6 @@ export default function ConsultationsPage() {
                 <input type="text" inputMode="numeric" pattern="[0-9]*" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ''))} className="w-28 p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900" />
               </div>
               
-              {/* 🟢 결제방식 드롭다운 추가 */}
               <div className="flex items-center gap-2">
                 <label className="text-xs font-bold text-slate-700">결제방식</label>
                 <select 
@@ -441,7 +451,7 @@ export default function ConsultationsPage() {
         </div>
       )}
 
-      {/* 🟢 기록 조회 탭 [자세히] 상세 팝업 */}
+      {/* 기록 조회 탭 [자세히] 상세 팝업 */}
       {selectedDetailConsultation && (
         <div onClick={() => setSelectedDetailConsultation(null)} className="fixed inset-0 z-[110] bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={(e) => e.stopPropagation()}>
@@ -455,7 +465,6 @@ export default function ConsultationsPage() {
             <div className="flex-1 overflow-y-auto space-y-3 pr-1 text-sm">
               <div className="grid grid-cols-2 gap-2">
                 <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">주호소</span><span className="font-semibold text-slate-800">{selectedDetailConsultation.symptoms || "-"}</span></div>
-                {/* 🟢 결제방식 함께 노출되도록 수정 */}
                 <div className="p-3 bg-slate-50 rounded-xl border">
                   <span className="text-xs font-bold text-slate-400 block mb-0.5">결제 금액/방식</span>
                   <span className="font-semibold text-purple-800">
@@ -501,7 +510,7 @@ export default function ConsultationsPage() {
         </div>
       )}
 
-      {/* 🟢 최근방문내역 팝업 (작성 폼 쪽) */}
+      {/* 최근방문내역 팝업 (작성 폼 쪽) */}
       {historyDetailModal && (
         <div onClick={() => setHistoryDetailModal(null)} className="fixed inset-0 z-[110] bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-4 cursor-default" onClick={(e) => e.stopPropagation()}>
