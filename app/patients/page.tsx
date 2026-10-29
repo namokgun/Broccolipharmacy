@@ -148,8 +148,15 @@ export default function PatientsPage() {
     return matchNameOrId || matchTag || matchAddress;
   });
 
+  // 🟢 환자 상세 팝업창에서 보여줄 상담 기록 (설정해둔 상담일 consultation_date 기준 최신순 정렬)
   const patientConsultations = historyModalPatient 
-    ? consultations.filter(c => c.patient_id === historyModalPatient.id) 
+    ? consultations
+        .filter(c => c.patient_id === historyModalPatient.id)
+        .sort((a, b) => {
+          const dateA = new Date(a.consultation_date || a.created_at).getTime();
+          const dateB = new Date(b.consultation_date || b.created_at).getTime();
+          return dateB - dateA; // 내림차순 (최신순)
+        })
     : [];
 
   const patientAllPhotos = photosModalPatient
@@ -176,7 +183,7 @@ export default function PatientsPage() {
         </div>
       </div>
 
-      {/* 🟢 탭 메뉴 영역 */}
+      {/* 탭 메뉴 영역 */}
       <div className="flex gap-2">
         <button 
           onClick={() => setActiveTab("summary")} 
@@ -195,7 +202,6 @@ export default function PatientsPage() {
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden overflow-x-auto">
         <table className="w-full text-left border-collapse text-sm min-w-[900px]">
           
-          {/* 🟢 선택된 탭에 따라 테이블 헤더 변경 */}
           <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 whitespace-nowrap">
             {activeTab === "summary" ? (
               <tr>
@@ -235,7 +241,6 @@ export default function PatientsPage() {
                     onDoubleClick={() => setHistoryModalPatient(p)}
                     title="더블클릭하여 상담 기록 보기"
                   >
-                    {/* 공통: 환자명 */}
                     <td className="p-4 font-bold text-slate-900 group-hover:text-teal-800 transition whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <span>{p.name}</span>
@@ -243,10 +248,8 @@ export default function PatientsPage() {
                       </div>
                     </td>
                     
-                    {/* 공통: 아이디 */}
                     <td className="p-4 text-slate-600 font-semibold whitespace-nowrap">{p.custom_id || "-"}</td>
                     
-                    {/* 🟢 탭 1: 종합 목록 데이터 */}
                     {activeTab === "summary" && (
                       <>
                         <td className="p-4">
@@ -268,7 +271,6 @@ export default function PatientsPage() {
                       </>
                     )}
 
-                    {/* 🟢 탭 2: 환자 정보 관리 데이터 */}
                     {activeTab === "info" && (
                       <>
                         <td className="p-4 text-slate-700 font-bold whitespace-nowrap">{p.phone || "-"}</td>
@@ -276,7 +278,6 @@ export default function PatientsPage() {
                       </>
                     )}
 
-                    {/* 공통: 관리 버튼 */}
                     <td className="p-4 text-right space-x-1 whitespace-nowrap" onClick={e => e.stopPropagation()}> 
                       <button onClick={() => setHistoryModalPatient(p)} className="px-2.5 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs rounded-lg transition">기록보기</button>
                       <button onClick={() => setPhotosModalPatient(p)} className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition">사진보기</button>
@@ -290,7 +291,6 @@ export default function PatientsPage() {
         </table>
       </div>
 
-      {/* 이하 기존 모달들 유지 (기록보기, 사진보기, 등록/수정) */}
       {historyModalPatient && (
         <div onClick={() => setHistoryModalPatient(null)} className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-3xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
