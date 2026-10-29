@@ -42,7 +42,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <>
       <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0 w-full md:pl-64">
+      {/* 🟢 md:pl-64를 슬림해진 사이드바 너비에 맞춰 md:pl-56으로 수정 */}
+      <div className="flex-1 flex flex-col min-w-0 w-full md:pl-56">
         <main className="flex-1 w-full min-h-screen pt-16 pb-24 md:py-8 md:px-8 px-3 bg-slate-50">
           {children}
         </main>
