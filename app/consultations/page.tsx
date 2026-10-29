@@ -34,6 +34,7 @@ export default function ConsultationsPage() {
   const [followUp, setFollowUp] = useState(""); 
   const [feedbackDays, setFeedbackDays] = useState(""); 
   const [amount, setAmount] = useState(""); 
+  const [paymentMethod, setPaymentMethod] = useState(""); // 🟢 결제방식 상태 추가
 
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
@@ -143,6 +144,7 @@ export default function ConsultationsPage() {
         symptom_detail: symptomDetail, prescription, consult_memo: consultMemo, follow_up: followUp,
         feedback_days: feedbackDays ? parseInt(feedbackDays) : null,
         amount: amount ? parseInt(amount) : null,
+        payment_method: paymentMethod || null, // 🟢 DB 저장 시 결제방식 포함
         image_urls: finalImagePaths, user_id: user.id,
       };
 
@@ -172,6 +174,7 @@ export default function ConsultationsPage() {
     setConsultationDate(new Date().toISOString().split('T')[0]);
     setSymptoms(""); setDigestionStool(""); setSleepState(""); setSymptomDetail(""); 
     setPrescription(""); setConsultMemo(""); setFollowUp(""); setFeedbackDays(""); setAmount("");
+    setPaymentMethod(""); // 🟢 결제방식 초기화
     setImageFiles([]); setExistingImageUrls([]); setExistingImagePreviews([]);
   };
 
@@ -185,6 +188,7 @@ export default function ConsultationsPage() {
     setFollowUp(c.follow_up || "");
     setFeedbackDays(c.feedback_days ? c.feedback_days.toString() : ""); 
     setAmount(c.amount != null ? c.amount.toString() : "");
+    setPaymentMethod(c.payment_method || ""); // 🟢 수정 시 결제방식 불러오기
     
     const rawPaths = c.image_urls || [];
     setExistingImageUrls(rawPaths);
@@ -315,12 +319,31 @@ export default function ConsultationsPage() {
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <div className="flex items-center gap-2">
                 <label className="text-xs font-bold text-slate-700">피드백(일)</label>
-                <input type="text" inputMode="numeric" pattern="[0-9]*" value={feedbackDays} onChange={(e) => setFeedbackDays(e.target.value.replace(/[^0-9]/g, ''))} className="w-20 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900" />
+                <input type="text" inputMode="numeric" pattern="[0-9]*" value={feedbackDays} onChange={(e) => setFeedbackDays(e.target.value.replace(/[^0-9]/g, ''))} className="w-20 p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900" />
               </div>
               <div className="flex items-center gap-2">
                 <label className="text-xs font-bold text-slate-700">금액</label>
-                <input type="text" inputMode="numeric" pattern="[0-9]*" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ''))} className="w-32 p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900" />
+                <input type="text" inputMode="numeric" pattern="[0-9]*" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ''))} className="w-28 p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900" />
               </div>
+              
+              {/* 🟢 결제방식 드롭다운 추가 */}
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-bold text-slate-700">결제방식</label>
+                <select 
+                  value={paymentMethod} 
+                  onChange={(e) => setPaymentMethod(e.target.value)} 
+                  className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none cursor-pointer"
+                >
+                  <option value="">선택</option>
+                  <option value="링크">링크</option>
+                  <option value="홈피">홈피</option>
+                  <option value="매장">매장</option>
+                  <option value="입금">입금</option>
+                  <option value="현명">현명</option>
+                  <option value="사업자">사업자</option>
+                </select>
+              </div>
+
               <div className="hidden sm:block flex-1 text-right text-xs text-slate-400">※ [Ctrl+V] 사진 붙여넣기</div>
               
               <div className="w-full sm:w-auto flex gap-2 pt-2 sm:pt-0 ml-auto">
@@ -368,7 +391,6 @@ export default function ConsultationsPage() {
               </div>
             </div>
 
-            {/* 🟢 과거 사진 데이터 모아보기 (스크롤 영역 추가: max-h-[320px] 및 overflow-y-auto) */}
             <div className="flex flex-col bg-slate-100 border border-slate-200 rounded-2xl p-4 shadow-sm">
               <label className="text-xs font-bold text-slate-800 mb-3 flex-shrink-0">🎞️ 과거 사진 데이터 모아보기</label>
               <div className="max-h-[320px] overflow-y-auto pr-1">
@@ -419,7 +441,7 @@ export default function ConsultationsPage() {
         </div>
       )}
 
-      {/* 기록 조회 탭 [자세히] 상세 팝업 */}
+      {/* 🟢 기록 조회 탭 [자세히] 상세 팝업 */}
       {selectedDetailConsultation && (
         <div onClick={() => setSelectedDetailConsultation(null)} className="fixed inset-0 z-[110] bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={(e) => e.stopPropagation()}>
@@ -433,7 +455,14 @@ export default function ConsultationsPage() {
             <div className="flex-1 overflow-y-auto space-y-3 pr-1 text-sm">
               <div className="grid grid-cols-2 gap-2">
                 <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">주호소</span><span className="font-semibold text-slate-800">{selectedDetailConsultation.symptoms || "-"}</span></div>
-                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">금액</span><span className="font-semibold text-purple-800">{selectedDetailConsultation.amount ? `${selectedDetailConsultation.amount.toLocaleString()}원` : "-"}</span></div>
+                {/* 🟢 결제방식 함께 노출되도록 수정 */}
+                <div className="p-3 bg-slate-50 rounded-xl border">
+                  <span className="text-xs font-bold text-slate-400 block mb-0.5">결제 금액/방식</span>
+                  <span className="font-semibold text-purple-800">
+                    {selectedDetailConsultation.amount ? `${selectedDetailConsultation.amount.toLocaleString()}원` : "-"} 
+                    {selectedDetailConsultation.payment_method ? ` (${selectedDetailConsultation.payment_method})` : ""}
+                  </span>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">소화배변</span><span className="font-semibold text-slate-800">{selectedDetailConsultation.digestion_stool || "-"}</span></div>
@@ -472,7 +501,7 @@ export default function ConsultationsPage() {
         </div>
       )}
 
-      {/* 최근방문내역 팝업 */}
+      {/* 🟢 최근방문내역 팝업 (작성 폼 쪽) */}
       {historyDetailModal && (
         <div onClick={() => setHistoryDetailModal(null)} className="fixed inset-0 z-[110] bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-4 cursor-default" onClick={(e) => e.stopPropagation()}>
@@ -486,7 +515,13 @@ export default function ConsultationsPage() {
             <div className="space-y-3 text-sm max-h-[60vh] overflow-y-auto pr-1">
               <div className="grid grid-cols-2 gap-2">
                 <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">주호소</span><span className="font-semibold text-slate-800">{historyDetailModal.symptoms || "-"}</span></div>
-                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">금액</span><span className="font-semibold text-slate-800">{historyDetailModal.amount ? `${historyDetailModal.amount.toLocaleString()}원` : "-"}</span></div>
+                <div className="p-3 bg-slate-50 rounded-xl border">
+                  <span className="text-xs font-bold text-slate-400 block mb-0.5">결제 금액/방식</span>
+                  <span className="font-semibold text-slate-800">
+                    {historyDetailModal.amount ? `${historyDetailModal.amount.toLocaleString()}원` : "-"}
+                    {historyDetailModal.payment_method ? ` (${historyDetailModal.payment_method})` : ""}
+                  </span>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">소화배변</span><span className="font-semibold text-slate-800">{historyDetailModal.digestion_stool || "-"}</span></div>
