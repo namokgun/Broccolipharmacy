@@ -21,12 +21,13 @@ const THEME_CLASSES: Record<string, { bg: string, text: string }> = {
 
 export default function SchedulesPage() {
   const [schedules, setSchedules] = useState<any[]>([]);
-  const [consultations, setConsultations] = useState<any[]>([]); // 🟢 상담 데이터 상태 추가
+  const [consultations, setConsultations] = useState<any[]>([]); 
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   
   const [selectedDetailSchedule, setSelectedDetailSchedule] = useState<any | null>(null);
-  const [selectedDetailConsultation, setSelectedDetailConsultation] = useState<any | null>(null); // 🟢 상담 상세 모달 상태
-  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null); // 🟢 상담 사진 확대 상태
+  const [selectedDetailConsultation, setSelectedDetailConsultation] = useState<any | null>(null); 
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null); 
+  const [dayDetailDate, setDayDetailDate] = useState<string | null>(null); 
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -35,9 +36,7 @@ export default function SchedulesPage() {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [theme, setTheme] = useState("blue");
-  const [dayDetailDate, setDayDetailDate] = useState<string | null>(null);
 
-  // 🟢 일정 + 상담 데이터 모두 불러오기
   const fetchData = async () => {
     // 1. 일반 일정 불러오기
     const { data: sData } = await supabase.from("schedules").select("*").order("schedule_date", { ascending: true }).order("time", { ascending: true });
@@ -67,7 +66,7 @@ export default function SchedulesPage() {
 
   useEffect(() => {
     setCurrentDate(new Date());
-    fetchData(); // 🟢 fetchData로 통합 호출
+    fetchData(); 
   }, []);
 
   const handleSubmitSchedule = async (e: React.FormEvent) => {
@@ -102,9 +101,9 @@ export default function SchedulesPage() {
   const handleScheduleClick = (e: React.MouseEvent, item: any) => { 
     e.stopPropagation(); 
     if (item.type === 'consultation') {
-      setSelectedDetailConsultation(item.data); // 🟢 상담 기록 클릭 시
+      setSelectedDetailConsultation(item.data); 
     } else {
-      setSelectedDetailSchedule(item.data);     // 🟢 일반 일정 클릭 시
+      setSelectedDetailSchedule(item.data);     
     }
   };
   
@@ -162,19 +161,16 @@ export default function SchedulesPage() {
             const d = i + 1; 
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
             
-            // 🟢 일반 일정 데이터 필터링
             const daySchedules = schedules.filter(s => s.schedule_date === dateStr);
-            // 🟢 상담 데이터 필터링
             const dayConsultations = consultations.filter(c => (c.consultation_date || c.created_at.split('T')[0]) === dateStr);
             
-            // 두 항목을 하나의 배열로 합침
             const allDayItems = [
               ...dayConsultations.map(c => ({ type: 'consultation', data: c })),
               ...daySchedules.map(s => ({ type: 'schedule', data: s }))
             ];
 
             const isToday = d === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear();
-            const MAX_VISIBLE = 3; // 상담 기록까지 표시해야 하니 3개로 늘림
+            const MAX_VISIBLE = 3; 
             const visibleItems = allDayItems.slice(0, MAX_VISIBLE); 
             const hiddenCount = allDayItems.length - MAX_VISIBLE;
 
@@ -184,26 +180,28 @@ export default function SchedulesPage() {
                 <div className="w-full space-y-1 text-left flex-1">
                   {visibleItems.map((item, idx) => {
                     if (item.type === 'consultation') {
-                      // 🟢 상담 내역 렌더링 스타일 (환자명 - 처방)
                       const c = item.data;
                       const titleStr = `${c.patients?.name || "알수없음"} - ${c.prescription || "처방없음"}`;
                       return (
-                        <div key={`c-${c.id || idx}`} onClick={(e) => handleScheduleClick(e, item)} className="text-[10px] md:text-[11px] px-2 py-0.5 rounded-lg truncate flex items-center justify-between transition cursor-pointer font-bold border bg-teal-50 border-teal-200 text-teal-900">
+                        <div key={`c-${c.id || idx}`} onClick={(e) => handleScheduleClick(e, item)} className="text-[10px] md:text-[11px] px-2 py-0.5 rounded-lg truncate flex items-center justify-between transition cursor-pointer font-bold border bg-teal-50 border-teal-200 text-teal-900 hover:bg-teal-100">
                           <span className="truncate">🩺 {titleStr}</span>
                         </div>
                       );
                     } else {
-                      // 일반 일정 렌더링 스타일
                       const s = item.data;
                       const tc = THEME_CLASSES[s.theme || "blue"] || THEME_CLASSES.blue;
                       return (
-                        <div key={`s-${s.id || idx}`} onClick={(e) => handleScheduleClick(e, item)} className={`text-[10px] md:text-[11px] px-2 py-0.5 rounded-lg truncate flex items-center justify-between transition cursor-pointer font-semibold border ${tc.bg} ${tc.text}`}>
+                        <div key={`s-${s.id || idx}`} onClick={(e) => handleScheduleClick(e, item)} className={`text-[10px] md:text-[11px] px-2 py-0.5 rounded-lg truncate flex items-center justify-between transition cursor-pointer font-semibold border hover:opacity-80 ${tc.bg} ${tc.text}`}>
                           <span className="truncate">{s.title}</span>
                         </div>
                       );
                     }
                   })}
-                  {hiddenCount > 0 && <div onClick={(e) => { e.stopPropagation(); setDayDetailDate(dateStr); }} className="text-[10px] font-semibold text-slate-500 hover:text-slate-800 transition px-1">및 {hiddenCount}개...</div>}
+                  {hiddenCount > 0 && (
+                    <div onClick={(e) => { e.stopPropagation(); setDayDetailDate(dateStr); }} className="text-[10px] font-semibold text-slate-500 hover:text-slate-800 transition px-1 cursor-pointer">
+                      및 {hiddenCount}개...
+                    </div>
+                  )}
                 </div>
               </div>
             );
@@ -211,7 +209,57 @@ export default function SchedulesPage() {
         </div>
       </div>
 
-      {/* 🟢 기존 일반 일정 상세 모달 */}
+      {/* 특정 날짜의 모든 일정 보기 모달 ("및 X개..." 클릭 시 열림) */}
+      {dayDetailDate && (
+        <div onClick={() => setDayDetailDate(null)} className="fixed inset-0 z-[90] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col cursor-default max-h-[80vh]" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b pb-3 mb-4">
+              <h3 className="text-lg font-bold text-slate-900">📅 {dayDetailDate} 일정 전체</h3>
+              <button onClick={() => setDayDetailDate(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+              {(() => {
+                const daySchedules = schedules.filter(s => s.schedule_date === dayDetailDate);
+                const dayConsultations = consultations.filter(c => (c.consultation_date || c.created_at.split('T')[0]) === dayDetailDate);
+                const allDayItems = [
+                  ...dayConsultations.map(c => ({ type: 'consultation', data: c })),
+                  ...daySchedules.map(s => ({ type: 'schedule', data: s }))
+                ];
+
+                return allDayItems.map((item, idx) => {
+                  if (item.type === 'consultation') {
+                    const c = item.data;
+                    return (
+                      <div 
+                        key={`c-${c.id || idx}`} 
+                        onClick={(e) => { setDayDetailDate(null); handleScheduleClick(e, item); }} 
+                        className="px-3 py-3 rounded-xl flex items-center justify-between transition cursor-pointer font-bold border bg-teal-50 border-teal-200 text-teal-900 hover:bg-teal-100 shadow-xs"
+                      >
+                        <span className="truncate">🩺 {c.patients?.name || "알수없음"} - {c.prescription || "처방없음"}</span>
+                      </div>
+                    );
+                  } else {
+                    const s = item.data;
+                    const tc = THEME_CLASSES[s.theme || "blue"] || THEME_CLASSES.blue;
+                    return (
+                      <div 
+                        key={`s-${s.id || idx}`} 
+                        onClick={(e) => { setDayDetailDate(null); handleScheduleClick(e, item); }} 
+                        className={`px-3 py-3 rounded-xl flex items-center justify-between transition cursor-pointer font-semibold border hover:opacity-80 shadow-xs ${tc.bg} ${tc.text}`}
+                      >
+                        <span className="truncate">{s.title}</span>
+                      </div>
+                    );
+                  }
+                });
+              })()}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 기존 일반 일정 상세 모달 */}
       {selectedDetailSchedule && (
         <div className="fixed inset-0 z-[70] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setSelectedDetailSchedule(null)}>
           <div className="bg-white w-full max-w-sm p-6 rounded-3xl shadow-2xl border border-slate-100" onClick={e => e.stopPropagation()}>
@@ -234,7 +282,7 @@ export default function SchedulesPage() {
         </div>
       )}
 
-      {/* 🟢 자동 연동된 상담 기록 상세 보기 모달 */}
+      {/* 자동 연동된 상담 기록 상세 보기 모달 */}
       {selectedDetailConsultation && (
         <div onClick={() => setSelectedDetailConsultation(null)} className="fixed inset-0 z-[110] bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-3xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
@@ -304,7 +352,7 @@ export default function SchedulesPage() {
         </div>
       )}
 
-      {/* 🟢 사진 확대 라이트박스 */}
+      {/* 사진 확대 라이트박스 */}
       {previewImageUrl && (
         <div onClick={() => setPreviewImageUrl(null)} className="fixed inset-0 z-[120] bg-slate-950/80 flex items-center justify-center p-4 cursor-pointer">
           <img src={previewImageUrl} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
