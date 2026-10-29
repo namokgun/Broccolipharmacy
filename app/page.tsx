@@ -10,7 +10,6 @@ export default function DashboardPage() {
   const [schedules, setSchedules] = useState<any[]>([]);
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
 
-  // 팝업 모달 상태 관리
   const [selectedDetailConsultation, setSelectedDetailConsultation] = useState<any | null>(null);
   const [dayDetailDate, setDayDetailDate] = useState<string | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
@@ -43,7 +42,6 @@ export default function DashboardPage() {
           
           const consultDateStr = c.consultation_date || c.created_at?.split('T')[0];
 
-          // 이미지 Signed URL 처리
           let display_image_urls = [];
           if (c.image_urls && Array.isArray(c.image_urls) && c.image_urls.length > 0) {
             const signedUrls = await Promise.all(
@@ -63,7 +61,6 @@ export default function DashboardPage() {
     }
   };
 
-  // 피드백 완료 상태 즉시 토글 함수
   const toggleFeedbackComplete = async (e: React.MouseEvent, consultationId: string, currentState: boolean) => {
     e.stopPropagation();
     const newState = !currentState;
@@ -125,25 +122,22 @@ export default function DashboardPage() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <div className="bg-white p-3.5 rounded-2xl shadow-xs border border-slate-100 flex flex-col justify-between">
           <span className="text-[11px] font-bold text-slate-400">전체 고객 수</span>
-          <div className="flex items-baseline justify-between mt-1">
+          <div className="mt-1">
             <span className="text-xl font-extrabold text-slate-900">{patients.length}명</span>
-            <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-1.5 py-0.5 rounded">등록완료</span>
           </div>
         </div>
 
         <div className="bg-white p-3.5 rounded-2xl shadow-xs border border-slate-100 flex flex-col justify-between">
           <span className="text-[11px] font-bold text-slate-400">이번 달 상담 건수</span>
-          <div className="flex items-baseline justify-between mt-1">
+          <div className="mt-1">
             <span className="text-xl font-extrabold text-slate-900">{thisMonthConsultations.length}건</span>
-            <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">진행중</span>
           </div>
         </div>
 
         <div className="bg-white p-3.5 rounded-2xl shadow-xs border border-slate-100 flex flex-col justify-between">
           <span className="text-[11px] font-bold text-slate-400">오늘 피드백 대상</span>
-          <div className="flex items-baseline justify-between mt-1">
+          <div className="mt-1">
             <span className="text-xl font-extrabold text-purple-700">{todayFeedbacks.length}명</span>
-            <span className="text-[10px] font-bold text-purple-700 bg-purple-50 px-1.5 py-0.5 rounded">확인필요</span>
           </div>
         </div>
 
@@ -164,7 +158,6 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         
-        {/* 좌측: 미니 캘린더 */}
         <div className="lg:col-span-6 bg-white p-4.5 rounded-2xl shadow-xs border border-slate-100 flex flex-col h-[380px]">
           <div className="flex justify-between items-center mb-2.5 flex-shrink-0">
             <h2 className="text-sm font-extrabold text-slate-900">
@@ -249,7 +242,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* 우측: 오늘 완료해야 할 피드백 */}
         <div className="lg:col-span-6 bg-white p-4.5 rounded-2xl shadow-xs border border-slate-100 flex flex-col justify-between h-[380px]">
           <div>
             <div className="flex justify-between items-center border-b pb-2.5 mb-3">
@@ -299,10 +291,9 @@ export default function DashboardPage() {
 
       </div>
 
-      {/* 📝 하단 영역: 최근 상담 기록 요약 테이블 (이름 더블클릭 시 상세 모달) */}
       <div className="bg-white p-4.5 rounded-2xl shadow-xs border border-slate-100 space-y-3">
         <div className="flex justify-between items-center border-b pb-2.5">
-          <h2 className="text-sm font-extrabold text-slate-900">📄 최근 상담 기록 (최신 4건) - <span className="text-xs text-slate-400 font-normal">환자명 더블클릭 시 상세 조회</span></h2>
+          <h2 className="text-sm font-extrabold text-slate-900">📄 최근 상담 기록 (최신 4건)</h2>
           <Link href="/consultations#history" className="text-[11px] font-bold text-teal-800 hover:underline">
             더보기 →
           </Link>
@@ -346,7 +337,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 날짜별 일정 전체 보기 모달 */}
       {dayDetailDate && (
         <div onClick={() => setDayDetailDate(null)} className="fixed inset-0 z-[90] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col cursor-default max-h-[80vh]" onClick={e => e.stopPropagation()}>
@@ -401,7 +391,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* 상담 상세 내역 모달 */}
       {selectedDetailConsultation && (
         <div onClick={() => setSelectedDetailConsultation(null)} className="fixed inset-0 z-[110] bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-3xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
@@ -468,7 +457,6 @@ export default function DashboardPage() {
         </div>
       )}
 
-      {/* 사진 확대 라이트박스 */}
       {previewImageUrl && (
         <div onClick={() => setPreviewImageUrl(null)} className="fixed inset-0 z-[120] bg-slate-950/80 flex items-center justify-center p-4 cursor-pointer">
           <img src={previewImageUrl} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
