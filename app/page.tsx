@@ -19,7 +19,6 @@ export default function DashboardPage() {
     const { data: pData } = await supabase.from("patients").select("*").order("name");
     if (pData) setPatients(pData);
 
-    // 🟢 상담 기록과 환자 정보를 함께 불러온 뒤, 피드백 예정일(target_date)을 계산하여 심어줍니다.
     const { data: cData } = await supabase
       .from("consultations")
       .select("*, patients(name, phone, custom_id, gender, birth_year)")
@@ -30,7 +29,6 @@ export default function DashboardPage() {
         const baseDate = new Date(c.consultation_date || c.created_at);
         const feedbackDays = c.feedback_days ? parseInt(c.feedback_days) : 0;
         
-        // 피드백 예정일 계산 (상담일 + 피드백일)
         const targetDate = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate() + feedbackDays);
         const dateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
         
@@ -46,7 +44,6 @@ export default function DashboardPage() {
   const month = currentDate.getMonth();
   const day = currentDate.getDate();
 
-  // 이번 달 매출 및 일평균 매출 계산 로직
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth();
   const currentDay = currentDate.getDate();
@@ -74,10 +71,7 @@ export default function DashboardPage() {
     p.phone?.includes(searchTerm)
   );
 
-  // 오늘 날짜 스트링 (YYYY-MM-DD)
   const todayStr = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
-  
-  // 오늘 완료해야 할 피드백 목록 필터링
   const todayFeedbacks = consultations.filter(c => c.target_date === todayStr);
 
   const formatName = (p: any) => p?.custom_id ? `${p.name} (${p.custom_id})` : p?.name;
@@ -89,7 +83,6 @@ export default function DashboardPage() {
         <p className="text-xs text-slate-500 font-semibold">{currentYear}년 {currentMonth + 1}월 현황</p>
       </div>
 
-      {/* 상단 핵심 지표: 이번달 매출 / 일평균매출 카드 */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-gradient-to-br from-teal-900 to-teal-800 text-white p-6 rounded-3xl shadow-sm flex flex-col justify-between">
           <div>
@@ -118,7 +111,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 상단 통계 요약 카드 (환자수, 상담기록수) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex items-center justify-between">
           <div>
@@ -136,10 +128,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 🟢 좌우 2분할 레이아웃 (좌측: 반으로 줄인 피드백 캘린더, 우측: 오늘 할 일 / 피드백 요약) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        {/* 좌측: 반으로 밀어버린 미니 캘린더 (lg:col-span-6) */}
         <div className="lg:col-span-6 bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col h-[520px]">
           <div className="flex justify-between items-center mb-4 flex-shrink-0">
             <h2 className="text-base font-extrabold text-slate-900">
@@ -199,7 +189,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* 우측 공간: 오늘 해야 할 피드백 요약 리스트 */}
         <div className="lg:col-span-6 bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between h-[520px]">
           <div>
             <div className="flex justify-between items-center border-b pb-3 mb-4">
@@ -232,16 +221,16 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* 🟢 우측 하단 링크를 피드백 캘린더 바로가기로 변경 */}
           <div className="pt-3 border-t text-right">
-            <Link href="/consultations" className="text-xs font-bold text-teal-900 hover:underline">
-              상담 기록 및 등록 바로가기 →
+            <Link href="/feedbacks" className="text-xs font-bold text-purple-900 hover:underline">
+              피드백 캘린더 크게보기 →
             </Link>
           </div>
         </div>
 
       </div>
 
-      {/* 환자 목록 영역 */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <h2 className="text-lg font-bold text-slate-900">환자 목록</h2>
