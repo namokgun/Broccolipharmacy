@@ -7,6 +7,7 @@ import Link from "next/link";
 export default function DashboardPage() {
   const [patients, setPatients] = useState<any[]>([]);
   const [consultations, setConsultations] = useState<any[]>([]);
+  const [schedules, setSchedules] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
 
@@ -18,6 +19,9 @@ export default function DashboardPage() {
   const fetchData = async () => {
     const { data: pData } = await supabase.from("patients").select("*").order("name");
     if (pData) setPatients(pData);
+
+    const { data: sData } = await supabase.from("schedules").select("*");
+    if (sData) setSchedules(sData);
 
     const { data: cData } = await supabase
       .from("consultations")
@@ -133,7 +137,7 @@ export default function DashboardPage() {
         <div className="lg:col-span-6 bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col h-[520px]">
           <div className="flex justify-between items-center mb-4 flex-shrink-0">
             <h2 className="text-base font-extrabold text-slate-900">
-              📅 피드백 미니 캘린더 ({year}년 {month + 1}월)
+              📅 캘린더 ({year}년 {month + 1}월)
             </h2>
             <div className="flex items-center bg-slate-100 rounded-xl p-1">
               <button onClick={handlePrev} className="px-2.5 py-1 hover:bg-white rounded-lg text-xs font-bold text-slate-600 transition">&lt;</button>
@@ -156,6 +160,8 @@ export default function DashboardPage() {
               const formattedDay = String(d).padStart(2, '0');
               const dateStr = `${year}-${formattedMonth}-${formattedDay}`;
               
+              // 🟢 상담 일정과 피드백 일정 각각 추출
+              const daySchedules = schedules.filter(s => s.schedule_date === dateStr);
               const dayFeedbacks = consultations.filter(f => f.target_date === dateStr);
               const isToday = dateStr === todayStr;
 
@@ -163,26 +169,34 @@ export default function DashboardPage() {
                 <div 
                   key={`day-${d}`}
                   className={`rounded-2xl p-1.5 border transition flex flex-col items-center justify-start overflow-hidden select-none ${
-                    isToday ? "bg-purple-50 border-purple-400 shadow-xs" : "bg-white border-slate-100"
+                    isToday ? "bg-teal-50 border-teal-400 shadow-xs" : "bg-white border-slate-100"
                   }`}
                 >
                   <span className={`text-[11px] font-bold mb-1 w-5 h-5 flex items-center justify-center rounded-full ${
-                    isToday ? "bg-purple-700 text-white shadow-xs" : "text-slate-700"
+                    isToday ? "bg-teal-900 text-white shadow-xs" : "text-slate-700"
                   }`}>
                     {d}
                   </span>
                   
-                  {dayFeedbacks.length > 0 && (
-                    <div className="w-full space-y-0.5">
+                  <div className="w-full space-y-0.5">
+                    {/* 🟢 상담 일정이 피드백보다 위에 오도록 배치 (초록/청록 계열 색상) */}
+                    {daySchedules.map((s, sIdx) => (
+                      <div key={`sch-${sIdx}`} className="text-[9px] px-1 py-0.5 rounded truncate font-bold bg-teal-100 text-teal-900 border border-teal-200">
+                        {s.title}
+                      </div>
+                    ))}
+
+                    {/* 🟢 피드백 일정 (보라색 계열 색상으로 명확한 차이 부여) */}
+                    {dayFeedbacks.length > 0 && (
                       <div className={`text-[9px] px-1 py-0.5 rounded truncate font-bold ${
                         dayFeedbacks.some(f => f.is_feedback_completed) 
                           ? "bg-slate-100 text-slate-400 line-through" 
-                          : "bg-purple-100 text-purple-900"
+                          : "bg-purple-100 text-purple-900 border border-purple-200"
                       }`}>
                         {formatName(dayFeedbacks[0].patients)} 외
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -221,7 +235,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* 🟢 우측 하단 링크를 피드백 캘린더 바로가기로 변경 */}
           <div className="pt-3 border-t text-right">
             <Link href="/feedbacks" className="text-xs font-bold text-purple-900 hover:underline">
               피드백 캘린더 크게보기 →
