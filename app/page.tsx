@@ -46,10 +46,10 @@ export default function DashboardPage() {
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
-  const currentDay = currentDate.getDate();
 
-  const currentYear = currentDate.getFullYear();
-  const currentMonth = currentDate.getMonth();
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth();
+  const currentDay = new Date().getDate(); // 🟢 오늘 날짜 일수 가져오기
 
   const thisMonthConsultations = consultations.filter(c => {
     const dateStr = c.consultation_date || c.created_at?.split('T')[0];
@@ -59,11 +59,15 @@ export default function DashboardPage() {
   });
 
   const thisMonthSales = thisMonthConsultations.reduce((sum, c) => sum + (c.amount || 0), 0);
-  const daysElapsed = Math.max(1, currentDay);
-  const dailyAverageSales = Math.round(thisMonthSales / daysElapsed);
+  
+  // 🟢 현재 달과 캘린더에 띄운 달이 같으면 오늘 날짜까지, 지난 달이면 해당 달의 말일(총 일수)로 일평균 산출
+  const isCurrentMonthView = year === currentYear && month === currentMonth;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const divisorDays = isCurrentMonthView ? Math.max(1, currentDay) : daysInMonth;
+  
+  const dailyAverageSales = Math.round(thisMonthSales / divisorDays);
 
   const firstDayOfMonth = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
 
   const handlePrev = () => setCurrentDate(new Date(year, month - 1, 1));
   const handleNext = () => setCurrentDate(new Date(year, month + 1, 1));
@@ -177,14 +181,12 @@ export default function DashboardPage() {
                   </span>
                   
                   <div className="w-full space-y-1">
-                    {/* 🟢 1순위: 상담 일정 (이전과 동일한 깔끔한 초록/청록 계열) */}
                     {daySchedules.map((s, sIdx) => (
                       <div key={`sch-${sIdx}`} className="text-[9px] px-1.5 py-0.5 rounded truncate font-bold bg-teal-100 text-teal-900 border border-teal-200">
                         {s.title}
                       </div>
                     ))}
 
-                    {/* 🟢 2순위: 피드백 일정 (보라 계열 유지하여 상담과 확실히 구분) */}
                     {dayFeedbacks.length > 0 && (
                       <div className={`text-[9px] px-1.5 py-0.5 rounded truncate font-bold ${
                         dayFeedbacks.some(f => f.is_feedback_completed) 
