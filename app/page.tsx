@@ -46,11 +46,10 @@ export default function DashboardPage() {
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
-  const day = currentDate.getDate();
+  const currentDay = currentDate.getDate();
 
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth();
-  const currentDay = currentDate.getDate();
 
   const thisMonthConsultations = consultations.filter(c => {
     const dateStr = c.consultation_date || c.created_at?.split('T')[0];
@@ -134,7 +133,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
-        <div className="lg:col-span-6 bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col h-[520px]">
+        <div className="lg:col-span-6 bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col h-[540px]">
           <div className="flex justify-between items-center mb-4 flex-shrink-0">
             <h2 className="text-base font-extrabold text-slate-900">
               📅 캘린더 ({year}년 {month + 1}월)
@@ -160,7 +159,6 @@ export default function DashboardPage() {
               const formattedDay = String(d).padStart(2, '0');
               const dateStr = `${year}-${formattedMonth}-${formattedDay}`;
               
-              // 🟢 상담 일정과 피드백 일정 각각 추출
               const daySchedules = schedules.filter(s => s.schedule_date === dateStr);
               const dayFeedbacks = consultations.filter(f => f.target_date === dateStr);
               const isToday = dateStr === todayStr;
@@ -178,20 +176,20 @@ export default function DashboardPage() {
                     {d}
                   </span>
                   
-                  <div className="w-full space-y-0.5">
-                    {/* 🟢 상담 일정이 피드백보다 위에 오도록 배치 (초록/청록 계열 색상) */}
+                  <div className="w-full space-y-1">
+                    {/* 🟢 1순위: 상담 일정 (짙은 청록색 배경 + 흰색 글씨로 시인성 극대화) */}
                     {daySchedules.map((s, sIdx) => (
-                      <div key={`sch-${sIdx}`} className="text-[9px] px-1 py-0.5 rounded truncate font-bold bg-teal-100 text-teal-900 border border-teal-200">
+                      <div key={`sch-${sIdx}`} className="text-[9px] px-1.5 py-0.5 rounded truncate font-bold bg-teal-700 text-white shadow-2xs">
                         {s.title}
                       </div>
                     ))}
 
-                    {/* 🟢 피드백 일정 (보라색 계열 색상으로 명확한 차이 부여) */}
+                    {/* 🟢 2순위: 피드백 일정 (짙은 보라색 배경 + 흰색 글씨로 확실한 색상 차이 부여) */}
                     {dayFeedbacks.length > 0 && (
-                      <div className={`text-[9px] px-1 py-0.5 rounded truncate font-bold ${
+                      <div className={`text-[9px] px-1.5 py-0.5 rounded truncate font-bold shadow-2xs ${
                         dayFeedbacks.some(f => f.is_feedback_completed) 
-                          ? "bg-slate-100 text-slate-400 line-through" 
-                          : "bg-purple-100 text-purple-900 border border-purple-200"
+                          ? "bg-slate-200 text-slate-500 line-through" 
+                          : "bg-purple-700 text-white"
                       }`}>
                         {formatName(dayFeedbacks[0].patients)} 외
                       </div>
@@ -203,7 +201,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="lg:col-span-6 bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between h-[520px]">
+        <div className="lg:col-span-6 bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between h-[540px]">
           <div>
             <div className="flex justify-between items-center border-b pb-3 mb-4">
               <h2 className="text-base font-extrabold text-slate-900">📌 오늘 완료해야 할 피드백</h2>
