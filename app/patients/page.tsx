@@ -22,6 +22,7 @@ export default function PatientsPage() {
   const [name, setName] = useState("");
   const [customId, setCustomId] = useState("");
   const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState(""); // 🟢 주소 필드 추가
   const [gender, setGender] = useState("남");
   const [birthYear, setBirthYear] = useState("");
   const [bodyType, setBodyType] = useState("선택 안함");
@@ -66,7 +67,7 @@ export default function PatientsPage() {
 
   const handleOpenRegister = () => {
     setEditingPatientId(null);
-    setName(""); setCustomId(""); setPhone(""); setGender("남"); setBirthYear(""); setBodyType("선택 안함");
+    setName(""); setCustomId(""); setPhone(""); setAddress(""); setGender("남"); setBirthYear(""); setBodyType("선택 안함");
     setIsModalOpen(true);
   };
 
@@ -75,6 +76,7 @@ export default function PatientsPage() {
     setName(p.name || "");
     setCustomId(p.custom_id || "");
     setPhone(p.phone || "");
+    setAddress(p.address || ""); // 🟢 수정 시 주소 불러오기
     setGender(p.gender || "남");
     setBirthYear(p.birth_year ? p.birth_year.toString() : "");
     setBodyType(p.body_type || "선택 안함");
@@ -92,6 +94,7 @@ export default function PatientsPage() {
       name,
       custom_id: customId,
       phone,
+      address, // 🟢 DB 저장 페이로드에 주소 추가
       gender,
       birth_year: birthYear ? parseInt(birthYear) : null,
       body_type: bodyType === "선택 안함" ? null : bodyType,
@@ -119,7 +122,6 @@ export default function PatientsPage() {
     ? consultations.filter(c => c.patient_id === historyModalPatient.id) 
     : [];
 
-  // 환자별 모든 사진 모아보기 목록 추출
   const patientAllPhotos = photosModalPatient
     ? consultations
         .filter(c => c.patient_id === photosModalPatient.id)
@@ -165,7 +167,6 @@ export default function PatientsPage() {
                 const stats = getPatientStats(p.id);
                 const regDate = p.created_at ? p.created_at.split('T')[0] : "-";
                 return (
-                  // 🟢 tr 태그에 onDoubleClick 이벤트와 cursor-pointer 클래스 추가
                   <tr 
                     key={p.id} 
                     className="hover:bg-slate-50 transition cursor-pointer group" 
@@ -182,7 +183,6 @@ export default function PatientsPage() {
                     <td className="p-4 font-bold text-teal-800">{stats.count}회</td>
                     <td className="p-4 font-bold text-purple-800">{stats.totalAmount.toLocaleString()}원</td>
                     <td className="p-4 text-right space-x-1" onClick={e => e.stopPropagation()}> 
-                      {/* 버튼 클릭 시 더블클릭 이벤트 방지(e.stopPropagation) */}
                       <button onClick={() => setHistoryModalPatient(p)} className="px-2.5 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs rounded-lg transition">
                         기록보기
                       </button>
@@ -201,7 +201,6 @@ export default function PatientsPage() {
         </table>
       </div>
 
-      {/* 환자별 전체 상담 기록 모아보기 팝업 (좌우 분할 개편) */}
       {historyModalPatient && (
         <div onClick={() => setHistoryModalPatient(null)} className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-3xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
@@ -219,17 +218,12 @@ export default function PatientsPage() {
               ) : (
                 patientConsultations.map((c, idx) => (
                   <div key={c.id || idx} className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-3">
-                    
-                    {/* 카드 상단: 날짜 및 금액 */}
                     <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                       <span className="font-bold text-slate-900 text-sm">{c.consultation_date || c.created_at.split('T')[0]}</span>
                       {c.amount && <span className="font-extrabold text-purple-800 text-sm">{c.amount.toLocaleString()}원</span>}
                     </div>
                     
-                    {/* 카드 본문: 좌(텍스트) 우(사진) 레이아웃 */}
                     <div className="flex flex-col sm:flex-row gap-4 items-start">
-                      
-                      {/* 왼쪽: 텍스트 영역 */}
                       <div className="flex-1 space-y-2 min-w-0 w-full">
                         <div className="flex flex-wrap gap-x-4 text-sm font-bold text-slate-800 mb-2">
                           {c.symptoms && <div>{c.symptoms}</div>}
@@ -256,7 +250,6 @@ export default function PatientsPage() {
                         )}
                       </div>
 
-                      {/* 오른쪽: 사진 영역 (빈 공간에 들어갈 수 있도록) */}
                       {c.display_image_urls && c.display_image_urls.length > 0 && (
                         <div className="w-full sm:w-auto sm:max-w-[180px] flex flex-row sm:flex-col flex-wrap gap-2 overflow-x-auto sm:overflow-visible pb-2 sm:pb-0 flex-shrink-0">
                           {c.display_image_urls.map((imgUrl: string, imgIdx: number) => (
@@ -271,7 +264,6 @@ export default function PatientsPage() {
                         </div>
                       )}
                     </div>
-                    
                   </div>
                 ))
               )}
@@ -284,7 +276,6 @@ export default function PatientsPage() {
         </div>
       )}
 
-      {/* 환자별 사진 모아보기 팝업 */}
       {photosModalPatient && (
         <div onClick={() => setPhotosModalPatient(null)} className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-2xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
@@ -318,7 +309,6 @@ export default function PatientsPage() {
         </div>
       )}
 
-      {/* 이미지 확대 라이트박스 팝업 */}
       {previewImageUrl && (
         <div onClick={() => setPreviewImageUrl(null)} className="fixed inset-0 z-[100] bg-slate-950/80 flex items-center justify-center p-4 cursor-pointer">
           <img src={previewImageUrl} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
@@ -326,7 +316,6 @@ export default function PatientsPage() {
         </div>
       )}
 
-      {/* 환자 등록 / 수정 모달 */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md p-6 rounded-3xl shadow-2xl border border-slate-100 animate-in fade-in zoom-in-95 duration-200">
@@ -367,9 +356,16 @@ export default function PatientsPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">연락처</label>
-                <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl text-sm font-semibold" placeholder="010-0000-0000" />
+              {/* 🟢 연락처와 주소 필드 영역 */}
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">연락처</label>
+                  <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl text-sm font-semibold" placeholder="010-0000-0000" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">주소</label>
+                  <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl text-sm font-semibold" />
+                </div>
               </div>
 
               <div className="flex gap-2 pt-3">
