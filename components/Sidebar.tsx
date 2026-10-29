@@ -1,48 +1,201 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import Image from "next/image";
+import { usePathname, useRouter } from "next/navigation";
+import { supabase } from "@/app/lib/supabase";
+import { useEffect, useState } from "react";
 
 export default function Sidebar() {
+  const router = useRouter();
   const pathname = usePathname();
+  const [currentHash, setCurrentHash] = useState("");
 
-  // 메뉴 목록 (요청하신 대로 제품/판매/배송 제외, 큰 제목 없음)
-  const menuItems = [
-    { name: "대시보드", href: "/", icon: "🏠" },
-    { name: "고객 관리", href: "/patients", icon: "👥" }, // 경로에 맞게 수정 가능
-    { name: "상담 기록", href: "/consultations", icon: "📝" },
-    { name: "피드백 관리", href: "/feedbacks", icon: "📌" },
-    { name: "통계", href: "/stats", icon: "📊" },
-    { name: "설정", href: "/settings", icon: "⚙️" },
-  ];
+  useEffect(() => {
+    setCurrentHash(window.location.hash);
+    const handleHashChange = () => setCurrentHash(window.location.hash);
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    router.push("/login");
+  };
+
+  const isConsultPage = pathname === "/consultations";
+  const isWriteActive = isConsultPage && currentHash !== "#history";
+  const isHistoryActive = isConsultPage && currentHash === "#history";
+
+  const handleNavClick = (hash: string) => {
+    setCurrentHash(hash);
+    if (pathname === "/consultations") {
+      window.location.hash = hash;
+      window.dispatchEvent(new Event("hashchange"));
+    }
+  };
 
   return (
-    <aside className="w-64 bg-white border-r border-slate-200 flex flex-col h-screen p-4 flex-shrink-0">
-      {/* 로고 영역 (원하시는 타이틀이나 로고로 변경 가능) */}
-      <div className="px-3 py-4 mb-2">
-        <h1 className="text-lg font-extrabold text-teal-900 tracking-tight">🌿 약국 CRM</h1>
+    <>
+      {/* 💻 PC 전용 왼쪽 고정 사이드바 */}
+      <aside className="hidden md:flex fixed top-0 left-0 h-screen w-64 flex-col bg-white border-r border-slate-100 shadow-sm z-30">
+        <div className="p-6 border-b border-slate-100 flex items-center gap-3">
+          <Image 
+            src="/logo.png" 
+            alt="브로콜리약국 로고" 
+            width={36} 
+            height={36} 
+            className="object-contain rounded-lg"
+          />
+          <div>
+            <div className="font-bold text-lg text-slate-900 leading-tight">
+              브로콜리약국
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">운영중</p>
+          </div>
+        </div>
+
+        {/* 🟢 큰 제목을 제거하고 space-y-1.5로 탭들을 매끄럽게 배치 */}
+        <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto text-sm">
+          <Link 
+            href="/" 
+            className={`flex items-center gap-3 px-3.5 py-3 rounded-2xl transition font-semibold ${
+              pathname === "/" ? "bg-teal-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
+          >
+            <span>📊</span> 대시보드
+          </Link>
+
+          <Link 
+            href="/consultations" 
+            onClick={() => handleNavClick("")}
+            className={`flex items-center gap-3 px-3.5 py-3 rounded-2xl transition font-semibold ${
+              isWriteActive ? "bg-teal-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
+          >
+            <span>📝</span> 새 상담 기록
+          </Link>
+          
+          <Link 
+            href="/consultations#history" 
+            onClick={() => handleNavClick("#history")}
+            className={`flex items-center gap-3 px-3.5 py-3 rounded-2xl transition font-semibold ${
+              isHistoryActive ? "bg-teal-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
+          >
+            <span>📂</span> 기록 조회
+          </Link>
+
+          <Link 
+            href="/schedules" 
+            className={`flex items-center gap-3 px-3.5 py-3 rounded-2xl transition font-semibold ${
+              pathname === "/schedules" ? "bg-teal-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
+          >
+            <span>📅</span> 일반 일정 캘린더
+          </Link>
+          
+          <Link 
+            href="/feedbacks" 
+            className={`flex items-center gap-3 px-3.5 py-3 rounded-2xl transition font-semibold ${
+              pathname === "/feedbacks" ? "bg-purple-900 text-white shadow-xs" : "text-slate-600 hover:bg-purple-50 hover:text-purple-900"
+            }`}
+          >
+            <span>📌</span> 피드백 모니터링
+          </Link>
+
+          <Link 
+            href="/patients" 
+            className={`flex items-center gap-3 px-3.5 py-3 rounded-2xl transition font-semibold ${
+              pathname === "/patients" ? "bg-teal-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
+          >
+            <span>👥</span> 환자 목록
+          </Link>
+        </nav>
+
+        <div className="p-4 border-t border-slate-100">
+          <button onClick={handleLogout} className="w-full text-left px-3.5 py-3 text-red-500 hover:bg-red-50 rounded-2xl font-semibold transition text-sm">
+            🚪 로그아웃
+          </button>
+        </div>
+      </aside>
+
+      {/* 📱 모바일 전용 상단 고정 헤더 */}
+      <div className="md:hidden fixed top-0 left-0 right-0 h-14 flex items-center justify-between bg-white border-b border-slate-100 px-4 z-50 shadow-sm">
+        <div className="flex items-center gap-2">
+          <Image src="/logo.png" alt="로고" width={28} height={28} className="object-contain rounded-md" />
+          <span className="font-bold text-slate-900 text-sm">브로콜리약국</span>
+        </div>
+        <button onClick={handleLogout} className="text-xs text-red-500 font-semibold px-2 py-1 bg-red-50 rounded-lg">
+          로그아웃
+        </button>
       </div>
 
-      {/* 메뉴 리스트 */}
-      <nav className="flex-1 space-y-1.5">
-        {menuItems.map((item) => {
-          const isActive = pathname === item.href;
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`flex items-center gap-3 px-3.5 py-3 rounded-2xl text-sm font-bold transition ${
-                isActive
-                  ? "bg-teal-900 text-white shadow-xs"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-              }`}
-            >
-              <span className="text-base">{item.icon}</span>
-              <span>{item.name}</span>
-            </Link>
-          );
-        })}
+      {/* 📱 모바일 전용 하단 고정 탭 바 */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 z-50 flex justify-around items-center px-1 shadow-lg">
+        <Link 
+          href="/" 
+          className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
+            pathname === "/" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <span className="text-lg mb-0.5">📊</span>
+          <span>대시보드</span>
+        </Link>
+
+        <Link 
+          href="/consultations" 
+          onClick={() => handleNavClick("")}
+          className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
+            isWriteActive ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <span className="text-lg mb-0.5">📝</span>
+          <span>상담등록</span>
+        </Link>
+
+        <Link 
+          href="/consultations#history" 
+          onClick={() => handleNavClick("#history")}
+          className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
+            isHistoryActive ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <span className="text-lg mb-0.5">📂</span>
+          <span>기록조회</span>
+        </Link>
+
+        <Link 
+          href="/feedbacks" 
+          className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
+            pathname === "/feedbacks" ? "text-purple-900 font-bold" : "text-slate-500 hover:text-purple-800"
+          }`}
+        >
+          <span className="text-lg mb-0.5">📌</span>
+          <span>피드백</span>
+        </Link>
+
+        <Link 
+          href="/schedules" 
+          className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
+            pathname === "/schedules" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <span className="text-lg mb-0.5">📅</span>
+          <span>일정</span>
+        </Link>
+
+        <Link 
+          href="/patients" 
+          className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
+            pathname === "/patients" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <span className="text-lg mb-0.5">👥</span>
+          <span>환자</span>
+        </Link>
       </nav>
-    </aside>
+    </>
   );
 }
