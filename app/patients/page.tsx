@@ -180,7 +180,7 @@ export default function PatientsPage() {
                       <button onClick={() => setHistoryModalPatient(p)} className="px-2.5 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs rounded-lg transition">
                         기록보기
                       </button>
-                      {/* 🟢 사진모아보기 버튼 추가 */}
+                      {/* 사진모아보기 버튼 */}
                       <button onClick={() => setPhotosModalPatient(p)} className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition">
                         사진모아보기
                       </button>
@@ -197,10 +197,10 @@ export default function PatientsPage() {
         </table>
       </div>
 
-      {/* 환자별 전체 상담 기록 모아보기 팝업 */}
+      {/* 🟢 환자별 전체 상담 기록 모아보기 팝업 (좌우 분할 개편) */}
       {historyModalPatient && (
         <div onClick={() => setHistoryModalPatient(null)} className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
-          <div className="bg-white w-full max-w-2xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
+          <div className="bg-white w-full max-w-3xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center border-b pb-3">
               <div>
                 <h3 className="text-lg font-bold text-slate-900">📂 {historyModalPatient.name} 님의 전체 상담 기록</h3>
@@ -209,36 +209,65 @@ export default function PatientsPage() {
               <button onClick={() => setHistoryModalPatient(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
               {patientConsultations.length === 0 ? (
                 <div className="text-center py-12 text-slate-400 text-sm">작성된 상담 기록이 없습니다.</div>
               ) : (
                 patientConsultations.map((c, idx) => (
-                  <div key={c.id || idx} className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2">
-                    <div className="flex justify-between items-center border-b border-slate-200/60 pb-2">
-                      {/* 🟢 '내방일' 글자 제거하고 날짜 숫자만 노출 */}
+                  <div key={c.id || idx} className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-3">
+                    
+                    {/* 카드 상단: 날짜 및 금액 */}
+                    <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                       <span className="font-bold text-slate-900 text-sm">{c.consultation_date || c.created_at.split('T')[0]}</span>
                       {c.amount && <span className="font-extrabold text-purple-800 text-sm">{c.amount.toLocaleString()}원</span>}
                     </div>
-                    <div className="grid grid-cols-2 gap-2 text-xs">
-                      <div><span className="font-bold text-slate-400">주호소:</span> <span className="text-slate-800 font-semibold">{c.symptoms || "-"}</span></div>
-                      <div><span className="font-bold text-slate-400">처방:</span> <span className="text-teal-900 font-bold">{c.prescription || "-"}</span></div>
+                    
+                    {/* 카드 본문: 좌(텍스트) 우(사진) 레이아웃 */}
+                    <div className="flex flex-col sm:flex-row gap-4 items-start">
+                      
+                      {/* 왼쪽: 텍스트 영역 */}
+                      <div className="flex-1 space-y-2 min-w-0 w-full">
+                        <div className="flex flex-wrap gap-x-4 text-sm font-bold text-slate-800 mb-2">
+                          {c.symptoms && <div>{c.symptoms}</div>}
+                          {c.prescription && <div className="text-teal-700">{c.prescription}</div>}
+                        </div>
+                        
+                        {c.symptom_detail && (
+                          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-700 whitespace-pre-line leading-relaxed">
+                            <strong className="text-slate-900 block mb-1">증상 상세:</strong>
+                            {c.symptom_detail}
+                          </div>
+                        )}
+                        {c.consult_memo && (
+                          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-700 whitespace-pre-line leading-relaxed">
+                            <strong className="text-slate-900 block mb-1">코멘트:</strong>
+                            {c.consult_memo}
+                          </div>
+                        )}
+                        {c.follow_up && (
+                          <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-200/60 text-xs text-purple-900 whitespace-pre-line leading-relaxed">
+                            <strong className="text-purple-800 block mb-1">추후관리:</strong>
+                            {c.follow_up}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* 오른쪽: 사진 영역 (빈 공간에 들어갈 수 있도록) */}
+                      {c.display_image_urls && c.display_image_urls.length > 0 && (
+                        <div className="w-full sm:w-auto sm:max-w-[180px] flex flex-row sm:flex-col flex-wrap gap-2 overflow-x-auto sm:overflow-visible pb-2 sm:pb-0 flex-shrink-0">
+                          {c.display_image_urls.map((imgUrl: string, imgIdx: number) => (
+                            <div 
+                              key={imgIdx} 
+                              className="relative w-24 h-24 sm:w-32 sm:h-32 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs cursor-pointer flex items-center justify-center flex-shrink-0 group"
+                              onClick={() => setPreviewImageUrl(imgUrl)}
+                            >
+                              <img src={imgUrl} className="max-w-full max-h-full object-contain group-hover:scale-105 transition rounded-lg" />
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                    {c.symptom_detail && (
-                      <p className="text-xs text-slate-700 bg-white p-2.5 rounded-xl border border-slate-200/60">
-                        <strong className="text-slate-900">증상 상세:</strong> {c.symptom_detail}
-                      </p>
-                    )}
-                    {c.consult_memo && (
-                      <p className="text-xs text-slate-700 bg-white p-2.5 rounded-xl border border-slate-200/60">
-                        <strong className="text-slate-900">코멘트:</strong> {c.consult_memo}
-                      </p>
-                    )}
-                    {c.follow_up && (
-                      <p className="text-xs text-purple-900 bg-purple-50/60 p-2.5 rounded-xl border border-purple-200/60">
-                        <strong className="text-purple-700">추후관리:</strong> {c.follow_up}
-                      </p>
-                    )}
+                    
                   </div>
                 ))
               )}
@@ -251,7 +280,7 @@ export default function PatientsPage() {
         </div>
       )}
 
-      {/* 🟢 환자별 사진 모아보기 팝업 */}
+      {/* 환자별 사진 모아보기 팝업 */}
       {photosModalPatient && (
         <div onClick={() => setPhotosModalPatient(null)} className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-2xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
