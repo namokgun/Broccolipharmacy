@@ -177,19 +177,19 @@ export default function DashboardPage() {
                   </span>
                   
                   <div className="w-full space-y-1">
-                    {/* 🟢 1순위: 상담 일정 (짙은 청록색 배경 + 흰색 글씨로 시인성 극대화) */}
+                    {/* 🟢 1순위: 상담 일정 (이전과 동일한 깔끔한 초록/청록 계열) */}
                     {daySchedules.map((s, sIdx) => (
-                      <div key={`sch-${sIdx}`} className="text-[9px] px-1.5 py-0.5 rounded truncate font-bold bg-teal-700 text-white shadow-2xs">
+                      <div key={`sch-${sIdx}`} className="text-[9px] px-1.5 py-0.5 rounded truncate font-bold bg-teal-100 text-teal-900 border border-teal-200">
                         {s.title}
                       </div>
                     ))}
 
-                    {/* 🟢 2순위: 피드백 일정 (짙은 보라색 배경 + 흰색 글씨로 확실한 색상 차이 부여) */}
+                    {/* 🟢 2순위: 피드백 일정 (보라 계열 유지하여 상담과 확실히 구분) */}
                     {dayFeedbacks.length > 0 && (
-                      <div className={`text-[9px] px-1.5 py-0.5 rounded truncate font-bold shadow-2xs ${
+                      <div className={`text-[9px] px-1.5 py-0.5 rounded truncate font-bold ${
                         dayFeedbacks.some(f => f.is_feedback_completed) 
-                          ? "bg-slate-200 text-slate-500 line-through" 
-                          : "bg-purple-700 text-white"
+                          ? "bg-slate-100 text-slate-400 line-through" 
+                          : "bg-purple-100 text-purple-900 border border-purple-200"
                       }`}>
                         {formatName(dayFeedbacks[0].patients)} 외
                       </div>
