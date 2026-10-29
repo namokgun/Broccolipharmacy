@@ -82,8 +82,8 @@ export default function DashboardPage() {
       {/* 상단 간결한 인사말 및 날짜 */}
       <div className="flex justify-between items-center bg-white px-5 py-3 rounded-2xl shadow-xs border border-slate-100">
         <div>
-          <h1 className="text-lg font-extrabold text-slate-900">👋 안녕하세요, 원장님!</h1>
-          <p className="text-[11px] text-slate-500">오늘도 환자 건강을 위한 소중한 상담이 기다리고 있어요.</p>
+          <h1 className="text-lg font-extrabold text-slate-900">👋 안녕하세요, 약사님!</h1>
+          <p className="text-[11px] text-slate-500"></p>
         </div>
         <span className="text-xs font-bold bg-teal-50 text-teal-800 px-3 py-1 rounded-full">
           {currentYear}년 {currentMonth + 1}월 {currentDay}일 현황
