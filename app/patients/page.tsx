@@ -165,8 +165,14 @@ export default function PatientsPage() {
                 const stats = getPatientStats(p.id);
                 const regDate = p.created_at ? p.created_at.split('T')[0] : "-";
                 return (
-                  <tr key={p.id} className="hover:bg-slate-50/80 transition">
-                    <td className="p-4 font-bold text-slate-900 flex items-center gap-2">
+                  // 🟢 tr 태그에 onDoubleClick 이벤트와 cursor-pointer 클래스 추가
+                  <tr 
+                    key={p.id} 
+                    className="hover:bg-slate-50 transition cursor-pointer group" 
+                    onDoubleClick={() => setHistoryModalPatient(p)}
+                    title="더블클릭하여 상담 기록 보기"
+                  >
+                    <td className="p-4 font-bold text-slate-900 flex items-center gap-2 group-hover:text-teal-800 transition">
                       <span>{p.name}</span>
                       <span className="text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{p.gender} / {p.birth_year || "-"}년</span>
                     </td>
@@ -175,16 +181,14 @@ export default function PatientsPage() {
                     <td className="p-4 text-slate-800 font-medium">{stats.lastDate}</td>
                     <td className="p-4 font-bold text-teal-800">{stats.count}회</td>
                     <td className="p-4 font-bold text-purple-800">{stats.totalAmount.toLocaleString()}원</td>
-                    <td className="p-4 text-right space-x-1">
-                      {/* 기록보기 버튼 */}
+                    <td className="p-4 text-right space-x-1" onClick={e => e.stopPropagation()}> 
+                      {/* 버튼 클릭 시 더블클릭 이벤트 방지(e.stopPropagation) */}
                       <button onClick={() => setHistoryModalPatient(p)} className="px-2.5 py-1.5 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-xs rounded-lg transition">
                         기록보기
                       </button>
-                      {/* 사진모아보기 버튼 */}
                       <button onClick={() => setPhotosModalPatient(p)} className="px-2.5 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-xs rounded-lg transition">
                         사진모아보기
                       </button>
-                      {/* 수정 버튼 */}
                       <button onClick={() => handleOpenEdit(p)} className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-lg transition">
                         수정
                       </button>
@@ -197,7 +201,7 @@ export default function PatientsPage() {
         </table>
       </div>
 
-      {/* 🟢 환자별 전체 상담 기록 모아보기 팝업 (좌우 분할 개편) */}
+      {/* 환자별 전체 상담 기록 모아보기 팝업 (좌우 분할 개편) */}
       {historyModalPatient && (
         <div onClick={() => setHistoryModalPatient(null)} className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-3xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
