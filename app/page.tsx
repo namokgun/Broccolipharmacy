@@ -158,6 +158,7 @@ export default function DashboardPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         
+        {/* 좌측: 미니 캘린더 */}
         <div className="lg:col-span-6 bg-white p-4.5 rounded-2xl shadow-xs border border-slate-100 flex flex-col h-[380px]">
           <div className="flex justify-between items-center mb-2.5 flex-shrink-0">
             <h2 className="text-sm font-extrabold text-slate-900">
@@ -192,7 +193,7 @@ export default function DashboardPage() {
                 ...daySchedules.map(s => ({ type: 'schedule', data: s, title: s.title, style: "bg-teal-100 text-teal-900 border border-teal-200" })),
                 ...dayConsultations.map(c => ({ type: 'consultation', data: c, title: `🩺 ${formatName(c.patients)}`, style: "bg-emerald-100 text-emerald-900 border border-emerald-200" })),
                 ...dayFeedbacks.map(f => ({ 
-                  type: 'consultation',
+                  type: 'feedback',
                   data: f,
                   title: `📌 ${formatName(f.patients)}`, 
                   style: f.is_feedback_completed ? "bg-slate-100 text-slate-400 line-through" : "bg-purple-100 text-purple-900 border border-purple-200" 
@@ -223,7 +224,7 @@ export default function DashboardPage() {
                         className={`text-[8.5px] px-1 py-0.2 rounded truncate font-bold ${item.style}`}
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (item.type === 'consultation') setSelectedDetailConsultation(item.data);
+                          if (item.type === 'consultation' || item.type === 'feedback') setSelectedDetailConsultation(item.data);
                           else setDayDetailDate(dateStr);
                         }}
                       >
@@ -242,6 +243,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* 우측: 오늘 완료해야 할 피드백 */}
         <div className="lg:col-span-6 bg-white p-4.5 rounded-2xl shadow-xs border border-slate-100 flex flex-col justify-between h-[380px]">
           <div>
             <div className="flex justify-between items-center border-b pb-2.5 mb-3">
@@ -322,7 +324,6 @@ export default function DashboardPage() {
                     <td 
                       className="p-2.5 font-bold text-slate-900 whitespace-nowrap cursor-pointer hover:text-teal-700 underline decoration-slate-300" 
                       onDoubleClick={() => setSelectedDetailConsultation(c)}
-                      title="더블클릭하여 상담 상세 보기"
                     >
                       {formatName(c.patients)}
                     </td>
@@ -337,6 +338,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* 날짜별 일정 전체 보기 모달 (상담은 초록색, 피드백은 보라색으로 색상 분리) */}
       {dayDetailDate && (
         <div onClick={() => setDayDetailDate(null)} className="fixed inset-0 z-[90] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col cursor-default max-h-[80vh]" onClick={e => e.stopPropagation()}>
@@ -354,7 +356,7 @@ export default function DashboardPage() {
                 const allDayItems = [
                   ...daySchedules.map(s => ({ type: 'schedule', data: s })),
                   ...dayConsultations.map(c => ({ type: 'consultation', data: c })),
-                  ...dayFeedbacks.map(f => ({ type: 'consultation', data: f }))
+                  ...dayFeedbacks.map(f => ({ type: 'feedback', data: f }))
                 ];
 
                 if (allDayItems.length === 0) {
@@ -368,9 +370,22 @@ export default function DashboardPage() {
                       <div 
                         key={`c-${c.id || idx}`} 
                         onClick={() => { setDayDetailDate(null); setSelectedDetailConsultation(c); }} 
-                        className="px-3 py-3 rounded-xl flex items-center justify-between transition cursor-pointer font-bold border bg-teal-50 border-teal-200 text-teal-900 hover:bg-teal-100 shadow-2xs"
+                        className="px-3 py-3 rounded-xl flex items-center justify-between transition cursor-pointer font-bold border bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-100 shadow-2xs"
                       >
-                        <span className="whitespace-pre-line text-xs">🩺 {formatName(c.patients)} - {c.prescription || "처방없음"}</span>
+                        <span className="whitespace-pre-line text-xs">🩺 상담: {formatName(c.patients)} - {c.prescription || "처방없음"}</span>
+                      </div>
+                    );
+                  } else if (item.type === 'feedback') {
+                    const f = item.data;
+                    return (
+                      <div 
+                        key={`f-${f.id || idx}`} 
+                        onClick={() => { setDayDetailDate(null); setSelectedDetailConsultation(f); }} 
+                        className={`px-3 py-3 rounded-xl flex items-center justify-between transition cursor-pointer font-bold border shadow-2xs text-xs ${
+                          f.is_feedback_completed ? "bg-slate-100 border-slate-200 text-slate-400 line-through" : "bg-purple-50 border-purple-200 text-purple-900 hover:bg-purple-100"
+                        }`}
+                      >
+                        <span className="whitespace-pre-line">📌 피드백: {formatName(f.patients)} - {f.prescription || "처방없음"}</span>
                       </div>
                     );
                   } else {
@@ -378,9 +393,9 @@ export default function DashboardPage() {
                     return (
                       <div 
                         key={`s-${s.id || idx}`} 
-                        className="px-3 py-3 rounded-xl flex items-center justify-between transition font-semibold border bg-teal-100 border-teal-200 text-teal-900 shadow-2xs text-xs"
+                        className="px-3 py-3 rounded-xl flex items-center justify-between transition font-semibold border bg-teal-50 border-teal-200 text-teal-900 shadow-2xs text-xs"
                       >
-                        <span className="truncate">📅 {s.title}</span>
+                        <span className="truncate">📅 일정: {s.title}</span>
                       </div>
                     );
                   }
