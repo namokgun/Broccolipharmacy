@@ -103,7 +103,7 @@ export default function SchedulesPage() {
     if (item.type === 'consultation') {
       setSelectedDetailConsultation(item.data); 
     } else {
-      setSelectedDetailSchedule(item.data);     
+      setSelectedDetailSchedule(item.data);    
     }
   };
   
@@ -136,8 +136,9 @@ export default function SchedulesPage() {
   return (
     <div className="w-full h-[calc(100vh-80px)] flex flex-col space-y-4 overflow-hidden">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 flex-shrink-0">
+        {/* 🟢 용어 변경 적용: 일정 캘린더 -> 상담 캘린더 */}
         <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">
-          📅 일정 캘린더 ({year}년 {month + 1}월)
+          📅 상담 캘린더 ({year}년 {month + 1}월)
         </h1>
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center bg-white border border-slate-200 rounded-xl p-1 shadow-2xs">
@@ -181,7 +182,7 @@ export default function SchedulesPage() {
                   {visibleItems.map((item, idx) => {
                     if (item.type === 'consultation') {
                       const c = item.data;
-                      const titleStr = `${c.patients?.name || "알수없음"} - ${c.prescription || "처방없음"}`;
+                      const titleStr = `${c.patients?.name || "알수없음"}\n${c.prescription || "처방없음"}`;
                       return (
                         <div key={`c-${c.id || idx}`} onClick={(e) => handleScheduleClick(e, item)} className="text-[10px] md:text-[11px] px-2 py-0.5 rounded-lg truncate flex items-center justify-between transition cursor-pointer font-bold border bg-teal-50 border-teal-200 text-teal-900 hover:bg-teal-100">
                           <span className="truncate">🩺 {titleStr}</span>
@@ -236,7 +237,7 @@ export default function SchedulesPage() {
                         onClick={(e) => { setDayDetailDate(null); handleScheduleClick(e, item); }} 
                         className="px-3 py-3 rounded-xl flex items-center justify-between transition cursor-pointer font-bold border bg-teal-50 border-teal-200 text-teal-900 hover:bg-teal-100 shadow-xs"
                       >
-                        <span className="truncate">🩺 {c.patients?.name || "알수없음"} - {c.prescription || "처방없음"}</span>
+                        <span className="truncate">🩺 {c.patients?.name || "알수없음"}\n{c.prescription || "처방없음"}</span>
                       </div>
                     );
                   } else {
