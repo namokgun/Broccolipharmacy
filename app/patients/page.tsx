@@ -79,9 +79,17 @@ export default function PatientsPage() {
   };
 
   const getPatientStats = (patientId: string) => {
-    const pConsults = consultations.filter(c => c.patient_id === patientId);
+    const pConsults = consultations
+      .filter(c => c.patient_id === patientId)
+      .sort((a, b) => {
+        const dateA = new Date(a.consultation_date || a.created_at).getTime();
+        const dateB = new Date(b.consultation_date || b.created_at).getTime();
+        return dateB - dateA; 
+      });
+
     const count = pConsults.length;
     const totalAmount = pConsults.reduce((sum, c) => sum + (c.amount || 0), 0);
+    
     const lastDate = count > 0 ? (pConsults[0].consultation_date || pConsults[0].created_at.split('T')[0]) : "-";
     const lastPrescription = count > 0 ? (pConsults[0].prescription || "-") : "-";
     
@@ -278,7 +286,6 @@ export default function PatientsPage() {
                       </>
                     )}
 
-                    {/* 🟢 관리 버튼 열이 오른쪽으로 밀리지 않도록 고정 너비와 중앙 정렬 부여 */}
                     <td className="py-3 px-3 text-center whitespace-nowrap" onClick={e => e.stopPropagation()}> 
                       <div className="inline-flex items-center gap-1">
                         <button onClick={() => setHistoryModalPatient(p)} className="px-2 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-[11px] rounded-md transition">기록</button>
@@ -448,6 +455,7 @@ export default function PatientsPage() {
               <div className="flex gap-2 pt-3 border-t">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 bg-slate-100 font-bold text-slate-700 rounded-xl text-sm">취소</button>
                 <button type="submit" className="flex-1 py-3 bg-teal-900 hover:bg-teal-800 text-white font-bold rounded-xl text-sm shadow-sm">
+                  {/* 🟢 수정 완료 버튼의 조건식에서 editingId를 editingPatientId로 올바르게 수정 */}
                   {editingPatientId ? "수정 완료" : "등록하기"}
                 </button>
               </div>
