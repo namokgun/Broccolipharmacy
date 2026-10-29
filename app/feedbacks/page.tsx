@@ -28,7 +28,6 @@ export default function FeedbacksCalendarPage() {
     }
   };
 
-  // 🟢 타입 오류 해결: 이벤트 인자의 타입을 any로 유연하게 처리
   const handleToggleFeedbackComplete = async (e: any, consultationId: string, currentStatus: boolean) => {
     e.stopPropagation();
     const newStatus = !currentStatus;
@@ -169,7 +168,8 @@ export default function FeedbacksCalendarPage() {
             <div className="space-y-3 text-sm">
               <div className="p-3.5 bg-slate-50 rounded-xl border"><span className="text-xs text-slate-400 font-bold block mb-1">환자명</span><p className="font-bold text-slate-900">{formatName(selectedDetailFeedback.patients)} ({selectedDetailFeedback.patients?.phone || "연락처 없음"})</p></div>
               <div className="p-3.5 bg-teal-50/50 rounded-xl border border-teal-100"><span className="text-xs text-teal-700 font-bold block mb-1">처방 내용</span><p className="font-bold text-teal-950">{selectedDetailFeedback.prescription || "없음"}</p></div>
-              <div className="p-3.5 bg-purple-50/50 rounded-xl border border-purple-100"><span className="text-xs text-purple-700 font-bold block mb-1">모니터링 체크사항</span><p className="font-bold text-purple-950">{selectedDetailFeedback.monitoring_content || "내용 없음"}</p></div>
+              {/* 🟢 모니터링 체크사항 자리에 상담 작성 시의 추후관리(follow_up) 내용이 출력되도록 수정 */}
+              <div className="p-3.5 bg-purple-50/50 rounded-xl border border-purple-100"><span className="text-xs text-purple-700 font-bold block mb-1">모니터링 체크사항 (추후관리)</span><p className="font-bold text-purple-950 whitespace-pre-line">{selectedDetailFeedback.follow_up || "내용 없음"}</p></div>
             </div>
 
             <button onClick={() => setSelectedDetailFeedback(null)} className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition">확인 완료</button>
