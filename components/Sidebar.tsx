@@ -37,28 +37,28 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* 💻 PC 전용 왼쪽 고정 사이드바 */}
-      <aside className="hidden md:flex fixed top-0 left-0 h-screen w-64 flex-col bg-white border-r border-slate-100 shadow-sm z-30">
-        <div className="p-6 border-b border-slate-100 flex items-center gap-3">
+      {/* 💻 PC 전용 왼쪽 슬림 고정 사이드바 */}
+      <aside className="hidden md:flex fixed top-0 left-0 h-screen w-56 flex-col bg-white border-r border-slate-100 shadow-xs z-30">
+        <div className="p-5 border-b border-slate-100 flex items-center gap-2.5">
           <Image 
             src="/logo.png" 
             alt="브로콜리약국 로고" 
-            width={36} 
-            height={36} 
+            width={32} 
+            height={32} 
             className="object-contain rounded-lg"
           />
           <div>
-            <div className="font-bold text-lg text-slate-900 leading-tight">
+            <div className="font-extrabold text-base text-slate-900 leading-tight">
               브로콜리약국
             </div>
-            <p className="text-xs text-slate-400 mt-0.5">운영중</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">운영중</p>
           </div>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1.5 overflow-y-auto text-sm">
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto text-xs">
           <Link 
             href="/" 
-            className={`flex items-center gap-3 px-3.5 py-3 rounded-2xl transition font-semibold ${
+            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
               pathname === "/" ? "bg-teal-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
             }`}
           >
@@ -68,7 +68,7 @@ export default function Sidebar() {
           <Link 
             href="/consultations" 
             onClick={() => handleNavClick("")}
-            className={`flex items-center gap-3 px-3.5 py-3 rounded-2xl transition font-semibold ${
+            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
               isWriteActive ? "bg-teal-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
             }`}
           >
@@ -78,17 +78,16 @@ export default function Sidebar() {
           <Link 
             href="/consultations#history" 
             onClick={() => handleNavClick("#history")}
-            className={`flex items-center gap-3 px-3.5 py-3 rounded-2xl transition font-semibold ${
+            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
               isHistoryActive ? "bg-teal-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
             }`}
           >
             <span>📂</span> 기록 조회
           </Link>
 
-          {/* 🟢 용어 변경 적용: 일반 일정 캘린더 -> 상담 캘린더 */}
           <Link 
             href="/schedules" 
-            className={`flex items-center gap-3 px-3.5 py-3 rounded-2xl transition font-semibold ${
+            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
               pathname === "/schedules" ? "bg-teal-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
             }`}
           >
@@ -97,7 +96,7 @@ export default function Sidebar() {
           
           <Link 
             href="/feedbacks" 
-            className={`flex items-center gap-3 px-3.5 py-3 rounded-2xl transition font-semibold ${
+            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
               pathname === "/feedbacks" ? "bg-purple-900 text-white shadow-xs" : "text-slate-600 hover:bg-purple-50 hover:text-purple-900"
             }`}
           >
@@ -106,7 +105,7 @@ export default function Sidebar() {
 
           <Link 
             href="/patients" 
-            className={`flex items-center gap-3 px-3.5 py-3 rounded-2xl transition font-semibold ${
+            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
               pathname === "/patients" ? "bg-teal-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
             }`}
           >
@@ -114,8 +113,8 @@ export default function Sidebar() {
           </Link>
         </nav>
 
-        <div className="p-4 border-t border-slate-100">
-          <button onClick={handleLogout} className="w-full text-left px-3.5 py-3 text-red-500 hover:bg-red-50 rounded-2xl font-semibold transition text-sm">
+        <div className="p-3 border-t border-slate-100">
+          <button onClick={handleLogout} className="w-full text-left px-3 py-2.5 text-red-500 hover:bg-red-50 rounded-xl font-semibold transition text-xs">
             🚪 로그아웃
           </button>
         </div>
