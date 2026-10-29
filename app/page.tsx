@@ -36,7 +36,10 @@ export default function DashboardPage() {
         const targetDate = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate() + feedbackDays);
         const dateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
         
-        return { ...c, target_date: dateStr };
+        // 실제 상담일 문자열 확보
+        const consultDateStr = c.consultation_date || c.created_at?.split('T')[0];
+
+        return { ...c, target_date: dateStr, consult_date_str: consultDateStr };
       });
       setConsultations(processed);
     }
@@ -49,10 +52,10 @@ export default function DashboardPage() {
 
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
-  const currentDay = new Date().getDate(); // 🟢 오늘 날짜 일수 가져오기
+  const currentDay = new Date().getDate();
 
   const thisMonthConsultations = consultations.filter(c => {
-    const dateStr = c.consultation_date || c.created_at?.split('T')[0];
+    const dateStr = c.consult_date_str;
     if (!dateStr) return false;
     const [y, m] = dateStr.split('-').map(Number);
     return y === currentYear && m === (currentMonth + 1);
@@ -60,7 +63,6 @@ export default function DashboardPage() {
 
   const thisMonthSales = thisMonthConsultations.reduce((sum, c) => sum + (c.amount || 0), 0);
   
-  // 🟢 현재 달과 캘린더에 띄운 달이 같으면 오늘 날짜까지, 지난 달이면 해당 달의 말일(총 일수)로 일평균 산출
   const isCurrentMonthView = year === currentYear && month === currentMonth;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const divisorDays = isCurrentMonthView ? Math.max(1, currentDay) : daysInMonth;
@@ -163,8 +165,13 @@ export default function DashboardPage() {
               const formattedDay = String(d).padStart(2, '0');
               const dateStr = `${year}-${formattedMonth}-${formattedDay}`;
               
+              // 1. 일반 일정 (초록 계열)
               const daySchedules = schedules.filter(s => s.schedule_date === dateStr);
+              // 2. 실제 상담 기록일 (초록/청록 계열로 통일)
+              const dayConsultations = consultations.filter(c => c.consult_date_str === dateStr);
+              // 3. 피드백 예정일 (보라 계열)
               const dayFeedbacks = consultations.filter(f => f.target_date === dateStr);
+
               const isToday = dateStr === todayStr;
 
               return (
@@ -181,19 +188,28 @@ export default function DashboardPage() {
                   </span>
                   
                   <div className="w-full space-y-1">
+                    {/* 일반 캘린더 일정 (초록 계열) */}
                     {daySchedules.map((s, sIdx) => (
                       <div key={`sch-${sIdx}`} className="text-[9px] px-1.5 py-0.5 rounded truncate font-bold bg-teal-100 text-teal-900 border border-teal-200">
                         {s.title}
                       </div>
                     ))}
 
+                    {/* 실제 상담 기록 (초록/청록 계열) */}
+                    {dayConsultations.map((c, cIdx) => (
+                      <div key={`consult-${cIdx}`} className="text-[9px] px-1.5 py-0.5 rounded truncate font-bold bg-emerald-100 text-emerald-900 border border-emerald-200">
+                        🩺 {formatName(c.patients)}
+                      </div>
+                    ))}
+
+                    {/* 피드백 예정일 (보라 계열) */}
                     {dayFeedbacks.length > 0 && (
                       <div className={`text-[9px] px-1.5 py-0.5 rounded truncate font-bold ${
                         dayFeedbacks.some(f => f.is_feedback_completed) 
                           ? "bg-slate-100 text-slate-400 line-through" 
                           : "bg-purple-100 text-purple-900 border border-purple-200"
                       }`}>
-                        {formatName(dayFeedbacks[0].patients)} 외
+                        📌 {formatName(dayFeedbacks[0].patients)} 외
                       </div>
                     )}
                   </div>
