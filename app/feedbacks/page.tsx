@@ -28,8 +28,8 @@ export default function FeedbacksCalendarPage() {
     }
   };
 
-  // 🟢 피드백 완료 여부 토글 함수 (체크박스 클릭 시 DB 반영 및 즉시 UI 갱신)
-  const handleToggleFeedbackComplete = async (e: React.MouseEvent, consultationId: string, currentStatus: boolean) => {
+  // 🟢 타입 오류 해결: 이벤트 인자의 타입을 any로 유연하게 처리
+  const handleToggleFeedbackComplete = async (e: any, consultationId: string, currentStatus: boolean) => {
     e.stopPropagation();
     const newStatus = !currentStatus;
 
@@ -100,8 +100,8 @@ export default function FeedbacksCalendarPage() {
                         onClick={(e) => { e.stopPropagation(); setSelectedDetailFeedback(f); }}
                         className={`text-[10px] md:text-[11px] px-2 py-0.5 rounded-lg truncate font-semibold cursor-pointer transition border shadow-2xs ${
                           isCompleted 
-                            ? "bg-slate-100 border-slate-300 text-slate-400 line-through" // 🟢 완료: 회색 취소선
-                            : "bg-purple-50 text-purple-900 border-purple-200 hover:bg-purple-100 animate-pulse" // 🟢 미완료: 보라빛 강조
+                            ? "bg-slate-100 border-slate-300 text-slate-400 line-through" 
+                            : "bg-purple-50 text-purple-900 border-purple-200 hover:bg-purple-100 animate-pulse"
                         }`}
                       >
                         {formatName(f.patients)} / {f.prescription}
@@ -116,7 +116,6 @@ export default function FeedbacksCalendarPage() {
         </div>
       </div>
 
-      {/* 날짜별 숨겨진 피드백 목록 팝업 모달 */}
       {dayDetailDate && (
         <div onClick={() => setDayDetailDate(null)} className="fixed inset-0 z-[90] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col cursor-default max-h-[80vh]" onClick={e => e.stopPropagation()}>
@@ -141,7 +140,6 @@ export default function FeedbacksCalendarPage() {
         </div>
       )}
 
-      {/* 피드백 상세 및 체크박스 팝업 모달 */}
       {selectedDetailFeedback && (
         <div className="fixed inset-0 z-[70] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setSelectedDetailFeedback(null)}>
           <div className="bg-white w-full max-w-md p-6 rounded-3xl shadow-2xl border border-slate-100 flex flex-col space-y-4" onClick={e => e.stopPropagation()}>
@@ -153,7 +151,6 @@ export default function FeedbacksCalendarPage() {
               <button onClick={() => setSelectedDetailFeedback(null)} className="text-slate-400 bg-slate-100 w-8 h-8 rounded-full flex justify-center items-center font-bold">✕</button>
             </div>
 
-            {/* 🟢 확인 완료 체크박스 영역 */}
             <div className="bg-purple-50/60 border border-purple-200 p-3 rounded-2xl flex items-center justify-between">
               <span className="text-xs font-bold text-purple-900">🔔 피드백 확인 상태</span>
               <label className="flex items-center gap-2 cursor-pointer bg-white px-4 py-2 rounded-xl border border-purple-300 shadow-2xs">
