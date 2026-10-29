@@ -38,11 +38,9 @@ export default function SchedulesPage() {
   const [theme, setTheme] = useState("blue");
 
   const fetchData = async () => {
-    // 1. 일반 일정 불러오기
     const { data: sData } = await supabase.from("schedules").select("*").order("schedule_date", { ascending: true }).order("time", { ascending: true });
     if (sData) setSchedules(sData);
 
-    // 2. 상담 기록 불러오기 (환자 정보 포함)
     const { data: cData } = await supabase.from("consultations").select("*, patients(name)").order("created_at", { ascending: false });
     if (cData) {
       const withSignedUrls = await Promise.all(
@@ -136,7 +134,6 @@ export default function SchedulesPage() {
   return (
     <div className="w-full h-[calc(100vh-80px)] flex flex-col space-y-4 overflow-hidden">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 flex-shrink-0">
-        {/* 🟢 용어 변경 적용: 일정 캘린더 -> 상담 캘린더 */}
         <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">
           📅 상담 캘린더 ({year}년 {month + 1}월)
         </h1>
@@ -182,17 +179,16 @@ export default function SchedulesPage() {
                   {visibleItems.map((item, idx) => {
                     if (item.type === 'consultation') {
                       const c = item.data;
-                      const titleStr = `${c.patients?.name || "알수없음"}\n${c.prescription || "처방없음"}`;
                       return (
-                        <div key={`c-${c.id || idx}`} onClick={(e) => handleScheduleClick(e, item)} className="text-[10px] md:text-[11px] px-2 py-0.5 rounded-lg truncate flex items-center justify-between transition cursor-pointer font-bold border bg-teal-50 border-teal-200 text-teal-900 hover:bg-teal-100">
-                          <span className="truncate">🩺 {titleStr}</span>
+                        <div key={`c-${c.id || idx}`} onClick={(e) => handleScheduleClick(e, item)} className="text-[10px] md:text-[11px] px-2 py-1 rounded-lg truncate flex items-center justify-between transition cursor-pointer font-bold border bg-teal-50 border-teal-200 text-teal-900 hover:bg-teal-100">
+                          <span className="truncate">🩺 {c.patients?.name || "알수없음"} / {c.prescription || "처방없음"}</span>
                         </div>
                       );
                     } else {
                       const s = item.data;
                       const tc = THEME_CLASSES[s.theme || "blue"] || THEME_CLASSES.blue;
                       return (
-                        <div key={`s-${s.id || idx}`} onClick={(e) => handleScheduleClick(e, item)} className={`text-[10px] md:text-[11px] px-2 py-0.5 rounded-lg truncate flex items-center justify-between transition cursor-pointer font-semibold border hover:opacity-80 ${tc.bg} ${tc.text}`}>
+                        <div key={`s-${s.id || idx}`} onClick={(e) => handleScheduleClick(e, item)} className={`text-[10px] md:text-[11px] px-2 py-1 rounded-lg truncate flex items-center justify-between transition cursor-pointer font-semibold border hover:opacity-80 ${tc.bg} ${tc.text}`}>
                           <span className="truncate">{s.title}</span>
                         </div>
                       );
@@ -237,7 +233,8 @@ export default function SchedulesPage() {
                         onClick={(e) => { setDayDetailDate(null); handleScheduleClick(e, item); }} 
                         className="px-3 py-3 rounded-xl flex items-center justify-between transition cursor-pointer font-bold border bg-teal-50 border-teal-200 text-teal-900 hover:bg-teal-100 shadow-xs"
                       >
-                        <span className="truncate">🩺 {c.patients?.name || "알수없음"}\n{c.prescription || "처방없음"}</span>
+                        {/* 🟢 \n 문자열 노출 대신 공백이나 자연스러운 구분자로 변경 및 줄바꿈 허용 */}
+                        <span className="whitespace-pre-line">🩺 {c.patients?.name || "알수없음"} - {c.prescription || "처방없음"}</span>
                       </div>
                     );
                   } else {
