@@ -36,7 +36,6 @@ export default function DashboardPage() {
         const targetDate = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate() + feedbackDays);
         const dateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
         
-        // 실제 상담일 문자열 확보
         const consultDateStr = c.consultation_date || c.created_at?.split('T')[0];
 
         return { ...c, target_date: dateStr, consult_date_str: consultDateStr };
@@ -165,12 +164,24 @@ export default function DashboardPage() {
               const formattedDay = String(d).padStart(2, '0');
               const dateStr = `${year}-${formattedMonth}-${formattedDay}`;
               
-              // 1. 일반 일정 (초록 계열)
               const daySchedules = schedules.filter(s => s.schedule_date === dateStr);
-              // 2. 실제 상담 기록일 (초록/청록 계열로 통일)
               const dayConsultations = consultations.filter(c => c.consult_date_str === dateStr);
-              // 3. 피드백 예정일 (보라 계열)
               const dayFeedbacks = consultations.filter(f => f.target_date === dateStr);
+
+              // 해당 날짜의 모든 일정을 하나의 배열로 합치기
+              const allItems = [
+                ...daySchedules.map(s => ({ type: 'schedule', title: s.title, style: "bg-teal-100 text-teal-900 border border-teal-200" })),
+                ...dayConsultations.map(c => ({ type: 'consult', title: `🩺 ${formatName(c.patients)}`, style: "bg-emerald-100 text-emerald-900 border border-emerald-200" })),
+                ...dayFeedbacks.map(f => ({ 
+                  type: 'feedback', 
+                  title: `📌 ${formatName(f.patients)}`, 
+                  style: f.is_feedback_completed ? "bg-slate-100 text-slate-400 line-through" : "bg-purple-100 text-purple-900 border border-purple-200" 
+                }))
+              ];
+
+              const MAX_VISIBLE = 2; // 상위 2개까지만 표시
+              const visibleItems = allItems.slice(0, MAX_VISIBLE);
+              const hiddenCount = allItems.length - MAX_VISIBLE;
 
               const isToday = dateStr === todayStr;
 
@@ -188,28 +199,14 @@ export default function DashboardPage() {
                   </span>
                   
                   <div className="w-full space-y-1">
-                    {/* 일반 캘린더 일정 (초록 계열) */}
-                    {daySchedules.map((s, sIdx) => (
-                      <div key={`sch-${sIdx}`} className="text-[9px] px-1.5 py-0.5 rounded truncate font-bold bg-teal-100 text-teal-900 border border-teal-200">
-                        {s.title}
+                    {visibleItems.map((item, idx) => (
+                      <div key={idx} className={`text-[9px] px-1 py-0.5 rounded truncate font-bold ${item.style}`}>
+                        {item.title}
                       </div>
                     ))}
-
-                    {/* 실제 상담 기록 (초록/청록 계열) */}
-                    {dayConsultations.map((c, cIdx) => (
-                      <div key={`consult-${cIdx}`} className="text-[9px] px-1.5 py-0.5 rounded truncate font-bold bg-emerald-100 text-emerald-900 border border-emerald-200">
-                        🩺 {formatName(c.patients)}
-                      </div>
-                    ))}
-
-                    {/* 피드백 예정일 (보라 계열) */}
-                    {dayFeedbacks.length > 0 && (
-                      <div className={`text-[9px] px-1.5 py-0.5 rounded truncate font-bold ${
-                        dayFeedbacks.some(f => f.is_feedback_completed) 
-                          ? "bg-slate-100 text-slate-400 line-through" 
-                          : "bg-purple-100 text-purple-900 border border-purple-200"
-                      }`}>
-                        📌 {formatName(dayFeedbacks[0].patients)} 외
+                    {hiddenCount > 0 && (
+                      <div className="text-[9px] font-bold text-slate-400 px-1">
+                        외 {hiddenCount}개
                       </div>
                     )}
                   </div>
