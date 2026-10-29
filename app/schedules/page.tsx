@@ -21,9 +21,13 @@ const THEME_CLASSES: Record<string, { bg: string, text: string }> = {
 
 export default function SchedulesPage() {
   const [schedules, setSchedules] = useState<any[]>([]);
+  const [consultations, setConsultations] = useState<any[]>([]); // 🟢 상담 데이터 상태 추가
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   
   const [selectedDetailSchedule, setSelectedDetailSchedule] = useState<any | null>(null);
+  const [selectedDetailConsultation, setSelectedDetailConsultation] = useState<any | null>(null); // 🟢 상담 상세 모달 상태
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null); // 🟢 상담 사진 확대 상태
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [scheduleDate, setScheduleDate] = useState("");
@@ -33,14 +37,37 @@ export default function SchedulesPage() {
   const [theme, setTheme] = useState("blue");
   const [dayDetailDate, setDayDetailDate] = useState<string | null>(null);
 
-  const fetchSchedules = async () => {
-    const { data } = await supabase.from("schedules").select("*").order("schedule_date", { ascending: true }).order("time", { ascending: true });
-    if (data) setSchedules(data);
+  // 🟢 일정 + 상담 데이터 모두 불러오기
+  const fetchData = async () => {
+    // 1. 일반 일정 불러오기
+    const { data: sData } = await supabase.from("schedules").select("*").order("schedule_date", { ascending: true }).order("time", { ascending: true });
+    if (sData) setSchedules(sData);
+
+    // 2. 상담 기록 불러오기 (환자 정보 포함)
+    const { data: cData } = await supabase.from("consultations").select("*, patients(name)").order("created_at", { ascending: false });
+    if (cData) {
+      const withSignedUrls = await Promise.all(
+        cData.map(async (c) => {
+          if (c.image_urls && Array.isArray(c.image_urls) && c.image_urls.length > 0) {
+            const signedUrls = await Promise.all(
+              c.image_urls.map(async (path: string) => {
+                if (path.startsWith('http')) return path;
+                const { data: signedData } = await supabase.storage.from('consultation-images').createSignedUrl(path, 60 * 60);
+                return signedData?.signedUrl || '';
+              })
+            );
+            return { ...c, display_image_urls: signedUrls.filter(Boolean) };
+          }
+          return { ...c, display_image_urls: [] };
+        })
+      );
+      setConsultations(withSignedUrls);
+    }
   };
 
   useEffect(() => {
     setCurrentDate(new Date());
-    fetchSchedules();
+    fetchData(); // 🟢 fetchData로 통합 호출
   }, []);
 
   const handleSubmitSchedule = async (e: React.FormEvent) => {
@@ -54,11 +81,11 @@ export default function SchedulesPage() {
     if (editingId) {
       const { error } = await supabase.from("schedules").update(payload).eq("id", editingId);
       if (error) alert("수정 실패: " + error.message);
-      else { closeModal(); fetchSchedules(); }
+      else { closeModal(); fetchData(); }
     } else {
       const { error } = await supabase.from("schedules").insert([payload]);
       if (error) alert("일정 등록 실패: " + error.message);
-      else { closeModal(); fetchSchedules(); }
+      else { closeModal(); fetchData(); }
     }
   };
 
@@ -67,14 +94,18 @@ export default function SchedulesPage() {
     await supabase.from("schedules").delete().eq("id", id);
     closeModal(); 
     setSelectedDetailSchedule(null);
-    fetchSchedules();
+    fetchData();
   };
 
   const closeModal = () => { setIsModalOpen(false); setEditingId(null); setTitle(""); setContent(""); setTheme("blue"); setScheduleTime("14:00"); };
   
-  const handleScheduleClick = (e: React.MouseEvent, s: any) => { 
+  const handleScheduleClick = (e: React.MouseEvent, item: any) => { 
     e.stopPropagation(); 
-    setSelectedDetailSchedule(s); 
+    if (item.type === 'consultation') {
+      setSelectedDetailConsultation(item.data); // 🟢 상담 기록 클릭 시
+    } else {
+      setSelectedDetailSchedule(item.data);     // 🟢 일반 일정 클릭 시
+    }
   };
   
   const handleScheduleDoubleClick = (e: React.MouseEvent, s: any) => { 
@@ -130,23 +161,47 @@ export default function SchedulesPage() {
           {Array.from({ length: daysInMonth }).map((_, i) => {
             const d = i + 1; 
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+            
+            // 🟢 일반 일정 데이터 필터링
             const daySchedules = schedules.filter(s => s.schedule_date === dateStr);
+            // 🟢 상담 데이터 필터링
+            const dayConsultations = consultations.filter(c => (c.consultation_date || c.created_at.split('T')[0]) === dateStr);
+            
+            // 두 항목을 하나의 배열로 합침
+            const allDayItems = [
+              ...dayConsultations.map(c => ({ type: 'consultation', data: c })),
+              ...daySchedules.map(s => ({ type: 'schedule', data: s }))
+            ];
+
             const isToday = d === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear();
-            const MAX_VISIBLE = 2; 
-            const visibleSchedules = daySchedules.slice(0, MAX_VISIBLE); 
-            const hiddenCount = daySchedules.length - MAX_VISIBLE;
+            const MAX_VISIBLE = 3; // 상담 기록까지 표시해야 하니 3개로 늘림
+            const visibleItems = allDayItems.slice(0, MAX_VISIBLE); 
+            const hiddenCount = allDayItems.length - MAX_VISIBLE;
 
             return (
               <div key={`day-${d}`} onDoubleClick={() => handleDateDoubleClick(dateStr)} className={`rounded-2xl p-2 border transition flex flex-col items-start cursor-pointer hover:border-teal-400 overflow-hidden select-none ${isToday ? "bg-teal-50/40 border-teal-500 shadow-2xs" : "bg-white border-slate-100 hover:bg-slate-50/50"}`}>
                 <span className={`text-[10px] md:text-xs font-bold mb-1 w-5 h-5 flex items-center justify-center rounded-full ${isToday ? "bg-teal-900 text-white" : "text-slate-700"}`}>{d}</span>
                 <div className="w-full space-y-1 text-left flex-1">
-                  {visibleSchedules.map((s, idx) => {
-                    const tc = THEME_CLASSES[s.theme || "blue"] || THEME_CLASSES.blue;
-                    return (
-                      <div key={idx} onClick={(e) => handleScheduleClick(e, s)} className={`text-[10px] md:text-[11px] px-2 py-0.5 rounded-lg truncate flex items-center justify-between transition cursor-pointer font-semibold border ${tc.bg} ${tc.text}`}>
-                        <span className="truncate">{s.title}</span>
-                      </div>
-                    );
+                  {visibleItems.map((item, idx) => {
+                    if (item.type === 'consultation') {
+                      // 🟢 상담 내역 렌더링 스타일 (환자명 - 처방)
+                      const c = item.data;
+                      const titleStr = `${c.patients?.name || "알수없음"} - ${c.prescription || "처방없음"}`;
+                      return (
+                        <div key={`c-${c.id || idx}`} onClick={(e) => handleScheduleClick(e, item)} className="text-[10px] md:text-[11px] px-2 py-0.5 rounded-lg truncate flex items-center justify-between transition cursor-pointer font-bold border bg-teal-50 border-teal-200 text-teal-900">
+                          <span className="truncate">🩺 {titleStr}</span>
+                        </div>
+                      );
+                    } else {
+                      // 일반 일정 렌더링 스타일
+                      const s = item.data;
+                      const tc = THEME_CLASSES[s.theme || "blue"] || THEME_CLASSES.blue;
+                      return (
+                        <div key={`s-${s.id || idx}`} onClick={(e) => handleScheduleClick(e, item)} className={`text-[10px] md:text-[11px] px-2 py-0.5 rounded-lg truncate flex items-center justify-between transition cursor-pointer font-semibold border ${tc.bg} ${tc.text}`}>
+                          <span className="truncate">{s.title}</span>
+                        </div>
+                      );
+                    }
                   })}
                   {hiddenCount > 0 && <div onClick={(e) => { e.stopPropagation(); setDayDetailDate(dateStr); }} className="text-[10px] font-semibold text-slate-500 hover:text-slate-800 transition px-1">및 {hiddenCount}개...</div>}
                 </div>
@@ -156,7 +211,7 @@ export default function SchedulesPage() {
         </div>
       </div>
 
-      {/* 상세 보기 모달 */}
+      {/* 🟢 기존 일반 일정 상세 모달 */}
       {selectedDetailSchedule && (
         <div className="fixed inset-0 z-[70] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setSelectedDetailSchedule(null)}>
           <div className="bg-white w-full max-w-sm p-6 rounded-3xl shadow-2xl border border-slate-100" onClick={e => e.stopPropagation()}>
@@ -179,6 +234,84 @@ export default function SchedulesPage() {
         </div>
       )}
 
+      {/* 🟢 자동 연동된 상담 기록 상세 보기 모달 */}
+      {selectedDetailConsultation && (
+        <div onClick={() => setSelectedDetailConsultation(null)} className="fixed inset-0 z-[110] bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
+          <div className="bg-white w-full max-w-3xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b pb-3">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900">📄 상담 상세 내역</h3>
+                <p className="text-xs text-slate-500">
+                  환자: <strong className="text-slate-800">{selectedDetailConsultation.patients?.name || "알수없음"}</strong> | 
+                  내방일: {selectedDetailConsultation.consultation_date || selectedDetailConsultation.created_at.split('T')[0]}
+                </p>
+              </div>
+              <button onClick={() => setSelectedDetailConsultation(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+              <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-3">
+                <div className="flex flex-col sm:flex-row gap-4 items-start">
+                  
+                  {/* 텍스트 영역 */}
+                  <div className="flex-1 space-y-2 min-w-0 w-full">
+                    <div className="flex flex-wrap gap-x-4 text-sm font-bold text-slate-800 mb-2">
+                      {selectedDetailConsultation.symptoms && <div>{selectedDetailConsultation.symptoms}</div>}
+                      {selectedDetailConsultation.prescription && <div className="text-teal-700">{selectedDetailConsultation.prescription}</div>}
+                    </div>
+                    {selectedDetailConsultation.symptom_detail && (
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-700 whitespace-pre-line leading-relaxed">
+                        <strong className="text-slate-900 block mb-1">증상 상세:</strong>
+                        {selectedDetailConsultation.symptom_detail}
+                      </div>
+                    )}
+                    {selectedDetailConsultation.consult_memo && (
+                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-700 whitespace-pre-line leading-relaxed">
+                        <strong className="text-slate-900 block mb-1">코멘트:</strong>
+                        {selectedDetailConsultation.consult_memo}
+                      </div>
+                    )}
+                    {selectedDetailConsultation.follow_up && (
+                      <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-200/60 text-xs text-purple-900 whitespace-pre-line leading-relaxed">
+                        <strong className="text-purple-800 block mb-1">추후관리:</strong>
+                        {selectedDetailConsultation.follow_up}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 사진 영역 */}
+                  {selectedDetailConsultation.display_image_urls && selectedDetailConsultation.display_image_urls.length > 0 && (
+                    <div className="w-full sm:w-auto sm:max-w-[180px] flex flex-row sm:flex-col flex-wrap gap-2 overflow-x-auto sm:overflow-visible pb-2 sm:pb-0 flex-shrink-0">
+                      {selectedDetailConsultation.display_image_urls.map((imgUrl: string, imgIdx: number) => (
+                        <div 
+                          key={imgIdx} 
+                          className="relative w-24 h-24 sm:w-32 sm:h-32 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs cursor-pointer flex items-center justify-center flex-shrink-0 group"
+                          onClick={() => setPreviewImageUrl(imgUrl)}
+                        >
+                          <img src={imgUrl} className="max-w-full max-h-full object-contain group-hover:scale-105 transition rounded-lg" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-2 border-t">
+              <button onClick={() => setSelectedDetailConsultation(null)} className="px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800">확인 완료</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 🟢 사진 확대 라이트박스 */}
+      {previewImageUrl && (
+        <div onClick={() => setPreviewImageUrl(null)} className="fixed inset-0 z-[120] bg-slate-950/80 flex items-center justify-center p-4 cursor-pointer">
+          <img src={previewImageUrl} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
+          <button onClick={() => setPreviewImageUrl(null)} className="absolute top-4 right-4 text-white bg-slate-800 w-10 h-10 rounded-full font-bold">✕</button>
+        </div>
+      )}
+
       {/* 이벤트 추가/수정 모달 */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-[80] p-4">
@@ -194,14 +327,12 @@ export default function SchedulesPage() {
               </div>
               <div>
                 <label className="block text-xs font-bold text-slate-400 mb-1">제목</label>
-                {/* 🟢 제목 예시(placeholder) 삭제 완료 */}
                 <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl font-semibold text-slate-900" required />
               </div>
               <div><label className="block text-xs font-bold text-slate-400 mb-2">테마</label><div className="flex gap-3">{Object.entries(THEMES).map(([key, value]) => (<button key={key} type="button" onClick={() => setTheme(key)} className={`w-8 h-8 rounded-full ${value.bg} ${theme === key ? "ring-2 ring-offset-2 ring-teal-500 scale-110" : "opacity-70"}`}></button>))}</div></div>
               <div><label className="block text-xs font-bold text-slate-400 mb-1">메모</label><textarea value={content} onChange={(e) => setContent(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl font-semibold text-slate-900" rows={2} /></div>
               
               <div className="flex gap-2 pt-2">
-                {/* 🟢 취소 버튼 가독성 개선 (bg-slate-200, text-slate-700, font-bold) */}
                 <button type="button" onClick={closeModal} className="flex-1 py-2.5 bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold rounded-xl transition">취소</button>
                 <button type="submit" className="flex-1 py-2.5 bg-teal-900 hover:bg-teal-800 text-white font-bold rounded-xl shadow-sm transition">{editingId ? "수정 저장" : "추가"}</button>
               </div>
