@@ -49,6 +49,7 @@ export default function PatientsPage() {
   const [memo, setMemo] = useState("");
   const [email, setEmail] = useState("");
   const [allergy, setAllergy] = useState("");
+  const [representativeId, setRepresentativeId] = useState<string>(""); // 🟢 대표고객 ID (가족 그룹)
 
   const [activeCount, setActiveCount] = useState(0);
 
@@ -101,9 +102,16 @@ export default function PatientsPage() {
     }
   };
 
-  const getPatientStats = (patientId: string) => {
+  // 🟢 대표고객 ID 기준으로 가족 구성원들의 결제액 및 상담 내역을 합산하는 로직
+  const getPatientStats = (patient: any) => {
+    const familyPatientIds = patients
+      .filter(p => p.id === patient.id || p.representative_id === patient.id || (patient.representative_id && p.representative_id === patient.representative_id))
+      .map(p => p.id);
+    familyPatientIds.push(patient.id);
+    const uniquePatientIds = Array.from(new Set(familyPatientIds));
+
     const pConsults = consultations
-      .filter(c => c.patient_id === patientId)
+      .filter(c => uniquePatientIds.includes(c.patient_id))
       .sort((a, b) => {
         const dateA = new Date(a.consultation_date || a.created_at).getTime();
         const dateB = new Date(b.consultation_date || b.created_at).getTime();
@@ -132,7 +140,7 @@ export default function PatientsPage() {
   const handleOpenRegister = () => {
     setEditingPatientId(null);
     setName(""); setCustomId(""); setPhone(""); setAddress(""); setGender("남"); setBirthYear(""); setBodyType("선택 안함");
-    setTagsInput(""); setMemo(""); setEmail(""); setAllergy("");
+    setTagsInput(""); setMemo(""); setEmail(""); setAllergy(""); setRepresentativeId("");
     setIsModalOpen(true);
   };
 
@@ -149,6 +157,7 @@ export default function PatientsPage() {
     setMemo(p.memo || "");
     setEmail(p.email || "");
     setAllergy(p.allergy || "");
+    setRepresentativeId(p.representative_id || "");
     setIsModalOpen(true);
   };
 
@@ -170,6 +179,7 @@ export default function PatientsPage() {
       body_type: bodyType === "선택 안함" ? null : bodyType,
       tags: tagsArray, 
       memo, email, allergy,
+      representative_id: representativeId || null,
       user_id: user.id
     };
 
@@ -192,7 +202,7 @@ export default function PatientsPage() {
   };
 
   const enrichedPatients = patients.map(p => {
-    const stats = getPatientStats(p.id);
+    const stats = getPatientStats(p);
     const created_at_date = p.created_at ? p.created_at.split('T')[0] : "-";
     return { ...p, ...stats, created_at_date };
   });
@@ -207,10 +217,12 @@ export default function PatientsPage() {
 
   const sortedPatients = [...filteredPatients].sort((a, b) => a.name.localeCompare(b.name));
 
-  const selectedPatientStats = selectedPatient ? getPatientStats(selectedPatient.id) : { count: 0, totalAmount: 0, lastDate: "-", lastPrescription: "-", pConsults: [] };
+  const selectedPatientStats = selectedPatient ? getPatientStats(selectedPatient) : { count: 0, totalAmount: 0, lastDate: "-", lastPrescription: "-", pConsults: [] };
   const selectedPatientAllPhotos = selectedPatient 
     ? consultations.filter(c => c.patient_id === selectedPatient.id).flatMap(c => (c.display_image_urls || []).map((url: string) => ({ url, date: c.consultation_date || c.created_at.split('T')[0], symptoms: c.symptoms })))
     : [];
+
+  const representativePatientName = patients.find(p => p.id === selectedPatient?.representative_id)?.name;
 
   return (
     <div className="w-full h-[calc(100vh-80px)] flex flex-col space-y-4 overflow-hidden max-w-[1700px] mx-auto pb-4">
@@ -232,7 +244,7 @@ export default function PatientsPage() {
         {/* 좌측: 상단 3개 카드 + 검색 + 고객 목록 (col-span-7) */}
         <div className="lg:col-span-7 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-4 space-y-3">
           
-          {/* 🟢 상단 통계 요약 카드 3개 좌측에 밀어넣기 */}
+          {/* 상단 통계 요약 카드 3개 */}
           <div className="grid grid-cols-3 gap-2 flex-shrink-0">
             <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col justify-between">
               <span className="text-[10px] font-bold text-slate-400">전체 고객</span>
@@ -288,7 +300,7 @@ export default function PatientsPage() {
                       <span className="text-slate-500 text-[11px]">{p.phone || "연락처 없음"}</span>
                     </div>
 
-                    {/* 연령, 성별, 체질, 최근방문, 상담횟수, 태그 (부제목 없이 한 줄 표기) */}
+                    {/* 연령, 성별, 체질, 최근방문, 상담횟수, 태그 */}
                     <div className="flex-1 flex items-center gap-2 truncate text-[11px]">
                       <span className="text-slate-600 font-semibold whitespace-nowrap">{ageText} / {p.gender || "-"}</span>
                       {p.body_type && p.body_type !== "선택 안함" && (
@@ -314,7 +326,7 @@ export default function PatientsPage() {
           </div>
         </div>
 
-        {/* 우측: 선택된 고객 상세 정보 창 (col-span-5) - 길고 쾌적하게 정보 표시 */}
+        {/* 우측: 선택된 고객 상세 정보 창 (col-span-5) */}
         <div className="lg:col-span-5 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-5">
           {selectedPatient ? (
             <div className="flex-1 overflow-y-auto space-y-4 pr-1">
@@ -354,13 +366,16 @@ export default function PatientsPage() {
                   <span className="font-bold text-slate-800">{selectedPatientStats.count}회</span>
                 </div>
                 <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100">
-                  <span className="text-[10px] text-slate-400 block mb-1">누적 결제</span>
+                  <span className="text-[10px] text-slate-400 block mb-1">누적 결제 (합산)</span>
                   <span className="font-bold text-purple-800">{selectedPatientStats.totalAmount.toLocaleString()}원</span>
                 </div>
               </div>
 
               {/* 상세 인적 사항 및 메모 */}
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2 text-xs">
+                {selectedPatient.representative_id && (
+                  <div><span className="text-slate-400 mr-2">대표 고객(가족):</span><span className="font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded">{representativePatientName || "지정됨"}</span></div>
+                )}
                 <div className="grid grid-cols-2 gap-2">
                   <div><span className="text-slate-400 mr-2">출생연도:</span><span className="font-semibold text-slate-800">{selectedPatient.birth_year ? `${selectedPatient.birth_year}년` : "-"}</span></div>
                   <div><span className="text-slate-400 mr-2">성별:</span><span className="font-semibold text-slate-800">{selectedPatient.gender || "-"}</span></div>
@@ -437,7 +452,7 @@ export default function PatientsPage() {
 
       </div>
 
-      {/* 🟢 신규/수정 고객 등록 팝업 모달 */}
+      {/* 🟢 신규/수정 고객 등록 팝업 모달 (대표고객 ID 선택 기능 추가) */}
       {isModalOpen && (
         <div onClick={() => setIsModalOpen(false)} className="fixed inset-0 z-[120] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
@@ -456,6 +471,21 @@ export default function PatientsPage() {
                   <label className="block font-bold text-slate-700 mb-1">아이디 / 차트번호</label>
                   <input type="text" value={customId} onChange={(e) => setCustomId(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold" placeholder="예: 2026-001" />
                 </div>
+              </div>
+
+              {/* 🟢 대표 고객(가족) 선택 필드 */}
+              <div>
+                <label className="block font-bold text-teal-800 mb-1">대표 고객 (가족 환자 연결 시 선택)</label>
+                <select value={representativeId} onChange={(e) => setRepresentativeId(e.target.value)} className="w-full p-2.5 bg-teal-50/50 border border-teal-100 rounded-xl font-semibold">
+                  <option value="">-- 본인이 대표 고객 (또는 독립) --</option>
+                  {patients
+                    .filter(p => p.id !== editingPatientId) // 본인 제외
+                    .map(p => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} {p.phone ? `(${p.phone})` : ""}
+                      </option>
+                    ))}
+                </select>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
