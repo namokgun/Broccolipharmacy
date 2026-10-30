@@ -106,52 +106,52 @@ export default function StatsPage() {
   const constitutionArray = Object.entries(constitutionCounts).sort((a, b) => b[1] - a[1]);
   const donutColors = ["#14b8a6", "#f59e0b", "#3b82f6", "#8b5cf6", "#94a3b8", "#f43f5e", "#10b981"]; 
 
-  // 월별 차트 데이터 생성
+  // 월별 차트 데이터 생성 (상담 수 기준)
   const monthlyChartData = monthlyBuckets.map((bucket, idx) => {
     const monthConsults = consultations.filter(c => c.consult_date_str?.startsWith(bucket.yearMonth));
     const sales = monthConsults.reduce((sum, c) => sum + (c.amount || 0), 0);
-    const activeCustomers = new Set(monthConsults.map(c => c.patient_id || c.id)).size;
+    const consultCount = monthConsults.length; // 🟢 상담 수 집계
 
     const prevBucketYm = monthlyBuckets[idx - 1]?.yearMonth;
     let prevSalesVal = 0;
-    let prevCustVal = 0;
+    let prevConsultVal = 0;
 
     if (prevBucketYm) {
       const prevConsults = consultations.filter(c => c.consult_date_str?.startsWith(prevBucketYm));
       prevSalesVal = prevConsults.reduce((sum, c) => sum + (c.amount || 0), 0);
-      prevCustVal = new Set(prevConsults.map(c => c.patient_id || c.id)).size;
+      prevConsultVal = prevConsults.length;
     }
 
     const sRate = calcRateValue(sales, prevSalesVal);
-    const cRate = calcRateValue(activeCustomers, prevCustVal);
+    const consultRateVal = calcRateValue(consultCount, prevConsultVal); // 🟢 상담 수 증감률
 
     return { 
       yearMonth: bucket.yearMonth, 
       label: bucket.label, 
       sales, 
-      activeCustomers, 
+      consultCount, 
       sRate, 
-      cRate 
+      consultRateVal 
     };
   });
 
-  // 선으로 이어진 SVG 차트 렌더링
-  const renderSVGChart = (type: "customer" | "sales") => {
-    const maxVal = Math.max(...monthlyChartData.map(d => type === "customer" ? d.activeCustomers : d.sales), 1);
+  // 점과 선으로 이어진 SVG 차트 렌더링
+  const renderSVGChart = (type: "consult" | "sales") => {
+    const maxVal = Math.max(...monthlyChartData.map(d => type === "consult" ? d.consultCount : d.sales), 1);
     
-    const barColor = type === "customer" ? "#94a3b8" : "#e5e5e5"; 
-    const lineColor = type === "customer" ? "#334155" : "#78350f"; 
+    const barColor = type === "consult" ? "#94a3b8" : "#e5e5e5"; 
+    const lineColor = type === "consult" ? "#334155" : "#78350f"; 
 
-    // 점들의 X, Y 좌표 미리 계산
+    // 점들의 X, Y 좌표 계산
     const points = monthlyChartData.map((d, i) => {
       const x = (i / Math.max(1, monthlyChartData.length - 1)) * 100;
-      const rawRate = type === "customer" ? d.cRate : d.sRate;
+      const rawRate = type === "consult" ? d.consultRateVal : d.sRate;
       const clampedRate = Math.max(-100, Math.min(100, rawRate));
       const y = 50 - (clampedRate / 2); // 0%가 중앙 50% 높이에 오도록 계산
       return { x, y, rawRate };
     });
 
-    // 🟢 점 사이를 잇는 SVG Path 경로 문자열 생성
+    // 점 사이를 잇는 SVG Path 경로 문자열 생성
     const linePathD = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x}% ${p.y}%`).join(" ");
 
     return (
@@ -159,8 +159,8 @@ export default function StatsPage() {
         
         {/* Y축 범례 */}
         <div className="absolute left-0 top-4 bottom-8 flex flex-col justify-between text-[10px] text-slate-400 w-10 text-right pr-1 z-0">
-          <span>{type === "customer" ? maxVal : `${Math.round(maxVal / 10000)}만`}</span>
-          <span>{type === "customer" ? Math.round(maxVal/2) : `${Math.round(maxVal / 20000)}만`}</span>
+          <span>{type === "consult" ? maxVal : `${Math.round(maxVal / 10000)}만`}</span>
+          <span>{type === "consult" ? Math.round(maxVal/2) : `${Math.round(maxVal / 20000)}만`}</span>
           <span>0</span>
         </div>
         <div className="absolute right-0 top-4 bottom-8 flex flex-col justify-between text-[10px] text-slate-400 w-8 pl-1 z-0">
@@ -180,7 +180,7 @@ export default function StatsPage() {
             {/* 데이터 막대(Bar) */}
             {monthlyChartData.map((d, i) => {
               const x = points[i].x;
-              const val = type === "customer" ? d.activeCustomers : d.sales;
+              const val = type === "consult" ? d.consultCount : d.sales;
               const heightPct = (val / maxVal) * 100; 
               const barWidth = 8;
 
@@ -201,7 +201,7 @@ export default function StatsPage() {
               );
             })}
 
-            {/* 🟢 점과 점 사이를 잇는 연결선 (Line) */}
+            {/* 점과 점 사이를 잇는 연결선 (Line) */}
             <path 
               d={linePathD} 
               fill="none" 
@@ -215,7 +215,7 @@ export default function StatsPage() {
             {/* 증감률 점(Dots) & 툴팁 */}
             {monthlyChartData.map((d, i) => {
               const { x, y, rawRate } = points[i];
-              const val = type === "customer" ? d.activeCustomers : d.sales;
+              const val = type === "consult" ? d.consultCount : d.sales;
               const barWidth = 8;
 
               return (
@@ -237,7 +237,7 @@ export default function StatsPage() {
                   <g className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                     <rect x={`${x - 14}%`} y="-26" width="105" height="24" rx="4" fill="#1e293b" />
                     <text x={`${x}%`} y="-10" fill="white" fontSize="9" fontWeight="bold" textAnchor="middle">
-                      {val.toLocaleString()}{type === "customer" ? "명" : "원"} ({rawRate > 0 ? `+${rawRate.toFixed(0)}%` : `${rawRate.toFixed(0)}%`})
+                      {val.toLocaleString()}{type === "consult" ? "건" : "원"} ({rawRate > 0 ? `+${rawRate.toFixed(0)}%` : `${rawRate.toFixed(0)}%`})
                     </text>
                   </g>
                 </g>
@@ -306,19 +306,19 @@ export default function StatsPage() {
         </div>
       </div>
 
-      {/* 추이 차트 영역 */}
+      {/* 추이 차트 영역 (상담 수 추이 & 매출 추이) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col h-[340px]">
           <div className="flex justify-between items-center border-b border-slate-50 pb-3">
             <h3 className="text-[15px] font-extrabold text-slate-800 flex items-center gap-2">
-              <span className="text-slate-400">👥</span> 월별 고객 수 추이
+              <span className="text-slate-400">📝</span> 월별 상담 수 추이
             </h3>
             <div className="flex items-center gap-3 text-[11px] font-bold text-slate-400">
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 bg-[#94a3b8] rounded-sm"></span> 고객 수(명)</span>
+              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 bg-[#94a3b8] rounded-sm"></span> 상담 건수(건)</span>
               <span className="flex items-center gap-1"><span className="w-4 h-0.5 bg-[#334155]"></span> 전월 대비 증감률(%)</span>
             </div>
           </div>
-          {renderSVGChart("customer")}
+          {renderSVGChart("consult")}
         </div>
 
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col h-[340px]">
@@ -417,7 +417,7 @@ export default function StatsPage() {
                 <tr>
                   <th className="py-3 px-4 font-bold rounded-tl-lg">년월</th>
                   <th className="py-3 px-4 font-bold">월 매출액</th>
-                  <th className="py-3 px-4 font-bold">방문 고객수</th>
+                  <th className="py-3 px-4 font-bold">상담 건수</th>
                   <th className="py-3 px-4 font-bold text-right rounded-tr-lg">전월 대비 증감률</th>
                 </tr>
               </thead>
@@ -427,7 +427,7 @@ export default function StatsPage() {
                     <tr key={idx} className="hover:bg-slate-50/80 transition">
                       <td className="py-3 px-4 text-slate-500 font-bold">{data.label}</td>
                       <td className="py-3 px-4 text-slate-900 font-extrabold">{data.sales.toLocaleString()} 원</td>
-                      <td className="py-3 px-4 text-slate-500 font-bold">{data.activeCustomers} 명</td>
+                      <td className="py-3 px-4 text-slate-500 font-bold">{data.consultCount} 건</td>
                       <td className="py-3 px-4 text-slate-900 font-extrabold text-right">
                         <span className={`px-1.5 py-0.5 rounded text-[11px] ${data.sRate > 0 ? "text-emerald-600 bg-emerald-50" : "text-slate-500 bg-slate-100"}`}>
                           {data.sRate > 0 ? `+${data.sRate.toFixed(1)}%` : `${data.sRate.toFixed(1)}%`}
