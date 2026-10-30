@@ -89,10 +89,10 @@ export default function ConsultationHistoryPage() {
         </div>
       </div>
 
-      {/* 좌우 분할 레이아웃 (좌측 col-span-7로 확장, 우측 col-span-5) */}
+      {/* 좌우 분할 레이아웃 (좌측 넓힘 유지) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 min-h-0">
         
-        {/* 좌측: 1줄 리스트 창 */}
+        {/* 좌측: 1줄 리스트 창 (날짜 및 이름 영역 w-44로 충분히 확보) */}
         <div className="lg:col-span-7 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-4">
           <div className="mb-3 flex-shrink-0">
             <input 
@@ -126,18 +126,18 @@ export default function ConsultationHistoryPage() {
                         : "bg-white border-slate-100 hover:bg-slate-50/80"
                     }`}
                   >
-                    {/* 날짜 영역 (줄바꿈 방지 고정 너비) */}
-                    <div className="flex items-center gap-3 flex-shrink-0 w-28 whitespace-nowrap">
+                    {/* 날짜 및 이름 영역 (w-44로 확장하여 이름 잘림 방지) */}
+                    <div className="flex items-center gap-3 flex-shrink-0 w-44 whitespace-nowrap">
                       <span className="text-[11px] font-bold text-slate-500">{dateStr}</span>
                       <span className="font-extrabold text-slate-900 truncate" title={formatPatientName(c.patients)}>
                         {formatPatientName(c.patients)}
                       </span>
                     </div>
 
-                    {/* 1줄 주호소 및 처방내용 */}
+                    {/* 주호소 및 처방내용 */}
                     <div className="flex-1 flex items-center gap-2 truncate text-[11px]">
                       {c.symptoms && (
-                        <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-semibold truncate max-w-[140px]" title={c.symptoms}>
+                        <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-semibold truncate max-w-[180px]" title={c.symptoms}>
                           {c.symptoms}
                         </span>
                       )}
@@ -156,10 +156,12 @@ export default function ConsultationHistoryPage() {
           </div>
         </div>
 
-        {/* 우측: 클릭 시 상세 내용 표시 창 */}
+        {/* 우측: 클릭 시 상세 내용 표시 창 (정보를 직관적이고 꽉 찬 형태로 배치) */}
         <div className="lg:col-span-5 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-5">
           {selectedConsultation ? (
             <div className="flex-1 overflow-y-auto space-y-4 pr-1">
+              
+              {/* 고객 요약 카드 */}
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between">
                 <div>
                   <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
@@ -170,43 +172,45 @@ export default function ConsultationHistoryPage() {
                   </p>
                 </div>
                 <div className="text-right">
-                  <span className="text-[10px] bg-teal-100 text-teal-900 font-bold px-2.5 py-1 rounded-lg">
+                  <span className="text-[11px] bg-teal-100 text-teal-900 font-bold px-3 py-1 rounded-xl">
                     {selectedConsultation.consultation_date || selectedConsultation.created_at?.split('T')[0]} 내방
                   </span>
                 </div>
               </div>
 
+              {/* 상세 정보 카드 섹션 */}
               <div className="space-y-3 text-xs">
+                
                 <div className="grid grid-cols-2 gap-3">
-                  <div className="p-3 bg-slate-50/50 rounded-xl border border-slate-100">
+                  <div className="p-3.5 bg-slate-50/60 rounded-2xl border border-slate-100">
                     <span className="text-[10px] font-bold text-slate-400 block mb-1">결제 금액 및 방식</span>
-                    <span className="font-extrabold text-purple-900">
+                    <span className="font-extrabold text-purple-900 text-sm">
                       {selectedConsultation.amount ? `${selectedConsultation.amount.toLocaleString()}원` : "0원"}
                       {selectedConsultation.payment_method ? ` (${selectedConsultation.payment_method})` : ""}
                     </span>
                   </div>
-                  <div className="p-3 bg-slate-50/50 rounded-xl border border-slate-100">
+                  <div className="p-3.5 bg-slate-50/60 rounded-2xl border border-slate-100">
                     <span className="text-[10px] font-bold text-slate-400 block mb-1">소화배변 / 수면상태</span>
-                    <span className="font-semibold text-slate-800">{selectedConsultation.digestion_stool || "-"} / {selectedConsultation.sleep_state || "-"}</span>
+                    <span className="font-bold text-slate-800">{selectedConsultation.digestion_stool || "-"} / {selectedConsultation.sleep_state || "-"}</span>
                   </div>
                 </div>
 
                 {selectedConsultation.symptoms && (
-                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                     <span className="text-[10px] font-bold text-slate-400 block mb-1">주호소</span>
-                    <p className="font-bold text-slate-900">{selectedConsultation.symptoms}</p>
+                    <p className="font-bold text-slate-900 text-sm">{selectedConsultation.symptoms}</p>
                   </div>
                 )}
 
                 {selectedConsultation.symptom_detail && (
-                  <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                  <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                     <span className="text-[10px] font-bold text-slate-400 block mb-1">증상 상세 내용</span>
                     <p className="font-medium text-slate-700 whitespace-pre-line leading-relaxed">{selectedConsultation.symptom_detail}</p>
                   </div>
                 )}
 
                 {selectedConsultation.prescription && (
-                  <div className="p-3.5 bg-teal-50/60 rounded-xl border border-teal-200">
+                  <div className="p-4 bg-teal-50/70 rounded-2xl border border-teal-200">
                     <span className="text-[10px] font-bold text-teal-700 block mb-1">처방 내용</span>
                     <p className="font-extrabold text-teal-950 text-sm">{selectedConsultation.prescription}</p>
                   </div>
@@ -214,13 +218,13 @@ export default function ConsultationHistoryPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {selectedConsultation.consult_memo && (
-                    <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-100">
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
                       <span className="text-[10px] font-bold text-slate-400 block mb-1">상담 코멘트</span>
                       <p className="font-medium text-slate-700 whitespace-pre-line leading-relaxed">{selectedConsultation.consult_memo}</p>
                     </div>
                   )}
                   {selectedConsultation.follow_up && (
-                    <div className="p-3.5 bg-purple-50/60 rounded-xl border border-purple-200">
+                    <div className="p-4 bg-purple-50/60 rounded-2xl border border-purple-200">
                       <span className="text-[10px] font-bold text-purple-700 block mb-1">추후 관리 / 피드백 ({selectedConsultation.feedback_days || 0}일 뒤)</span>
                       <p className="font-medium text-purple-950 whitespace-pre-line leading-relaxed">{selectedConsultation.follow_up}</p>
                     </div>
