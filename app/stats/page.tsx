@@ -17,13 +17,19 @@ export default function StatsPage() {
   }, []);
 
   const fetchData = async () => {
+    // 환자 전체 데이터는 여기서 안전하게 불러옵니다. (체질 데이터가 있다면 여기에 포함됨)
     const { data: pData } = await supabase.from("patients").select("*").order("created_at");
     if (pData) setPatients(pData);
 
-    const { data: cData } = await supabase
+    // 🟢 쿼리 에러 원인 제거: patients 괄호 안에서 constitution을 뺐습니다.
+    const { data: cData, error } = await supabase
       .from("consultations")
-      .select("*, patients(name, phone, custom_id, gender, birth_year, constitution)")
+      .select("*, patients(name, phone, custom_id, gender, birth_year)")
       .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("데이터 로딩 에러:", error.message);
+    }
 
     if (cData) {
       const processed = cData.map((c: any) => {
@@ -103,7 +109,7 @@ export default function StatsPage() {
 
   // 일별 매출 및 방문 데이터 집계
   const dailySalesMap: Record<string, { sales: number, count: number, patientsSet: Set<string> }> = {};
-  consultations.forEach(c => {
+  thisMonthConsultations.forEach(c => {
     const dateStr = c.consult_date_str;
     if (!dateStr) return;
     if (!dailySalesMap[dateStr]) {
@@ -114,7 +120,7 @@ export default function StatsPage() {
     if (c.patient_id) dailySalesMap[dateStr].patientsSet.add(c.patient_id);
   });
 
-  // 🟢 차트 렌더링용 이번 달 일별 데이터 배열 생성
+  // 차트 렌더링용 이번 달 일별 데이터 배열 생성
   const dailyChartData = Array.from({ length: daysInCurrentMonth }, (_, i) => {
     const day = i + 1;
     const formattedMonth = String(currentMonth + 1).padStart(2, '0');
@@ -180,7 +186,6 @@ export default function StatsPage() {
         </div>
       </div>
 
-      {/* 📈 중단 영역: 실시간 CSS 막대 그래프 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col h-[340px]">
@@ -198,7 +203,6 @@ export default function StatsPage() {
                   className="w-full bg-slate-200 hover:bg-slate-400 rounded-t-sm transition-all duration-300" 
                   style={{ height: `${(d.activeCustomers / maxCustomers) * 100}%`, minHeight: d.activeCustomers > 0 ? '4px' : '0' }}
                 ></div>
-                {/* 하단 날짜 표시 (5일 단위) */}
                 {d.day % 5 === 0 && <span className="absolute top-full mt-2 text-[9px] text-slate-400">{d.day}</span>}
               </div>
             ))}
@@ -220,7 +224,6 @@ export default function StatsPage() {
                   className="w-full bg-teal-200 hover:bg-teal-500 rounded-t-sm transition-all duration-300" 
                   style={{ height: `${(d.sales / maxSales) * 100}%`, minHeight: d.sales > 0 ? '4px' : '0' }}
                 ></div>
-                {/* 하단 날짜 표시 (5일 단위) */}
                 {d.day % 5 === 0 && <span className="absolute top-full mt-2 text-[9px] text-slate-400">{d.day}</span>}
               </div>
             ))}
