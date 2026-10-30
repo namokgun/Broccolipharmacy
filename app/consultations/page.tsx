@@ -482,51 +482,70 @@ export default function ConsultationsPage() {
         </form>
       )}
 
-      {/* 2. 전체 기록 조회 탭 */}
+      {/* 🟢 2. 전체 기록 조회 탭 (글씨 크기 최소화 & 코멘트/추후관리 나란히 배치) */}
       {activeTab === "history" && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 sm:p-6 flex-1">
-          <div className="flex flex-col sm:flex-row justify-between items-center mb-6 gap-4">
-            <h2 className="text-lg font-bold text-slate-900">전체 상담 기록 조회 ({filteredConsultations.length}건)</h2>
-            <input type="text" placeholder="환자명, 주호소, 처방약 검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full sm:w-80 px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm" />
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-4 flex-1">
+          <div className="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
+            <h2 className="text-sm font-bold text-slate-900">전체 상담 기록 ({filteredConsultations.length}건)</h2>
+            <input type="text" placeholder="검색..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full sm:w-64 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs" />
           </div>
-          <div className="space-y-3">
+          <div className="space-y-2">
             {filteredConsultations.map((c) => (
-              <div key={c.id} className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs hover:shadow-md flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div className="space-y-1 flex-1">
+              <div key={c.id} className="p-3 bg-white border border-slate-200 rounded-xl shadow-xs hover:shadow-md flex flex-col gap-2">
+                
+                <div className="flex justify-between items-center border-b border-slate-50 pb-2">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-slate-900">{formatPatientDisplayName(c.patients)}</span>
-                    <span className="text-xs text-slate-600 font-semibold">({c.consultation_date || c.created_at.split('T')[0]})</span>
+                    <span className="font-bold text-slate-900 text-xs">{formatPatientDisplayName(c.patients)}</span>
+                    <span className="text-[10px] text-slate-500 font-semibold">{c.consultation_date || c.created_at.split('T')[0]}</span>
                   </div>
-                  <p className="text-sm font-bold text-slate-800"><span className="text-slate-400 font-normal">주호소:</span> {c.symptoms}</p>
-                  <p className="text-sm font-bold text-teal-900"><span className="text-slate-400 font-normal">처방:</span> {c.prescription}</p>
+                  <div className="flex gap-1">
+                    <button onClick={() => setSelectedDetailConsultation(c)} className="px-2 py-1 bg-slate-100 text-slate-700 text-[10px] font-bold rounded hover:bg-slate-200 transition">자세히</button>
+                    <button onClick={() => handleEditClick(c)} className="px-2 py-1 bg-teal-50 text-teal-800 text-[10px] font-bold rounded hover:bg-teal-100 transition">수정</button>
+                    <button onClick={() => handleDeleteConsultation(c.id)} className="px-2 py-1 bg-red-50 text-red-600 text-[10px] font-bold rounded hover:bg-red-100 transition">삭제</button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-                  <button onClick={() => setSelectedDetailConsultation(c)} className="px-3.5 py-2 bg-slate-100 text-slate-700 text-xs font-bold rounded-xl hover:bg-slate-200 transition">자세히</button>
-                  <button onClick={() => handleEditClick(c)} className="px-3.5 py-2 bg-teal-50 text-teal-800 text-xs font-bold rounded-xl hover:bg-teal-100 transition">수정</button>
-                  <button onClick={() => handleDeleteConsultation(c.id)} className="px-3.5 py-2 bg-red-50 text-red-600 text-xs font-bold rounded-xl hover:bg-red-100 transition">삭제</button>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-[11px]">
+                  {/* 좌측: 주호소 및 처방 */}
+                  <div className="flex flex-col gap-1 border-r border-slate-50 pr-2">
+                    <p className="flex gap-2"><span className="text-slate-400 w-10 shrink-0">주호소</span> <span className="font-bold text-slate-800 truncate">{c.symptoms}</span></p>
+                    <p className="flex gap-2"><span className="text-slate-400 w-10 shrink-0">처방</span> <span className="font-bold text-teal-900 truncate">{c.prescription}</span></p>
+                  </div>
+                  {/* 우측: 코멘트 및 추후관리 나란히 */}
+                  <div className="flex gap-3">
+                    <div className="flex-1 flex flex-col min-w-0">
+                      <span className="text-slate-400 text-[10px] mb-0.5">코멘트</span>
+                      <span className="text-slate-700 truncate">{c.consult_memo || "-"}</span>
+                    </div>
+                    <div className="flex-1 flex flex-col min-w-0 border-l border-slate-100 pl-3">
+                      <span className="text-purple-400 text-[10px] mb-0.5">추후관리</span>
+                      <span className="text-purple-900 truncate font-semibold">{c.follow_up || "-"}</span>
+                    </div>
+                  </div>
                 </div>
+
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {/* 기록 조회 탭 [자세히] 상세 팝업 */}
+      {/* 기록 조회 탭 [자세히] 상세 팝업 (폰트 사이즈 조정) */}
       {selectedDetailConsultation && (
         <div onClick={() => setSelectedDetailConsultation(null)} className="fixed inset-0 z-[110] bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
-          <div className="bg-white w-full max-w-xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white w-full max-w-xl max-h-[85vh] rounded-3xl p-5 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center border-b pb-3">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">📄 상담 상세 내역</h3>
-                <p className="text-xs text-slate-500">환자: <strong className="text-slate-800">{formatPatientDisplayName(selectedDetailConsultation.patients)}</strong> | 내방일: {selectedDetailConsultation.consultation_date || selectedDetailConsultation.created_at.split('T')[0]}</p>
+                <h3 className="text-base font-bold text-slate-900">📄 상담 상세 내역</h3>
+                <p className="text-[11px] text-slate-500">환자: <strong className="text-slate-800">{formatPatientDisplayName(selectedDetailConsultation.patients)}</strong> | 내방일: {selectedDetailConsultation.consultation_date || selectedDetailConsultation.created_at.split('T')[0]}</p>
               </div>
-              <button onClick={() => setSelectedDetailConsultation(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
+              <button onClick={() => setSelectedDetailConsultation(null)} className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
             </div>
-            <div className="flex-1 overflow-y-auto space-y-3 pr-1 text-sm">
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 text-xs">
               <div className="grid grid-cols-2 gap-2">
-                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">주호소</span><span className="font-semibold text-slate-800">{selectedDetailConsultation.symptoms || "-"}</span></div>
-                <div className="p-3 bg-slate-50 rounded-xl border">
-                  <span className="text-xs font-bold text-slate-400 block mb-0.5">결제 금액/방식</span>
+                <div className="p-2.5 bg-slate-50 rounded-xl border"><span className="text-[10px] font-bold text-slate-400 block mb-0.5">주호소</span><span className="font-semibold text-slate-800">{selectedDetailConsultation.symptoms || "-"}</span></div>
+                <div className="p-2.5 bg-slate-50 rounded-xl border">
+                  <span className="text-[10px] font-bold text-slate-400 block mb-0.5">결제 금액/방식</span>
                   <span className="font-semibold text-purple-800">
                     {selectedDetailConsultation.amount ? `${selectedDetailConsultation.amount.toLocaleString()}원` : "-"} 
                     {selectedDetailConsultation.payment_method ? ` (${selectedDetailConsultation.payment_method})` : ""}
@@ -534,27 +553,27 @@ export default function ConsultationsPage() {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">소화배변</span><span className="font-semibold text-slate-800">{selectedDetailConsultation.digestion_stool || "-"}</span></div>
-                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">수면상태</span><span className="font-semibold text-slate-800">{selectedDetailConsultation.sleep_state || "-"}</span></div>
+                <div className="p-2.5 bg-slate-50 rounded-xl border"><span className="text-[10px] font-bold text-slate-400 block mb-0.5">소화배변</span><span className="font-semibold text-slate-800">{selectedDetailConsultation.digestion_stool || "-"}</span></div>
+                <div className="p-2.5 bg-slate-50 rounded-xl border"><span className="text-[10px] font-bold text-slate-400 block mb-0.5">수면상태</span><span className="font-semibold text-slate-800">{selectedDetailConsultation.sleep_state || "-"}</span></div>
               </div>
               {selectedDetailConsultation.symptom_detail && (
-                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">증상 상세</span><p className="text-slate-800 whitespace-pre-line">{selectedDetailConsultation.symptom_detail}</p></div>
+                <div className="p-2.5 bg-slate-50 rounded-xl border"><span className="text-[10px] font-bold text-slate-400 block mb-0.5">증상 상세</span><p className="text-slate-800 whitespace-pre-line">{selectedDetailConsultation.symptom_detail}</p></div>
               )}
               {selectedDetailConsultation.prescription && (
-                <div className="p-3 bg-teal-50/60 rounded-xl border border-teal-200"><span className="text-xs font-bold text-teal-700 block mb-0.5">처방 내용</span><p className="font-bold text-teal-950 whitespace-pre-line">{selectedDetailConsultation.prescription}</p></div>
+                <div className="p-2.5 bg-teal-50/60 rounded-xl border border-teal-200"><span className="text-[10px] font-bold text-teal-700 block mb-0.5">처방 내용</span><p className="font-bold text-teal-950 whitespace-pre-line">{selectedDetailConsultation.prescription}</p></div>
               )}
               {selectedDetailConsultation.consult_memo && (
-                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">코멘트</span><p className="text-slate-800 whitespace-pre-line">{selectedDetailConsultation.consult_memo}</p></div>
+                <div className="p-2.5 bg-slate-50 rounded-xl border"><span className="text-[10px] font-bold text-slate-400 block mb-0.5">코멘트</span><p className="text-slate-800 whitespace-pre-line">{selectedDetailConsultation.consult_memo}</p></div>
               )}
               {selectedDetailConsultation.follow_up && (
-                <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-200"><span className="text-xs font-bold text-purple-700 block mb-0.5">추후관리</span><p className="font-bold text-purple-950 whitespace-pre-line">{selectedDetailConsultation.follow_up}</p></div>
+                <div className="p-2.5 bg-purple-50/60 rounded-xl border border-purple-200"><span className="text-[10px] font-bold text-purple-700 block mb-0.5">추후관리</span><p className="font-bold text-purple-950 whitespace-pre-line">{selectedDetailConsultation.follow_up}</p></div>
               )}
               {selectedDetailConsultation.display_image_urls && selectedDetailConsultation.display_image_urls.length > 0 && (
-                <div className="p-3 bg-slate-50 rounded-xl border space-y-2">
-                  <span className="text-xs font-bold text-slate-500 block">첨부된 사진 ({selectedDetailConsultation.display_image_urls.length}장)</span>
-                  <div className="grid grid-cols-2 gap-4 items-start">
+                <div className="p-2.5 bg-slate-50 rounded-xl border space-y-2">
+                  <span className="text-[10px] font-bold text-slate-500 block">첨부된 사진 ({selectedDetailConsultation.display_image_urls.length}장)</span>
+                  <div className="grid grid-cols-3 gap-2 items-start">
                     {selectedDetailConsultation.display_image_urls.map((imgUrl: string, imgIdx: number) => (
-                      <div key={imgIdx} className="relative w-full border rounded-xl overflow-hidden bg-white cursor-pointer" onClick={() => setPreviewImageUrl(imgUrl)}>
+                      <div key={imgIdx} className="relative w-full border rounded-lg overflow-hidden bg-white cursor-pointer" onClick={() => setPreviewImageUrl(imgUrl)}>
                         <img src={imgUrl} className="w-full h-auto block hover:scale-105 transition" />
                       </div>
                     ))}
@@ -563,29 +582,29 @@ export default function ConsultationsPage() {
               )}
             </div>
             <div className="flex justify-between pt-2 border-t">
-              <button onClick={() => { handleDeleteConsultation(selectedDetailConsultation.id); setSelectedDetailConsultation(null); }} className="px-4 py-2.5 bg-red-50 text-red-600 font-bold rounded-xl text-sm hover:bg-red-100">기록 삭제</button>
-              <button onClick={() => setSelectedDetailConsultation(null)} className="px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800">확인 완료</button>
+              <button onClick={() => { handleDeleteConsultation(selectedDetailConsultation.id); setSelectedDetailConsultation(null); }} className="px-3 py-2 bg-red-50 text-red-600 font-bold rounded-xl text-xs hover:bg-red-100">기록 삭제</button>
+              <button onClick={() => setSelectedDetailConsultation(null)} className="px-4 py-2 bg-slate-900 text-white rounded-xl font-bold text-xs hover:bg-slate-800">확인 완료</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 최근방문내역 팝업 (작성 폼 쪽) */}
+      {/* 최근방문내역 팝업 (작성 폼 쪽) (폰트 사이즈 조정) */}
       {historyDetailModal && (
         <div onClick={() => setHistoryDetailModal(null)} className="fixed inset-0 z-[110] bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
-          <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-slate-200 space-y-4 cursor-default" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white w-full max-w-lg rounded-3xl p-5 shadow-2xl border border-slate-200 space-y-4 cursor-default" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-center border-b pb-3">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">📅 과거 방문 상세 내역</h3>
-                <p className="text-xs text-slate-500">내방일: {historyDetailModal.consultation_date || historyDetailModal.created_at.split('T')[0]}</p>
+                <h3 className="text-base font-bold text-slate-900">📅 과거 방문 상세 내역</h3>
+                <p className="text-[11px] text-slate-500">내방일: {historyDetailModal.consultation_date || historyDetailModal.created_at.split('T')[0]}</p>
               </div>
-              <button onClick={() => setHistoryDetailModal(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
+              <button onClick={() => setHistoryDetailModal(null)} className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
             </div>
-            <div className="space-y-3 text-sm max-h-[60vh] overflow-y-auto pr-1">
+            <div className="space-y-2 text-xs max-h-[60vh] overflow-y-auto pr-1">
               <div className="grid grid-cols-2 gap-2">
-                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">주호소</span><span className="font-semibold text-slate-800">{historyDetailModal.symptoms || "-"}</span></div>
-                <div className="p-3 bg-slate-50 rounded-xl border">
-                  <span className="text-xs font-bold text-slate-400 block mb-0.5">결제 금액/방식</span>
+                <div className="p-2.5 bg-slate-50 rounded-xl border"><span className="text-[10px] font-bold text-slate-400 block mb-0.5">주호소</span><span className="font-semibold text-slate-800">{historyDetailModal.symptoms || "-"}</span></div>
+                <div className="p-2.5 bg-slate-50 rounded-xl border">
+                  <span className="text-[10px] font-bold text-slate-400 block mb-0.5">결제 금액/방식</span>
                   <span className="font-semibold text-slate-800">
                     {historyDetailModal.amount ? `${historyDetailModal.amount.toLocaleString()}원` : "-"}
                     {historyDetailModal.payment_method ? ` (${historyDetailModal.payment_method})` : ""}
@@ -593,24 +612,24 @@ export default function ConsultationsPage() {
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
-                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">소화배변</span><span className="font-semibold text-slate-800">{historyDetailModal.digestion_stool || "-"}</span></div>
-                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">수면상태</span><span className="font-semibold text-slate-800">{historyDetailModal.sleep_state || "-"}</span></div>
+                <div className="p-2.5 bg-slate-50 rounded-xl border"><span className="text-[10px] font-bold text-slate-400 block mb-0.5">소화배변</span><span className="font-semibold text-slate-800">{historyDetailModal.digestion_stool || "-"}</span></div>
+                <div className="p-2.5 bg-slate-50 rounded-xl border"><span className="text-[10px] font-bold text-slate-400 block mb-0.5">수면상태</span><span className="font-semibold text-slate-800">{historyDetailModal.sleep_state || "-"}</span></div>
               </div>
               {historyDetailModal.symptom_detail && (
-                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">증상 상세</span><p className="text-slate-800 whitespace-pre-line">{historyDetailModal.symptom_detail}</p></div>
+                <div className="p-2.5 bg-slate-50 rounded-xl border"><span className="text-[10px] font-bold text-slate-400 block mb-0.5">증상 상세</span><p className="text-slate-800 whitespace-pre-line">{historyDetailModal.symptom_detail}</p></div>
               )}
               {historyDetailModal.prescription && (
-                <div className="p-3 bg-teal-50/60 rounded-xl border border-teal-200"><span className="text-xs font-bold text-teal-700 block mb-0.5">처방 내용</span><p className="font-bold text-teal-950 whitespace-pre-line">{historyDetailModal.prescription}</p></div>
+                <div className="p-2.5 bg-teal-50/60 rounded-xl border border-teal-200"><span className="text-[10px] font-bold text-teal-700 block mb-0.5">처방 내용</span><p className="font-bold text-teal-950 whitespace-pre-line">{historyDetailModal.prescription}</p></div>
               )}
               {historyDetailModal.consult_memo && (
-                <div className="p-3 bg-slate-50 rounded-xl border"><span className="text-xs font-bold text-slate-400 block mb-0.5">코멘트</span><p className="text-slate-800 whitespace-pre-line">{historyDetailModal.consult_memo}</p></div>
+                <div className="p-2.5 bg-slate-50 rounded-xl border"><span className="text-[10px] font-bold text-slate-400 block mb-0.5">코멘트</span><p className="text-slate-800 whitespace-pre-line">{historyDetailModal.consult_memo}</p></div>
               )}
               {historyDetailModal.follow_up && (
-                <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-200"><span className="text-xs font-bold text-purple-700 block mb-0.5">추후관리</span><p className="font-bold text-purple-950 whitespace-pre-line">{historyDetailModal.follow_up}</p></div>
+                <div className="p-2.5 bg-purple-50/60 rounded-xl border border-purple-200"><span className="text-[10px] font-bold text-purple-700 block mb-0.5">추후관리</span><p className="font-bold text-purple-950 whitespace-pre-line">{historyDetailModal.follow_up}</p></div>
               )}
             </div>
             <div className="flex justify-end pt-2">
-              <button onClick={() => setHistoryDetailModal(null)} className="px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800">확인 완료</button>
+              <button onClick={() => setHistoryDetailModal(null)} className="px-4 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-xs hover:bg-slate-800">확인 완료</button>
             </div>
           </div>
         </div>

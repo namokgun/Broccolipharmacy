@@ -29,6 +29,9 @@ export default function PatientsPage() {
   const [consultations, setConsultations] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   
+  // 🟢 정렬 상태 관리 (기본값: 이름 오름차순)
+  const [sortConfig, setSortConfig] = useState({ key: "name", direction: "asc" });
+
   const [activeTab, setActiveTab] = useState<"summary" | "info">("summary");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -48,6 +51,7 @@ export default function PatientsPage() {
   const [birthYear, setBirthYear] = useState("");
   const [bodyType, setBodyType] = useState("선택 안함");
   const [tagsInput, setTagsInput] = useState("");
+  const [memo, setMemo] = useState(""); // 🟢 메모 필드 추가
 
   useEffect(() => {
     fetchData();
@@ -99,7 +103,7 @@ export default function PatientsPage() {
   const handleOpenRegister = () => {
     setEditingPatientId(null);
     setName(""); setCustomId(""); setPhone(""); setAddress(""); setGender("남"); setBirthYear(""); setBodyType("선택 안함");
-    setTagsInput(""); 
+    setTagsInput(""); setMemo(""); // 메모 초기화
     setIsModalOpen(true);
   };
 
@@ -113,6 +117,7 @@ export default function PatientsPage() {
     setBirthYear(p.birth_year ? p.birth_year.toString() : "");
     setBodyType(p.body_type || "선택 안함");
     setTagsInput(p.tags && Array.isArray(p.tags) ? p.tags.join(", ") : "");
+    setMemo(p.memo || ""); // 메모 불러오기
     setIsModalOpen(true);
   };
 
@@ -133,6 +138,7 @@ export default function PatientsPage() {
       birth_year: birthYear ? parseInt(birthYear) : null,
       body_type: bodyType === "선택 안함" ? null : bodyType,
       tags: tagsArray, 
+      memo, // 🟢 텍스트 메모 DB 전송
       user_id: user.id
     };
 
@@ -147,12 +153,54 @@ export default function PatientsPage() {
     }
   };
 
-  const filteredPatients = patients.filter(p => {
+  // 🟢 데이터 병합 (통계 + 기본정보)
+  const enrichedPatients = patients.map(p => {
+    const stats = getPatientStats(p.id);
+    const created_at_date = p.created_at ? p.created_at.split('T')[0] : "-";
+    return { ...p, ...stats, created_at_date };
+  });
+
+  // 검색 필터링
+  const filteredPatients = enrichedPatients.filter(p => {
     const term = searchTerm.toLowerCase();
     const matchNameOrId = p.name?.toLowerCase().includes(term) || p.custom_id?.toLowerCase().includes(term) || p.phone?.includes(term);
     const matchTag = p.tags?.some((t: string) => t.toLowerCase().includes(term));
     const matchAddress = p.address?.toLowerCase().includes(term);
     return matchNameOrId || matchTag || matchAddress;
+  });
+
+  // 🟢 오름/내림차순 정렬 로직 (클릭 시)
+  const handleSort = (key: string) => {
+    if (sortConfig.key === key) {
+      setSortConfig({ key, direction: sortConfig.direction === "asc" ? "desc" : "asc" });
+    } else {
+      setSortConfig({ key, direction: "asc" });
+    }
+  };
+
+  const renderSortIcon = (key: string) => {
+    if (sortConfig.key === key) {
+      return sortConfig.direction === "asc" ? " ▲" : " ▼";
+    }
+    return "";
+  };
+
+  const sortedPatients = [...filteredPatients].sort((a, b) => {
+    let valA = a[sortConfig.key];
+    let valB = b[sortConfig.key];
+
+    if (valA === undefined || valA === null) valA = "";
+    if (valB === undefined || valB === null) valB = "";
+
+    if (typeof valA === "string" && typeof valB === "string") {
+      if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
+      if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
+      return 0;
+    } else {
+      if (valA < valB) return sortConfig.direction === "asc" ? -1 : 1;
+      if (valA > valB) return sortConfig.direction === "asc" ? 1 : -1;
+      return 0;
+    }
   });
 
   const patientConsultations = historyModalPatient 
@@ -205,40 +253,38 @@ export default function PatientsPage() {
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden overflow-x-auto">
-        <table className="w-full text-left border-collapse text-sm min-w-[900px]">
+        {/* 🟢 폰트 사이즈 전체적으로 축소 (text-sm -> text-xs, 패딩 축소) */}
+        <table className="w-full text-left border-collapse text-xs min-w-[900px]">
           
           <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 whitespace-nowrap">
             {activeTab === "summary" ? (
               <tr>
-                <th className="py-4 px-3 font-bold w-[12%]">환자명</th>
-                <th className="py-4 px-3 font-bold w-[10%]">아이디</th>
-                <th className="py-4 px-3 font-bold w-[18%]">분류</th>
-                <th className="py-4 px-3 font-bold w-[11%]">최종상담일</th>
-                <th className="py-4 px-3 font-bold w-[13%]">최종처방</th>
-                <th className="py-4 px-3 font-bold text-center w-[8%]">상담횟수</th>
-                <th className="py-4 px-3 font-bold w-[11%]">누적액</th>
-                <th className="py-4 px-3 font-bold w-[9%]" style={{ paddingRight: '24px' }}>등록일자</th>
-                <th className="py-4 px-3 font-bold text-center w-[8%]">관리</th>
+                <th className="py-2.5 px-2 font-bold w-[12%] cursor-pointer hover:bg-slate-100 transition" onClick={() => handleSort("name")}>환자명{renderSortIcon("name")}</th>
+                <th className="py-2.5 px-2 font-bold w-[10%]">아이디</th>
+                <th className="py-2.5 px-2 font-bold w-[18%]">분류</th>
+                <th className="py-2.5 px-2 font-bold w-[11%] cursor-pointer hover:bg-slate-100 transition" onClick={() => handleSort("lastDate")}>최종상담일{renderSortIcon("lastDate")}</th>
+                <th className="py-2.5 px-2 font-bold w-[13%]">최종처방</th>
+                <th className="py-2.5 px-2 font-bold text-center w-[8%] cursor-pointer hover:bg-slate-100 transition" onClick={() => handleSort("count")}>상담횟수{renderSortIcon("count")}</th>
+                <th className="py-2.5 px-2 font-bold w-[11%] cursor-pointer hover:bg-slate-100 transition" onClick={() => handleSort("totalAmount")}>누적액{renderSortIcon("totalAmount")}</th>
+                <th className="py-2.5 px-2 font-bold w-[9%] cursor-pointer hover:bg-slate-100 transition" onClick={() => handleSort("created_at_date")} style={{ paddingRight: '16px' }}>등록일자{renderSortIcon("created_at_date")}</th>
+                <th className="py-2.5 px-2 font-bold text-center w-[8%]">관리</th>
               </tr>
             ) : (
               <tr>
-                <th className="py-4 px-4 font-bold w-[20%]">환자명</th>
-                <th className="py-4 px-4 font-bold w-[15%]">아이디</th>
-                <th className="py-4 px-4 font-bold w-[20%]">연락처</th>
-                <th className="py-4 px-4 font-bold w-[33%]">주소</th>
-                <th className="py-4 px-4 font-bold text-center w-[12%]">관리</th>
+                <th className="py-2.5 px-3 font-bold w-[20%] cursor-pointer hover:bg-slate-100 transition" onClick={() => handleSort("name")}>환자명{renderSortIcon("name")}</th>
+                <th className="py-2.5 px-3 font-bold w-[15%]">아이디</th>
+                <th className="py-2.5 px-3 font-bold w-[20%]">연락처</th>
+                <th className="py-2.5 px-3 font-bold w-[33%]">주소</th>
+                <th className="py-2.5 px-3 font-bold text-center w-[12%]">관리</th>
               </tr>
             )}
           </thead>
 
           <tbody className="divide-y divide-slate-100">
-            {filteredPatients.length === 0 ? (
-              <tr><td colSpan={9} className="text-center py-12 text-slate-400">검색된 환자가 없습니다.</td></tr>
+            {sortedPatients.length === 0 ? (
+              <tr><td colSpan={9} className="text-center py-12 text-slate-400 text-sm">검색된 환자가 없습니다.</td></tr>
             ) : (
-              filteredPatients.map(p => {
-                const stats = getPatientStats(p.id);
-                const regDate = p.created_at ? p.created_at.split('T')[0] : "-";
-                
+              sortedPatients.map(p => {
                 return (
                   <tr 
                     key={p.id} 
@@ -248,49 +294,49 @@ export default function PatientsPage() {
                   >
                     {activeTab === "summary" ? (
                       <>
-                        <td className="py-3 px-3 font-bold text-slate-900 group-hover:text-teal-800 transition whitespace-nowrap">
+                        <td className="py-2 px-2 font-bold text-slate-900 group-hover:text-teal-800 transition whitespace-nowrap">
                           <div className="flex items-center gap-1.5">
-                            <span>{p.name}</span>
+                            <span className="text-[13px]">{p.name}</span>
                             <span className="text-[10px] font-normal text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded-full">{p.gender} / {p.birth_year || "-"}</span>
                           </div>
                         </td>
-                        <td className="py-3 px-3 text-slate-600 font-semibold whitespace-nowrap">{p.custom_id || "-"}</td>
-                        <td className="py-3 px-3">
+                        <td className="py-2 px-2 text-slate-600 font-semibold whitespace-nowrap">{p.custom_id || "-"}</td>
+                        <td className="py-2 px-2">
                           <div className="flex flex-wrap gap-1">
                             {p.tags && p.tags.length > 0 ? (
                               p.tags.map((tag: string, idx: number) => (
-                                <span key={idx} className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md border whitespace-nowrap ${getTagColor(tag)}`}>{tag}</span>
+                                <span key={idx} className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border whitespace-nowrap ${getTagColor(tag)}`}>{tag}</span>
                               ))
                             ) : (
-                              <span className="text-xs text-slate-400">-</span>
+                              <span className="text-slate-400">-</span>
                             )}
                           </div>
                         </td>
-                        <td className="py-3 px-3 text-slate-800 font-medium whitespace-nowrap">{stats.lastDate}</td>
-                        <td className="py-3 px-3 text-teal-800 font-bold truncate max-w-[130px]" title={stats.lastPrescription}>{stats.lastPrescription}</td>
-                        <td className="py-3 px-3 font-bold text-slate-700 text-center whitespace-nowrap">{stats.count}회</td>
-                        <td className="py-3 px-3 font-bold text-purple-800 whitespace-nowrap">{stats.totalAmount.toLocaleString()}원</td>
-                        <td className="py-3 px-3 text-slate-500 whitespace-nowrap" style={{ paddingRight: '24px' }}>{regDate}</td>
+                        <td className="py-2 px-2 text-slate-800 font-medium whitespace-nowrap">{p.lastDate}</td>
+                        <td className="py-2 px-2 text-teal-800 font-bold truncate max-w-[130px]" title={p.lastPrescription}>{p.lastPrescription}</td>
+                        <td className="py-2 px-2 font-bold text-slate-700 text-center whitespace-nowrap">{p.count}회</td>
+                        <td className="py-2 px-2 font-bold text-purple-800 whitespace-nowrap">{p.totalAmount.toLocaleString()}원</td>
+                        <td className="py-2 px-2 text-slate-500 whitespace-nowrap" style={{ paddingRight: '16px' }}>{p.created_at_date}</td>
                       </>
                     ) : (
                       <>
-                        <td className="py-3 px-4 font-bold text-slate-900 group-hover:text-teal-800 transition whitespace-nowrap">
+                        <td className="py-2 px-3 font-bold text-slate-900 group-hover:text-teal-800 transition whitespace-nowrap">
                           <div className="flex items-center gap-2">
-                            <span>{p.name}</span>
+                            <span className="text-[13px]">{p.name}</span>
                             <span className="text-[10px] font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{p.gender} / {p.birth_year || "-"}</span>
                           </div>
                         </td>
-                        <td className="py-3 px-4 text-slate-600 font-semibold whitespace-nowrap">{p.custom_id || "-"}</td>
-                        <td className="py-3 px-4 text-slate-700 font-bold whitespace-nowrap">{p.phone || "-"}</td>
-                        <td className="py-3 px-4 text-slate-600 font-medium truncate max-w-[280px]" title={p.address || ""}>{p.address || "-"}</td>
+                        <td className="py-2 px-3 text-slate-600 font-semibold whitespace-nowrap">{p.custom_id || "-"}</td>
+                        <td className="py-2 px-3 text-slate-700 font-bold whitespace-nowrap">{p.phone || "-"}</td>
+                        <td className="py-2 px-3 text-slate-600 font-medium truncate max-w-[280px]" title={p.address || ""}>{p.address || "-"}</td>
                       </>
                     )}
 
-                    <td className="py-3 px-3 text-center whitespace-nowrap" onClick={e => e.stopPropagation()}> 
+                    <td className="py-2 px-2 text-center whitespace-nowrap" onClick={e => e.stopPropagation()}> 
                       <div className="inline-flex items-center gap-1">
-                        <button onClick={() => setHistoryModalPatient(p)} className="px-2 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-[11px] rounded-md transition">기록</button>
-                        <button onClick={() => setPhotosModalPatient(p)} className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-[11px] rounded-md transition">사진</button>
-                        <button onClick={() => handleOpenEdit(p)} className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded-md transition">수정</button>
+                        <button onClick={() => setHistoryModalPatient(p)} className="px-2 py-1 bg-teal-50 hover:bg-teal-100 text-teal-800 font-bold text-[11px] rounded transition">기록</button>
+                        <button onClick={() => setPhotosModalPatient(p)} className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-800 font-bold text-[11px] rounded transition">사진</button>
+                        <button onClick={() => handleOpenEdit(p)} className="px-2 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-[11px] rounded transition">수정</button>
                       </div>
                     </td>
                   </tr>
@@ -330,12 +376,21 @@ export default function PatientsPage() {
                         {c.symptom_detail && (
                           <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-700 whitespace-pre-line leading-relaxed"><strong className="text-slate-900 block mb-1">증상 상세:</strong>{c.symptom_detail}</div>
                         )}
-                        {c.consult_memo && (
-                          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-700 whitespace-pre-line leading-relaxed"><strong className="text-slate-900 block mb-1">코멘트:</strong>{c.consult_memo}</div>
-                        )}
-                        {c.follow_up && (
-                          <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-200/60 text-xs text-purple-900 whitespace-pre-line leading-relaxed"><strong className="text-purple-800 block mb-1">추후관리:</strong>{c.follow_up}</div>
-                        )}
+                        
+                        {/* 🟢 코멘트와 추후관리를 나란히 배치 */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {c.consult_memo && (
+                            <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-700 whitespace-pre-line leading-relaxed">
+                              <strong className="text-slate-900 block mb-1">코멘트:</strong>{c.consult_memo}
+                            </div>
+                          )}
+                          {c.follow_up && (
+                            <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-200/60 text-xs text-purple-900 whitespace-pre-line leading-relaxed">
+                              <strong className="text-purple-800 block mb-1">추후관리:</strong>{c.follow_up}
+                            </div>
+                          )}
+                        </div>
+
                       </div>
                       {c.display_image_urls && c.display_image_urls.length > 0 && (
                         <div className="w-full sm:w-auto sm:max-w-[180px] flex flex-row sm:flex-col flex-wrap gap-2 overflow-x-auto sm:overflow-visible pb-2 sm:pb-0 flex-shrink-0">
@@ -402,29 +457,29 @@ export default function PatientsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">환자명</label>
-                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl text-sm font-semibold" required />
+                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full p-2 bg-slate-50 border rounded-xl text-sm font-semibold" required />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">아이디</label>
-                  <input type="text" value={customId} onChange={(e) => setCustomId(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl text-sm font-semibold" />
+                  <input type="text" value={customId} onChange={(e) => setCustomId(e.target.value)} className="w-full p-2 bg-slate-50 border rounded-xl text-sm font-semibold" />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">성별</label>
-                  <select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl text-sm font-semibold">
+                  <select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full p-2 bg-slate-50 border rounded-xl text-sm font-semibold">
                     <option value="남">남</option>
                     <option value="여">여</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">출생년도</label>
-                  <input type="number" value={birthYear} onChange={(e) => setBirthYear(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl text-sm font-semibold" />
+                  <input type="number" value={birthYear} onChange={(e) => setBirthYear(e.target.value)} className="w-full p-2 bg-slate-50 border rounded-xl text-sm font-semibold" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">체질</label>
-                  <select value={bodyType} onChange={(e) => setBodyType(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl text-sm font-semibold">
+                  <select value={bodyType} onChange={(e) => setBodyType(e.target.value)} className="w-full p-2 bg-slate-50 border rounded-xl text-sm font-semibold">
                     {CONSTITUTION_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                   </select>
                 </div>
@@ -433,11 +488,11 @@ export default function PatientsPage() {
               <div className="space-y-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">연락처</label>
-                  <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl text-sm font-semibold" placeholder="010-0000-0000" />
+                  <input type="text" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full p-2 bg-slate-50 border rounded-xl text-sm font-semibold" placeholder="010-0000-0000" />
                 </div>
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">주소</label>
-                  <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl text-sm font-semibold" />
+                  <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full p-2 bg-slate-50 border rounded-xl text-sm font-semibold" />
                 </div>
               </div>
 
@@ -448,14 +503,25 @@ export default function PatientsPage() {
                   value={tagsInput}
                   onChange={(e) => setTagsInput(e.target.value)}
                   placeholder="예: 당뇨, 성장, 콜레"
-                  className="w-full p-2.5 bg-slate-50 border rounded-xl text-sm font-semibold text-slate-900"
+                  className="w-full p-2 bg-slate-50 border rounded-xl text-sm font-semibold text-slate-900"
+                />
+              </div>
+
+              {/* 🟢 메모 입력 필드 추가 */}
+              <div>
+                <label className="block text-xs font-bold text-teal-800 mb-1">텍스트 메모</label>
+                <textarea 
+                  value={memo}
+                  onChange={(e) => setMemo(e.target.value)}
+                  rows={2}
+                  placeholder="환자 특이사항 등 메모..."
+                  className="w-full p-2 bg-teal-50/50 border border-teal-100 rounded-xl text-xs font-semibold text-slate-900 resize-none focus:outline-none focus:border-teal-400"
                 />
               </div>
 
               <div className="flex gap-2 pt-3 border-t">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-3 bg-slate-100 font-bold text-slate-700 rounded-xl text-sm">취소</button>
-                <button type="submit" className="flex-1 py-3 bg-teal-900 hover:bg-teal-800 text-white font-bold rounded-xl text-sm shadow-sm">
-                  {/* 🟢 수정 완료 버튼의 조건식에서 editingId를 editingPatientId로 올바르게 수정 */}
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 bg-slate-100 font-bold text-slate-700 rounded-xl text-sm">취소</button>
+                <button type="submit" className="flex-1 py-2.5 bg-teal-900 hover:bg-teal-800 text-white font-bold rounded-xl text-sm shadow-sm">
                   {editingPatientId ? "수정 완료" : "등록하기"}
                 </button>
               </div>

@@ -162,6 +162,9 @@ export default function SchedulesPage() {
             const daySchedules = schedules.filter(s => s.schedule_date === dateStr);
             const dayConsultations = consultations.filter(c => (c.consultation_date || c.created_at.split('T')[0]) === dateStr);
             
+            // 🟢 일별 총 금액 합산
+            const totalAmount = dayConsultations.reduce((sum, c) => sum + (c.amount || 0), 0);
+
             const allDayItems = [
               ...dayConsultations.map(c => ({ type: 'consultation', data: c })),
               ...daySchedules.map(s => ({ type: 'schedule', data: s }))
@@ -174,7 +177,19 @@ export default function SchedulesPage() {
 
             return (
               <div key={`day-${d}`} onDoubleClick={() => handleDateDoubleClick(dateStr)} className={`rounded-2xl p-2 border transition flex flex-col items-start cursor-pointer hover:border-teal-400 overflow-hidden select-none ${isToday ? "bg-teal-50/40 border-teal-500 shadow-2xs" : "bg-white border-slate-100 hover:bg-slate-50/50"}`}>
-                <span className={`text-[10px] md:text-xs font-bold mb-1 w-5 h-5 flex items-center justify-center rounded-full ${isToday ? "bg-teal-900 text-white" : "text-slate-700"}`}>{d}</span>
+                
+                {/* 🟢 좌측상단: 날짜, 우측상단: 상담요약(총 0건 000만) */}
+                <div className="flex justify-between items-start w-full mb-1">
+                  <span className={`text-[10px] md:text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full flex-shrink-0 ${isToday ? "bg-teal-900 text-white" : "text-slate-700"}`}>
+                    {d}
+                  </span>
+                  {dayConsultations.length > 0 && (
+                    <div className="text-[9px] font-bold text-teal-700 text-right leading-tight">
+                      총 {dayConsultations.length}건<br/>{(totalAmount/10000).toFixed(0)}만
+                    </div>
+                  )}
+                </div>
+
                 <div className="w-full space-y-1 text-left flex-1">
                   {visibleItems.map((item, idx) => {
                     if (item.type === 'consultation') {
@@ -206,13 +221,13 @@ export default function SchedulesPage() {
         </div>
       </div>
 
-      {/* 특정 날짜의 모든 일정 보기 모달 ("및 X개..." 클릭 시 열림) */}
+      {/* 🟢 특정 날짜의 모든 일정 보기 모달 ("및 X개..." 클릭 시) - 폰트 크기 최소화 */}
       {dayDetailDate && (
         <div onClick={() => setDayDetailDate(null)} className="fixed inset-0 z-[90] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
-          <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col cursor-default max-h-[80vh]" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center border-b pb-3 mb-4">
-              <h3 className="text-lg font-bold text-slate-900">📅 {dayDetailDate} 일정 전체</h3>
-              <button onClick={() => setDayDetailDate(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
+          <div className="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl border border-slate-200 flex flex-col cursor-default max-h-[80vh]" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b pb-2 mb-3">
+              <h3 className="text-base font-bold text-slate-900">📅 {dayDetailDate} 일정 전체</h3>
+              <button onClick={() => setDayDetailDate(null)} className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
             </div>
             
             <div className="flex-1 overflow-y-auto space-y-2 pr-1">
@@ -231,10 +246,9 @@ export default function SchedulesPage() {
                       <div 
                         key={`c-${c.id || idx}`} 
                         onClick={(e) => { setDayDetailDate(null); handleScheduleClick(e, item); }} 
-                        className="px-3 py-3 rounded-xl flex items-center justify-between transition cursor-pointer font-bold border bg-teal-50 border-teal-200 text-teal-900 hover:bg-teal-100 shadow-xs"
+                        className="px-2.5 py-2 rounded-xl flex items-center justify-between transition cursor-pointer font-bold border bg-teal-50 border-teal-200 text-teal-900 hover:bg-teal-100 shadow-xs text-xs"
                       >
-                        {/* 🟢 \n 문자열 노출 대신 공백이나 자연스러운 구분자로 변경 및 줄바꿈 허용 */}
-                        <span className="whitespace-pre-line">🩺 {c.patients?.name || "알수없음"} - {c.prescription || "처방없음"}</span>
+                        <span className="whitespace-pre-line leading-tight">🩺 {c.patients?.name || "알수없음"}<br/>{c.prescription || "처방없음"}</span>
                       </div>
                     );
                   } else {
@@ -244,7 +258,7 @@ export default function SchedulesPage() {
                       <div 
                         key={`s-${s.id || idx}`} 
                         onClick={(e) => { setDayDetailDate(null); handleScheduleClick(e, item); }} 
-                        className={`px-3 py-3 rounded-xl flex items-center justify-between transition cursor-pointer font-semibold border hover:opacity-80 shadow-xs ${tc.bg} ${tc.text}`}
+                        className={`px-2.5 py-2 rounded-xl flex items-center justify-between transition cursor-pointer font-semibold border hover:opacity-80 shadow-xs text-xs ${tc.bg} ${tc.text}`}
                       >
                         <span className="truncate">{s.title}</span>
                       </div>
@@ -260,91 +274,95 @@ export default function SchedulesPage() {
       {/* 기존 일반 일정 상세 모달 */}
       {selectedDetailSchedule && (
         <div className="fixed inset-0 z-[70] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setSelectedDetailSchedule(null)}>
-          <div className="bg-white w-full max-w-sm p-6 rounded-3xl shadow-2xl border border-slate-100" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-start mb-5 border-b pb-4">
-              <div className="flex items-center gap-3">
+          <div className="bg-white w-full max-w-sm p-5 rounded-3xl shadow-2xl border border-slate-100" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-4 border-b pb-3">
+              <div className="flex items-center gap-2">
                 <span className={`w-3.5 h-3.5 rounded-full ${THEMES[selectedDetailSchedule.theme || "blue"].bg}`}></span>
-                <h3 className="font-bold text-lg text-slate-900">{selectedDetailSchedule.title}</h3>
+                <h3 className="font-bold text-base text-slate-900">{selectedDetailSchedule.title}</h3>
               </div>
               <button onClick={() => setSelectedDetailSchedule(null)} className="text-slate-400 bg-slate-100 w-7 h-7 rounded-full flex justify-center items-center font-bold">✕</button>
             </div>
-            <div className="space-y-4 mb-6 text-sm">
-              <div><span className="text-xs text-slate-400 font-bold block mb-1">일시</span><p className="font-semibold text-slate-800">{selectedDetailSchedule.schedule_date} ({selectedDetailSchedule.time || "종일"})</p></div>
-              <div><span className="text-xs text-slate-400 font-bold block mb-1">메모</span><p className="font-medium text-slate-700 bg-slate-50 p-3 rounded-xl border">{selectedDetailSchedule.content || "메모 없음"}</p></div>
+            <div className="space-y-3 mb-5 text-xs">
+              <div><span className="text-[10px] text-slate-400 font-bold block mb-1">일시</span><p className="font-semibold text-slate-800">{selectedDetailSchedule.schedule_date} ({selectedDetailSchedule.time || "종일"})</p></div>
+              <div><span className="text-[10px] text-slate-400 font-bold block mb-1">메모</span><p className="font-medium text-slate-700 bg-slate-50 p-2.5 rounded-xl border">{selectedDetailSchedule.content || "메모 없음"}</p></div>
             </div>
             <div className="flex gap-2">
-              <button onClick={() => handleDelete(selectedDetailSchedule.id)} className="px-4 py-2.5 bg-red-50 text-red-600 rounded-xl text-sm font-bold">삭제</button>
-              <button onClick={(e) => handleScheduleDoubleClick(e, selectedDetailSchedule)} className="flex-1 px-4 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold">수정하기</button>
+              <button onClick={() => handleDelete(selectedDetailSchedule.id)} className="px-4 py-2 bg-red-50 text-red-600 rounded-xl text-xs font-bold">삭제</button>
+              <button onClick={(e) => handleScheduleDoubleClick(e, selectedDetailSchedule)} className="flex-1 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold">수정하기</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 자동 연동된 상담 기록 상세 보기 모달 */}
+      {/* 🟢 자동 연동된 상담 기록 상세 보기 모달 (폰트 및 레이아웃 압축, 코멘트/추후관리 나란히) */}
       {selectedDetailConsultation && (
         <div onClick={() => setSelectedDetailConsultation(null)} className="fixed inset-0 z-[110] bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
-          <div className="bg-white w-full max-w-3xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center border-b pb-3">
+          <div className="bg-white w-full max-w-xl max-h-[85vh] rounded-3xl p-5 shadow-2xl border border-slate-200 flex flex-col space-y-3 cursor-default" onClick={e => e.stopPropagation()}>
+            
+            <div className="flex justify-between items-center border-b pb-2">
               <div>
-                <h3 className="text-lg font-bold text-slate-900">📄 상담 상세 내역</h3>
-                <p className="text-xs text-slate-500">
+                <h3 className="text-base font-bold text-slate-900">📄 상담 상세 내역</h3>
+                <p className="text-[11px] text-slate-500">
                   환자: <strong className="text-slate-800">{selectedDetailConsultation.patients?.name || "알수없음"}</strong> | 
                   내방일: {selectedDetailConsultation.consultation_date || selectedDetailConsultation.created_at.split('T')[0]}
                 </p>
               </div>
-              <button onClick={() => setSelectedDetailConsultation(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
+              <button onClick={() => setSelectedDetailConsultation(null)} className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
             </div>
 
-            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-              <div className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-3">
-                <div className="flex flex-col sm:flex-row gap-4 items-start">
-                  
-                  {/* 텍스트 영역 */}
-                  <div className="flex-1 space-y-2 min-w-0 w-full">
-                    <div className="flex flex-wrap gap-x-4 text-sm font-bold text-slate-800 mb-2">
-                      {selectedDetailConsultation.symptoms && <div>{selectedDetailConsultation.symptoms}</div>}
-                      {selectedDetailConsultation.prescription && <div className="text-teal-700">{selectedDetailConsultation.prescription}</div>}
-                    </div>
-                    {selectedDetailConsultation.symptom_detail && (
-                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-700 whitespace-pre-line leading-relaxed">
-                        <strong className="text-slate-900 block mb-1">증상 상세:</strong>
-                        {selectedDetailConsultation.symptom_detail}
-                      </div>
-                    )}
-                    {selectedDetailConsultation.consult_memo && (
-                      <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs text-slate-700 whitespace-pre-line leading-relaxed">
-                        <strong className="text-slate-900 block mb-1">코멘트:</strong>
-                        {selectedDetailConsultation.consult_memo}
-                      </div>
-                    )}
-                    {selectedDetailConsultation.follow_up && (
-                      <div className="p-3 bg-purple-50/60 rounded-xl border border-purple-200/60 text-xs text-purple-900 whitespace-pre-line leading-relaxed">
-                        <strong className="text-purple-800 block mb-1">추후관리:</strong>
-                        {selectedDetailConsultation.follow_up}
-                      </div>
-                    )}
-                  </div>
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 text-xs">
+              <div className="flex flex-col gap-2">
+                <div className="flex flex-wrap gap-x-4 text-xs font-bold text-slate-800 mb-1">
+                  {selectedDetailConsultation.symptoms && <div><span className="text-slate-400 text-[10px] mr-1">주호소</span>{selectedDetailConsultation.symptoms}</div>}
+                  {selectedDetailConsultation.prescription && <div className="text-teal-700"><span className="text-teal-400 text-[10px] mr-1">처방</span>{selectedDetailConsultation.prescription}</div>}
+                  {selectedDetailConsultation.amount && <div className="text-purple-700"><span className="text-purple-400 text-[10px] mr-1">결제액</span>{selectedDetailConsultation.amount.toLocaleString()}원</div>}
+                </div>
 
-                  {/* 사진 영역 */}
-                  {selectedDetailConsultation.display_image_urls && selectedDetailConsultation.display_image_urls.length > 0 && (
-                    <div className="w-full sm:w-auto sm:max-w-[180px] flex flex-row sm:flex-col flex-wrap gap-2 overflow-x-auto sm:overflow-visible pb-2 sm:pb-0 flex-shrink-0">
-                      {selectedDetailConsultation.display_image_urls.map((imgUrl: string, imgIdx: number) => (
-                        <div 
-                          key={imgIdx} 
-                          className="relative w-24 h-24 sm:w-32 sm:h-32 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs cursor-pointer flex items-center justify-center flex-shrink-0 group"
-                          onClick={() => setPreviewImageUrl(imgUrl)}
-                        >
-                          <img src={imgUrl} className="max-w-full max-h-full object-contain group-hover:scale-105 transition rounded-lg" />
-                        </div>
-                      ))}
+                {selectedDetailConsultation.symptom_detail && (
+                  <div className="p-2 bg-slate-50 rounded-xl border border-slate-100 text-[11px] text-slate-700 whitespace-pre-line leading-relaxed">
+                    <strong className="text-slate-900 block mb-0.5 text-[10px]">증상 상세</strong>
+                    {selectedDetailConsultation.symptom_detail}
+                  </div>
+                )}
+                
+                {/* 🟢 코멘트 및 추후관리 나란히 배치 */}
+                <div className="grid grid-cols-2 gap-2">
+                  {selectedDetailConsultation.consult_memo && (
+                    <div className="p-2 bg-slate-50 rounded-xl border border-slate-100 text-[11px] text-slate-700 whitespace-pre-line leading-relaxed">
+                      <strong className="text-slate-900 block mb-0.5 text-[10px]">코멘트</strong>
+                      {selectedDetailConsultation.consult_memo}
+                    </div>
+                  )}
+                  {selectedDetailConsultation.follow_up && (
+                    <div className="p-2 bg-purple-50/60 rounded-xl border border-purple-200/60 text-[11px] text-purple-900 whitespace-pre-line leading-relaxed">
+                      <strong className="text-purple-800 block mb-0.5 text-[10px]">추후관리</strong>
+                      {selectedDetailConsultation.follow_up}
                     </div>
                   )}
                 </div>
+
+                {/* 사진 영역 */}
+                {selectedDetailConsultation.display_image_urls && selectedDetailConsultation.display_image_urls.length > 0 && (
+                  <div className="pt-1">
+                    <span className="text-[10px] font-bold text-slate-500 block mb-1">첨부된 사진 ({selectedDetailConsultation.display_image_urls.length}장)</span>
+                    <div className="flex flex-row flex-wrap gap-2 overflow-x-auto">
+                      {selectedDetailConsultation.display_image_urls.map((imgUrl: string, imgIdx: number) => (
+                        <div 
+                          key={imgIdx} 
+                          className="relative w-20 h-20 border border-slate-200 rounded-lg overflow-hidden bg-white shadow-2xs cursor-pointer flex items-center justify-center flex-shrink-0 group"
+                          onClick={() => setPreviewImageUrl(imgUrl)}
+                        >
+                          <img src={imgUrl} className="max-w-full max-h-full object-contain group-hover:scale-105 transition rounded-md" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="flex justify-end pt-2 border-t">
-              <button onClick={() => setSelectedDetailConsultation(null)} className="px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800">확인 완료</button>
+              <button onClick={() => setSelectedDetailConsultation(null)} className="px-4 py-2 bg-slate-900 text-white rounded-xl font-bold text-xs hover:bg-slate-800">확인 완료</button>
             </div>
           </div>
         </div>
@@ -361,26 +379,26 @@ export default function SchedulesPage() {
       {/* 이벤트 추가/수정 모달 */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-[80] p-4">
-          <div className="bg-white w-full max-w-md p-6 rounded-3xl shadow-2xl border border-slate-100">
-            <div className="flex justify-between items-center mb-5 border-b pb-3">
-              <h3 className="text-lg font-bold text-slate-900">{editingId ? "✏️ 이벤트 편집" : "📅 새로운 이벤트"}</h3>
-              <button onClick={closeModal} className="font-bold w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center">✕</button>
+          <div className="bg-white w-full max-w-md p-5 rounded-3xl shadow-2xl border border-slate-100">
+            <div className="flex justify-between items-center mb-4 border-b pb-2">
+              <h3 className="text-base font-bold text-slate-900">{editingId ? "✏️ 이벤트 편집" : "📅 새로운 이벤트"}</h3>
+              <button onClick={closeModal} className="font-bold w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center">✕</button>
             </div>
-            <form onSubmit={handleSubmitSchedule} className="space-y-4 text-sm">
-              <div className="grid grid-cols-2 gap-3">
-                <div><label className="block text-xs font-bold text-slate-400 mb-1">날짜</label><input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl font-semibold" required /></div>
-                <div><label className="block text-xs font-bold text-slate-400 mb-1">시간</label><input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl font-semibold" required /></div>
+            <form onSubmit={handleSubmitSchedule} className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-2">
+                <div><label className="block text-[10px] font-bold text-slate-400 mb-1">날짜</label><input type="date" value={scheduleDate} onChange={(e) => setScheduleDate(e.target.value)} className="w-full p-2 bg-slate-50 border rounded-lg font-semibold" required /></div>
+                <div><label className="block text-[10px] font-bold text-slate-400 mb-1">시간</label><input type="time" value={scheduleTime} onChange={(e) => setScheduleTime(e.target.value)} className="w-full p-2 bg-slate-50 border rounded-lg font-semibold" required /></div>
               </div>
               <div>
-                <label className="block text-xs font-bold text-slate-400 mb-1">제목</label>
-                <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl font-semibold text-slate-900" required />
+                <label className="block text-[10px] font-bold text-slate-400 mb-1">제목</label>
+                <input type="text" value={title} onChange={(e) => setTitle(e.target.value)} className="w-full p-2 bg-slate-50 border rounded-lg font-semibold text-slate-900" required />
               </div>
-              <div><label className="block text-xs font-bold text-slate-400 mb-2">테마</label><div className="flex gap-3">{Object.entries(THEMES).map(([key, value]) => (<button key={key} type="button" onClick={() => setTheme(key)} className={`w-8 h-8 rounded-full ${value.bg} ${theme === key ? "ring-2 ring-offset-2 ring-teal-500 scale-110" : "opacity-70"}`}></button>))}</div></div>
-              <div><label className="block text-xs font-bold text-slate-400 mb-1">메모</label><textarea value={content} onChange={(e) => setContent(e.target.value)} className="w-full p-2.5 bg-slate-50 border rounded-xl font-semibold text-slate-900" rows={2} /></div>
+              <div><label className="block text-[10px] font-bold text-slate-400 mb-1.5">테마</label><div className="flex gap-2">{Object.entries(THEMES).map(([key, value]) => (<button key={key} type="button" onClick={() => setTheme(key)} className={`w-7 h-7 rounded-full ${value.bg} ${theme === key ? "ring-2 ring-offset-2 ring-teal-500 scale-110" : "opacity-70"}`}></button>))}</div></div>
+              <div><label className="block text-[10px] font-bold text-slate-400 mb-1">메모</label><textarea value={content} onChange={(e) => setContent(e.target.value)} className="w-full p-2 bg-slate-50 border rounded-lg font-semibold text-slate-900" rows={2} /></div>
               
               <div className="flex gap-2 pt-2">
-                <button type="button" onClick={closeModal} className="flex-1 py-2.5 bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold rounded-xl transition">취소</button>
-                <button type="submit" className="flex-1 py-2.5 bg-teal-900 hover:bg-teal-800 text-white font-bold rounded-xl shadow-sm transition">{editingId ? "수정 저장" : "추가"}</button>
+                <button type="button" onClick={closeModal} className="flex-1 py-2 bg-slate-200 text-slate-700 hover:bg-slate-300 font-bold rounded-lg transition">취소</button>
+                <button type="submit" className="flex-1 py-2 bg-teal-900 hover:bg-teal-800 text-white font-bold rounded-lg shadow-sm transition">{editingId ? "수정 저장" : "추가"}</button>
               </div>
             </form>
           </div>
