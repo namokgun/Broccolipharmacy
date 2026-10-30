@@ -15,6 +15,7 @@ export default function ConsultationHistoryPage() {
   }, []);
 
   const fetchConsultations = async () => {
+    // 🟢 상담 일자(consultation_date) 기준 최신순(내림차순) 정렬 적용
     const { data, error } = await supabase
       .from("consultations")
       .select("*, patients(name, phone, custom_id, gender, birth_year)")
@@ -89,10 +90,10 @@ export default function ConsultationHistoryPage() {
         </div>
       </div>
 
-      {/* 좌우 분할 레이아웃 (좌측 넓힘 유지) */}
+      {/* 좌우 분할 레이아웃 */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 min-h-0">
         
-        {/* 좌측: 1줄 리스트 창 (날짜 및 이름 영역 w-44로 충분히 확보) */}
+        {/* 좌측: 1줄 리스트 창 */}
         <div className="lg:col-span-7 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-4">
           <div className="mb-3 flex-shrink-0">
             <input 
@@ -105,7 +106,7 @@ export default function ConsultationHistoryPage() {
           </div>
 
           <div className="text-[11px] font-bold text-slate-400 mb-2 px-1 flex-shrink-0">
-            총 <span className="text-slate-900 font-extrabold">{filteredConsultations.length}</span> 건의 기록 (최신순)
+            총 <span className="text-slate-900 font-extrabold">{filteredConsultations.length}</span> 건의 기록 (상담일자 최신순)
           </div>
 
           <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
@@ -126,7 +127,6 @@ export default function ConsultationHistoryPage() {
                         : "bg-white border-slate-100 hover:bg-slate-50/80"
                     }`}
                   >
-                    {/* 날짜 및 이름 영역 (w-44로 확장하여 이름 잘림 방지) */}
                     <div className="flex items-center gap-3 flex-shrink-0 w-44 whitespace-nowrap">
                       <span className="text-[11px] font-bold text-slate-500">{dateStr}</span>
                       <span className="font-extrabold text-slate-900 truncate" title={formatPatientName(c.patients)}>
@@ -134,7 +134,6 @@ export default function ConsultationHistoryPage() {
                       </span>
                     </div>
 
-                    {/* 주호소 및 처방내용 */}
                     <div className="flex-1 flex items-center gap-2 truncate text-[11px]">
                       {c.symptoms && (
                         <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-semibold truncate max-w-[180px]" title={c.symptoms}>
@@ -156,12 +155,12 @@ export default function ConsultationHistoryPage() {
           </div>
         </div>
 
-        {/* 우측: 클릭 시 상세 내용 표시 창 (정보를 직관적이고 꽉 찬 형태로 배치) */}
+        {/* 우측: 클릭 시 상세 내용 표시 창 */}
         <div className="lg:col-span-5 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-5">
           {selectedConsultation ? (
             <div className="flex-1 overflow-y-auto space-y-4 pr-1">
               
-              {/* 고객 요약 카드 */}
+              {/* 고객 요약 카드 (날짜만 표기하도록 수정) */}
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between">
                 <div>
                   <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
@@ -173,7 +172,7 @@ export default function ConsultationHistoryPage() {
                 </div>
                 <div className="text-right">
                   <span className="text-[11px] bg-teal-100 text-teal-900 font-bold px-3 py-1 rounded-xl">
-                    {selectedConsultation.consultation_date || selectedConsultation.created_at?.split('T')[0]} 내방
+                    {selectedConsultation.consultation_date || selectedConsultation.created_at?.split('T')[0]}
                   </span>
                 </div>
               </div>
