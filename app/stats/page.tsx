@@ -215,7 +215,7 @@ export default function StatsPage() {
         <div className="bg-white p-4 rounded-2xl shadow-xs border border-slate-100 flex flex-col justify-between">
           <span className="text-xs font-bold text-slate-400">신규 고객 수</span>
           <div className="my-2">
-            <span className="text-2xl font-extrabold text-slate-900">{thisMonthNewPatients.length} 명</span>
+            <span className="text-2xl font-extrabold text-slate-900">{thisMonthPatients.length} 명</span>
           </div>
           <div className="text-[11px] font-bold text-teal-700 flex items-center gap-1">
             <span>지난달 대비</span>
