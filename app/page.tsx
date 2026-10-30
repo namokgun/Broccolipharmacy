@@ -61,8 +61,8 @@ export default function DashboardPage() {
     }
   };
 
-  const toggleFeedbackComplete = async (e: React.MouseEvent, consultationId: string, currentState: boolean) => {
-    e.stopPropagation();
+  const toggleFeedbackComplete = async (e: React.ChangeEvent<HTMLInputElement> | React.MouseEvent, consultationId: string, currentState: boolean) => {
+    if ('stopPropagation' in e) e.stopPropagation();
     const newState = !currentState;
     const { error } = await supabase
       .from("consultations")
@@ -87,6 +87,14 @@ export default function DashboardPage() {
 
   const thisMonthConsultations = consultations.filter(c => {
     const dateStr = c.consult_date_str;
+    if (!dateStr) return false;
+    const [y, m] = dateStr.split('-').map(Number);
+    return y === currentYear && m === (currentMonth + 1);
+  });
+
+  // 이번 달 신규 환자 집계 (환자 생성일 기준)
+  const thisMonthNewPatients = patients.filter(p => {
+    const dateStr = p.created_at?.split('T')[0];
     if (!dateStr) return false;
     const [y, m] = dateStr.split('-').map(Number);
     return y === currentYear && m === (currentMonth + 1);
@@ -119,11 +127,19 @@ export default function DashboardPage() {
         </span>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      {/* 📊 상단 핵심 지표 요약 카드 (총 6개 그리드 배치) */}
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <div className="bg-white p-3.5 rounded-2xl shadow-xs border border-slate-100 flex flex-col justify-between">
           <span className="text-[11px] font-bold text-slate-400">전체 고객 수</span>
           <div className="mt-1">
             <span className="text-xl font-extrabold text-slate-900">{patients.length}명</span>
+          </div>
+        </div>
+
+        <div className="bg-white p-3.5 rounded-2xl shadow-xs border border-slate-100 flex flex-col justify-between">
+          <span className="text-[11px] font-bold text-slate-400">이번 달 신규 환자</span>
+          <div className="mt-1">
+            <span className="text-xl font-extrabold text-teal-700">{thisMonthNewPatients.length}명</span>
           </div>
         </div>
 
@@ -148,7 +164,7 @@ export default function DashboardPage() {
           </span>
         </div>
 
-        <div className="bg-white p-3.5 rounded-2xl shadow-xs border border-slate-100 flex flex-col justify-between col-span-2 md:col-span-1">
+        <div className="bg-white p-3.5 rounded-2xl shadow-xs border border-slate-100 flex flex-col justify-between">
           <span className="text-[11px] font-bold text-slate-400">이번 달 일평균 매출</span>
           <span className="text-lg font-extrabold text-purple-900 mt-1 truncate" title={`${dailyAverageSales.toLocaleString()}원`}>
             {dailyAverageSales.toLocaleString()}원
@@ -243,7 +259,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* 우측: 오늘 완료해야 할 피드백 */}
+        {/* 우측: 오늘 완료해야 할 피드백 (체크박스 및 코멘트 추가) */}
         <div className="lg:col-span-6 bg-white p-4.5 rounded-2xl shadow-xs border border-slate-100 flex flex-col justify-between h-[380px]">
           <div>
             <div className="flex justify-between items-center border-b pb-2.5 mb-3">
@@ -263,21 +279,38 @@ export default function DashboardPage() {
                   <div 
                     key={idx} 
                     onClick={() => setSelectedDetailConsultation(f)}
-                    className="p-3 bg-purple-50/50 border border-purple-200/80 rounded-xl flex items-center justify-between cursor-pointer hover:bg-purple-50 transition"
+                    className="p-3 bg-purple-50/50 border border-purple-200/80 rounded-xl flex items-start justify-between cursor-pointer hover:bg-purple-50 transition gap-3"
                   >
-                    <div>
-                      <span className="text-[11px] font-bold text-purple-700 block mb-0.5">{formatName(f.patients)}</span>
-                      <p className="text-xs font-extrabold text-slate-900">처방: {f.prescription || "없음"}</p>
+                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                      {/* 🟢 체크박스 추가 (클릭 시 즉시 완료 토글) */}
+                      <input 
+                        type="checkbox" 
+                        checked={!!f.is_feedback_completed}
+                        onChange={(e) => toggleFeedbackComplete(e, f.id, f.is_feedback_completed)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-0.5 w-4 h-4 accent-purple-700 cursor-pointer rounded"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <span className={`text-[11px] font-bold block mb-0.5 ${f.is_feedback_completed ? "text-slate-400 line-through" : "text-purple-700"}`}>
+                          {formatName(f.patients)}
+                        </span>
+                        <p className={`text-xs font-extrabold truncate ${f.is_feedback_completed ? "text-slate-400 line-through" : "text-slate-900"}`}>
+                          처방: {f.prescription || "없음"}
+                        </p>
+                        {/* 🟢 추후관리 코멘트 노출 */}
+                        {f.follow_up && (
+                          <p className="text-[11px] text-slate-600 mt-1 bg-white/80 p-1.5 rounded border border-purple-100 truncate" title={f.follow_up}>
+                            💬 코멘트: {f.follow_up}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                    <button
-                      type="button"
-                      onClick={(e) => toggleFeedbackComplete(e, f.id, f.is_feedback_completed)}
-                      className={`text-[11px] font-bold px-2.5 py-1 rounded-lg transition ${
-                        f.is_feedback_completed ? "bg-slate-200 text-slate-600 hover:bg-slate-300" : "bg-purple-600 text-white hover:bg-purple-700"
-                      }`}
-                    >
+
+                    <span className={`text-[10px] font-bold px-2 py-1 rounded-lg flex-shrink-0 self-center ${
+                      f.is_feedback_completed ? "bg-slate-200 text-slate-600" : "bg-purple-600 text-white"
+                    }`}>
                       {f.is_feedback_completed ? "완료됨" : "확인 필요"}
-                    </button>
+                    </span>
                   </div>
                 ))
               )}
@@ -338,7 +371,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 날짜별 일정 전체 보기 모달 (상담은 초록색, 피드백은 보라색으로 색상 분리) */}
       {dayDetailDate && (
         <div onClick={() => setDayDetailDate(null)} className="fixed inset-0 z-[90] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col cursor-default max-h-[80vh]" onClick={e => e.stopPropagation()}>
