@@ -34,7 +34,11 @@ export default function ConsultationsPage() {
   const [followUp, setFollowUp] = useState(""); 
   const [feedbackDays, setFeedbackDays] = useState(""); 
   const [amount, setAmount] = useState(""); 
-  const [paymentMethod, setPaymentMethod] = useState(""); // 결제방식 상태
+  const [paymentMethod, setPaymentMethod] = useState("");
+
+  // 🟢 수식 계산기 상태
+  const [calculatorInput, setCalculatorInput] = useState("");
+  const [calculatorResult, setCalculatorResult] = useState<number | null>(null);
 
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
@@ -64,6 +68,30 @@ export default function ConsultationsPage() {
     fetchData();
   }, []);
 
+  // 🟢 실시간 수식 계산 로직
+  useEffect(() => {
+    if (!calculatorInput.trim()) {
+      setCalculatorResult(null);
+      return;
+    }
+    try {
+      const sanitized = calculatorInput.replace(/[^0-9+\-*/().]/g, "");
+      if (sanitized) {
+        // eslint-disable-next-line no-new-func
+        const result = new Function(`return ${sanitized}`)();
+        if (Number.isFinite(result)) {
+          setCalculatorResult(Math.round(result));
+        } else {
+          setCalculatorResult(null);
+        }
+      } else {
+        setCalculatorResult(null);
+      }
+    } catch {
+      setCalculatorResult(null);
+    }
+  }, [calculatorInput]);
+
   const fetchData = async () => {
     try {
       const { data: pData } = await supabase.from("patients").select("*").order("name");
@@ -79,12 +107,9 @@ export default function ConsultationsPage() {
       }
 
       if (cData) {
-        // 🟢 상담일(consultation_date) 기준 최신순(내림차순) 정렬 적용
         const sortedData = cData.sort((a, b) => {
           const dateA = new Date(a.consultation_date || a.created_at).getTime();
           const dateB = new Date(b.consultation_date || b.created_at).getTime();
-          
-          // 상담일이 같으면 데이터를 등록한 시간(created_at) 기준으로 최신순 정렬
           if (dateA === dateB) {
             return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
           }
@@ -136,7 +161,7 @@ export default function ConsultationsPage() {
       if (!uploadError) uploadedPaths.push(fileName);
     }
     return uploadedPaths;
-  };
+  }
 
   const handleSubmitConsultation = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,12 +173,17 @@ export default function ConsultationsPage() {
     setUploading(true);
     try {
       const finalImagePaths = await uploadImages();
+      
+      // 🟢 피드백 0 입력 시 모니터링 안 함 처리 로직
+      const parsedFeedbackDays = parseInt(feedbackDays);
+      const finalFeedbackDays = (!isNaN(parsedFeedbackDays) && parsedFeedbackDays > 0) ? parsedFeedbackDays : null;
+
       const payload = {
         patient_id: selectedPatient,
         consultation_date: consultationDate,
         symptoms, digestion_stool: digestionStool, sleep_state: sleepState,
         symptom_detail: symptomDetail, prescription, consult_memo: consultMemo, follow_up: followUp,
-        feedback_days: feedbackDays ? parseInt(feedbackDays) : null,
+        feedback_days: finalFeedbackDays, // 0이나 빈 값이면 null로 저장되어 피드백 리스트에서 제외됨
         amount: amount ? parseInt(amount) : null,
         payment_method: paymentMethod || null, 
         image_urls: finalImagePaths, user_id: user.id,
@@ -186,6 +216,7 @@ export default function ConsultationsPage() {
     setSymptoms(""); setDigestionStool(""); setSleepState(""); setSymptomDetail(""); 
     setPrescription(""); setConsultMemo(""); setFollowUp(""); setFeedbackDays(""); setAmount("");
     setPaymentMethod(""); 
+    setCalculatorInput(""); setCalculatorResult(null);
     setImageFiles([]); setExistingImageUrls([]); setExistingImagePreviews([]);
   };
 
@@ -284,14 +315,15 @@ export default function ConsultationsPage() {
               <input type="text" value={sleepState} onChange={(e) => setSleepState(e.target.value)} className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900" />
             </div>
 
+            {/* 🟢 증상 상세와 최근 방문내역 영역 크게 (h-64) 확대 */}
             <div className="flex flex-col sm:flex-row gap-4">
               <div className="flex-1 flex flex-col">
                 <label className="text-xs font-bold text-blue-700 mb-1">증상 상세</label>
-                <textarea value={symptomDetail} onChange={(e) => setSymptomDetail(e.target.value)} className="w-full h-28 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900 resize-none" />
+                <textarea value={symptomDetail} onChange={(e) => setSymptomDetail(e.target.value)} className="w-full h-64 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900 resize-none" />
               </div>
               <div className="flex-1 flex flex-col">
                 <label className="text-xs font-bold text-slate-900 mb-1">최근 방문내역</label>
-                <div className="w-full h-28 border border-slate-200 rounded-xl overflow-y-auto bg-white p-1 text-xs">
+                <div className="w-full h-64 border border-slate-200 rounded-xl overflow-y-auto bg-white p-1 text-xs">
                   <table className="w-full text-left">
                     <thead className="bg-slate-100 sticky top-0 text-slate-900 font-bold">
                       <tr><th className="p-1.5"></th><th className="p-1.5 text-slate-900 font-bold">주호소</th><th className="p-1.5 text-slate-900 font-bold">처방</th></tr>
@@ -327,47 +359,75 @@ export default function ConsultationsPage() {
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3 pt-2">
-              <div className="flex items-center gap-2">
-                <label className="text-xs font-bold text-slate-700">피드백(일)</label>
-                <input type="text" inputMode="numeric" pattern="[0-9]*" value={feedbackDays} onChange={(e) => setFeedbackDays(e.target.value.replace(/[^0-9]/g, ''))} className="w-20 p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900" />
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="text-xs font-bold text-slate-700">금액</label>
-                <input type="text" inputMode="numeric" pattern="[0-9]*" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ''))} className="w-28 p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900" />
-              </div>
+            <div className="flex flex-col xl:flex-row gap-3 pt-2 items-start xl:items-center justify-between">
               
-              <div className="flex items-center gap-2">
-                <label className="text-xs font-bold text-slate-700">결제방식</label>
-                <select 
-                  value={paymentMethod} 
-                  onChange={(e) => setPaymentMethod(e.target.value)} 
-                  className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none cursor-pointer"
-                >
-                  <option value="">선택</option>
-                  <option value="링크">링크</option>
-                  <option value="홈피">홈피</option>
-                  <option value="매장">매장</option>
-                  <option value="입금">입금</option>
-                  <option value="현명">현명</option>
-                  <option value="사업자">사업자</option>
-                </select>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-bold text-slate-700">피드백(일)</label>
+                  <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0입력시 제외" value={feedbackDays} onChange={(e) => setFeedbackDays(e.target.value.replace(/[^0-9]/g, ''))} className="w-24 p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900" />
+                </div>
+
+                <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                  <span className="text-[10px] font-bold text-slate-500 pl-2">계산기</span>
+                  <input 
+                    type="text" 
+                    placeholder="ex) 4000+6000" 
+                    value={calculatorInput} 
+                    onChange={(e) => setCalculatorInput(e.target.value)} 
+                    className="w-28 p-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:border-teal-500" 
+                  />
+                  <div className="text-xs font-bold text-teal-800 min-w-[50px]">
+                    {calculatorResult !== null ? `= ${calculatorResult.toLocaleString()}` : "="}
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      if (calculatorResult !== null) setAmount(calculatorResult.toString());
+                    }} 
+                    disabled={calculatorResult === null}
+                    className="px-2 py-1.5 bg-teal-600 text-white text-[10px] font-bold rounded-lg hover:bg-teal-700 disabled:opacity-50 transition"
+                  >
+                    적용
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-bold text-slate-700 pl-1">최종 금액</label>
+                  <input type="text" inputMode="numeric" pattern="[0-9]*" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ''))} className="w-24 p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900" />
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-bold text-slate-700">결제방식</label>
+                  <select 
+                    value={paymentMethod} 
+                    onChange={(e) => setPaymentMethod(e.target.value)} 
+                    className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none cursor-pointer"
+                  >
+                    <option value="">선택</option>
+                    <option value="링크">링크</option>
+                    <option value="홈피">홈피</option>
+                    <option value="매장">매장</option>
+                    <option value="입금">입금</option>
+                    <option value="현금">현금</option>
+                    <option value="사업자">사업자</option>
+                  </select>
+                </div>
               </div>
 
-              <div className="hidden sm:block flex-1 text-right text-xs text-slate-400">※ [Ctrl+V] 사진 붙여넣기</div>
-              
-              <div className="w-full sm:w-auto flex gap-2 pt-2 sm:pt-0 ml-auto">
+              <div className="w-full xl:w-auto flex gap-2">
                 {editingId && (
-                  <button type="button" onClick={() => handleDeleteConsultation(editingId)} className="flex-1 sm:flex-none px-4 py-3 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-xl transition text-sm">삭제</button>
+                  <button type="button" onClick={() => handleDeleteConsultation(editingId)} className="flex-1 xl:flex-none px-4 py-3 bg-red-50 hover:bg-red-100 text-red-600 font-bold rounded-xl transition text-sm">삭제</button>
                 )}
-                <button type="submit" disabled={uploading} className="flex-1 sm:flex-none px-6 py-3 bg-teal-900 hover:bg-teal-800 text-white font-bold rounded-xl transition disabled:opacity-50 shadow-sm text-sm">
+                <button type="submit" disabled={uploading} className="flex-1 xl:flex-none px-6 py-3 bg-teal-900 hover:bg-teal-800 text-white font-bold rounded-xl transition disabled:opacity-50 shadow-sm text-sm">
                   {uploading ? "저장 중..." : (editingId ? "수정 저장" : "상담 등록")}
                 </button>
               </div>
+
             </div>
+            <div className="text-right text-xs text-slate-400 -mt-1 hidden xl:block">※ [Ctrl+V]를 눌러 사진을 바로 붙여넣으세요</div>
           </div>
 
-          {/* 🟢 오른쪽: 사진 뷰어 영역 (과거 사진 스크롤 기능 적용) */}
+          {/* 🟢 오른쪽: 사진 뷰어 영역 */}
           <div className="flex-1 flex flex-col gap-4 min-w-[280px]">
             <div className="flex flex-col bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
               <div className="flex justify-between items-center mb-3">
