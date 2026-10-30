@@ -15,12 +15,9 @@ export default function ConsultationHistoryPage() {
   }, []);
 
   const fetchConsultations = async () => {
-    // 🟢 상담 일자(consultation_date) 기준 최신순(내림차순) 정렬 적용
     const { data, error } = await supabase
       .from("consultations")
-      .select("*, patients(name, phone, custom_id, gender, birth_year)")
-      .order("consultation_date", { ascending: false })
-      .order("created_at", { ascending: false });
+      .select("*, patients(name, phone, custom_id, gender, birth_year)");
 
     if (error) {
       console.error("상담 기록 로딩 에러:", error.message);
@@ -28,8 +25,20 @@ export default function ConsultationHistoryPage() {
     }
 
     if (data) {
+      // 🟢 JavaScript 단에서 확실한 최신순(내림차순) 정렬 보장
+      // 1순위: consultation_date 최신순, 2순위: created_at 최신순
+      const sortedData = data.sort((a: any, b: any) => {
+        const dateA = new Date(a.consultation_date || a.created_at).getTime();
+        const dateB = new Date(b.consultation_date || b.created_at).getTime();
+        if (dateB !== dateA) {
+          return dateB - dateA; // 날짜가 다르면 최신 날짜가 위로
+        }
+        // 날짜가 같으면 생성된 시간(created_at) 최신순
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+
       const processed = await Promise.all(
-        data.map(async (c: any) => {
+        sortedData.map(async (c: any) => {
           if (c.image_urls && Array.isArray(c.image_urls) && c.image_urls.length > 0) {
             const signedUrls = await Promise.all(
               c.image_urls.map(async (path: string) => {
@@ -160,7 +169,7 @@ export default function ConsultationHistoryPage() {
           {selectedConsultation ? (
             <div className="flex-1 overflow-y-auto space-y-4 pr-1">
               
-              {/* 고객 요약 카드 (날짜만 표기하도록 수정) */}
+              {/* 고객 요약 카드 */}
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between">
                 <div>
                   <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
