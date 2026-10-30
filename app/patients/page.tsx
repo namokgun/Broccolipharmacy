@@ -47,6 +47,8 @@ export default function PatientsPage() {
   const [bodyType, setBodyType] = useState("선택 안함");
   const [tagsInput, setTagsInput] = useState("");
   const [memo, setMemo] = useState("");
+  const [email, setEmail] = useState("");
+  const [allergy, setAllergy] = useState("");
 
   const [activeCount, setActiveCount] = useState(0);
 
@@ -130,7 +132,7 @@ export default function PatientsPage() {
   const handleOpenRegister = () => {
     setEditingPatientId(null);
     setName(""); setCustomId(""); setPhone(""); setAddress(""); setGender("남"); setBirthYear(""); setBodyType("선택 안함");
-    setTagsInput(""); setMemo("");
+    setTagsInput(""); setMemo(""); setEmail(""); setAllergy("");
     setIsModalOpen(true);
   };
 
@@ -145,6 +147,8 @@ export default function PatientsPage() {
     setBodyType(p.body_type || "선택 안함");
     setTagsInput(p.tags && Array.isArray(p.tags) ? p.tags.join(", ") : "");
     setMemo(p.memo || "");
+    setEmail(p.email || "");
+    setAllergy(p.allergy || "");
     setIsModalOpen(true);
   };
 
@@ -165,23 +169,23 @@ export default function PatientsPage() {
       birth_year: birthYear ? parseInt(birthYear) : null,
       body_type: bodyType === "선택 안함" ? null : bodyType,
       tags: tagsArray, 
-      memo,
+      memo, email, allergy,
       user_id: user.id
     };
 
     if (editingPatientId) {
       const { error } = await supabase.from("patients").update(payload).eq("id", editingPatientId);
       if (error) alert("수정 실패: " + error.message);
-      else { alert("환자 정보가 수정되었습니다."); setIsModalOpen(false); fetchData(); }
+      else { alert("고객 정보가 수정되었습니다."); setIsModalOpen(false); fetchData(); }
     } else {
       const { error } = await supabase.from("patients").insert([payload]);
       if (error) alert("등록 실패: " + error.message);
-      else { alert("새 환자가 등록되었습니다."); setIsModalOpen(false); fetchData(); }
+      else { alert("신규 고객이 등록되었습니다."); setIsModalOpen(false); fetchData(); }
     }
   };
 
   const handleDeletePatient = async (id: string) => {
-    if (!confirm("정말 이 환자를 삭제하시겠습니까?")) return;
+    if (!confirm("정말 이 고객을 삭제하시겠습니까?")) return;
     const { error } = await supabase.from("patients").delete().eq("id", id);
     if (error) alert("삭제 실패: " + error.message);
     else { alert("삭제되었습니다."); setSelectedPatient(null); fetchData(); }
@@ -217,54 +221,49 @@ export default function PatientsPage() {
           <h1 className="text-xl font-extrabold text-slate-900">고객 관리</h1>
           <p className="text-xs font-semibold text-slate-500 mt-0.5">고객 정보를 한눈에 확인하고, 상담 이력을 관리할 수 있습니다.</p>
         </div>
-        <div className="flex items-center gap-3 w-full md:w-auto">
-          <input 
-            type="text" 
-            placeholder="이름, 번호, 주소, 태그 검색..." 
-            value={searchTerm} 
-            onChange={(e) => setSearchTerm(e.target.value)} 
-            className="flex-1 md:w-72 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-teal-700 transition"
-          />
-          <button onClick={handleOpenRegister} className="px-4 py-2 bg-teal-900 hover:bg-teal-800 text-white rounded-xl font-semibold text-xs transition shadow-sm whitespace-nowrap">
-            + 신규 고객 등록
-          </button>
-        </div>
+        <button onClick={handleOpenRegister} className="px-4 py-2 bg-teal-900 hover:bg-teal-800 text-white rounded-xl font-semibold text-xs transition shadow-sm whitespace-nowrap">
+          + 신규 고객 등록
+        </button>
       </div>
 
-      {/* 상단 통계 요약 카드 3개 */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 flex-shrink-0">
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs font-bold text-slate-400 block mb-1">전체 고객 수</span>
-            <div className="text-2xl font-extrabold text-slate-900">{totalPatientsCount} <span className="text-xs font-bold text-slate-500">명</span></div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-teal-50 text-teal-800 flex items-center justify-center font-bold text-lg">👥</div>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs font-bold text-slate-400 block mb-1">활성 고객 수 (최근 3개월)</span>
-            <div className="text-2xl font-extrabold text-slate-900">{activeCount} <span className="text-xs font-bold text-slate-500">명</span></div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-800 flex items-center justify-center font-bold text-lg">🟢</div>
-        </div>
-        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-xs font-bold text-slate-400 block mb-1">재방문 고객 수 (2회 이상)</span>
-            <div className="text-2xl font-extrabold text-slate-900">{returningCount} <span className="text-xs font-bold text-slate-500">명</span></div>
-          </div>
-          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-800 flex items-center justify-center font-bold text-lg">⭐</div>
-        </div>
-      </div>
-
-      {/* 좌우 분할 레이아웃 (좌측 리스트, 우측 상세) */}
+      {/* 좌우 분할 레이아웃 */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 min-h-0">
         
-        {/* 좌측: 고객 목록 창 (col-span-7) */}
-        <div className="lg:col-span-7 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-4">
-          <div className="text-[11px] font-bold text-slate-400 mb-2 px-1 flex-shrink-0">
+        {/* 좌측: 상단 3개 카드 + 검색 + 고객 목록 (col-span-7) */}
+        <div className="lg:col-span-7 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-4 space-y-3">
+          
+          {/* 🟢 상단 통계 요약 카드 3개 좌측에 밀어넣기 */}
+          <div className="grid grid-cols-3 gap-2 flex-shrink-0">
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-slate-400">전체 고객</span>
+              <div className="text-lg font-extrabold text-slate-900 mt-1">{totalPatientsCount}<span className="text-[10px] font-semibold text-slate-500 ml-0.5">명</span></div>
+            </div>
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-slate-400">활성 고객</span>
+              <div className="text-lg font-extrabold text-slate-900 mt-1">{activeCount}<span className="text-[10px] font-semibold text-slate-500 ml-0.5">명</span></div>
+            </div>
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col justify-between">
+              <span className="text-[10px] font-bold text-slate-400">재방문 고객</span>
+              <div className="text-lg font-extrabold text-slate-900 mt-1">{returningCount}<span className="text-[10px] font-semibold text-slate-500 ml-0.5">명</span></div>
+            </div>
+          </div>
+
+          {/* 검색 입력창 */}
+          <div className="flex-shrink-0">
+            <input 
+              type="text" 
+              placeholder="이름, 번호, 주소, 태그 검색..." 
+              value={searchTerm} 
+              onChange={(e) => setSearchTerm(e.target.value)} 
+              className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-teal-700 transition"
+            />
+          </div>
+
+          <div className="text-[11px] font-bold text-slate-400 px-1 flex-shrink-0">
             고객 목록 <span className="text-slate-900 font-extrabold">총 {sortedPatients.length}명</span>
           </div>
 
+          {/* 고객 목록 리스트 */}
           <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
             {sortedPatients.length === 0 ? (
               <div className="py-16 text-center text-slate-400 text-xs">등록된 고객이 없습니다.</div>
@@ -289,7 +288,7 @@ export default function PatientsPage() {
                       <span className="text-slate-500 text-[11px]">{p.phone || "연락처 없음"}</span>
                     </div>
 
-                    {/* 연령, 성별, 체질, 최근방문, 상담횟수, 태그 (부제목 없이 1줄로 길게 표기) */}
+                    {/* 연령, 성별, 체질, 최근방문, 상담횟수, 태그 (부제목 없이 한 줄 표기) */}
                     <div className="flex-1 flex items-center gap-2 truncate text-[11px]">
                       <span className="text-slate-600 font-semibold whitespace-nowrap">{ageText} / {p.gender || "-"}</span>
                       {p.body_type && p.body_type !== "선택 안함" && (
@@ -315,7 +314,7 @@ export default function PatientsPage() {
           </div>
         </div>
 
-        {/* 우측: 선택된 고객 상세 정보 창 (col-span-5) */}
+        {/* 우측: 선택된 고객 상세 정보 창 (col-span-5) - 길고 쾌적하게 정보 표시 */}
         <div className="lg:col-span-5 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-5">
           {selectedPatient ? (
             <div className="flex-1 overflow-y-auto space-y-4 pr-1">
@@ -367,6 +366,8 @@ export default function PatientsPage() {
                   <div><span className="text-slate-400 mr-2">성별:</span><span className="font-semibold text-slate-800">{selectedPatient.gender || "-"}</span></div>
                 </div>
                 <div><span className="text-slate-400 mr-2">주소:</span><span className="font-semibold text-slate-800">{selectedPatient.address || "-"}</span></div>
+                <div><span className="text-slate-400 mr-2">이메일:</span><span className="font-semibold text-slate-800">{selectedPatient.email || "-"}</span></div>
+                <div><span className="text-slate-400 mr-2">알레르기:</span><span className="font-semibold text-slate-800">{selectedPatient.allergy || "없음"}</span></div>
                 
                 {selectedPatient.tags && selectedPatient.tags.length > 0 && (
                   <div className="flex items-center gap-1.5 flex-wrap pt-1">
@@ -401,8 +402,8 @@ export default function PatientsPage() {
                           <span>{c.consultation_date || c.created_at?.split('T')[0]}</span>
                           {c.amount && <span className="text-purple-800 font-extrabold">{c.amount.toLocaleString()}원</span>}
                         </div>
-                        {c.symptoms && <p className="font-bold text-slate-900 truncate">주호소: {c.symptoms}</p>}
-                        {c.prescription && <p className="text-teal-900 font-semibold truncate">처방: {c.prescription}</p>}
+                        {c.symptoms && <p className="font-bold text-slate-900 truncate">{c.symptoms}</p>}
+                        {c.prescription && <p className="text-teal-900 font-semibold truncate">{c.prescription}</p>}
                       </div>
                     ))
                   )}
@@ -488,6 +489,17 @@ export default function PatientsPage() {
                 </div>
               </div>
 
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">이메일</label>
+                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold" placeholder="email@naver.com" />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">알레르기</label>
+                  <input type="text" value={allergy} onChange={(e) => setAllergy(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold" placeholder="알레르기 정보" />
+                </div>
+              </div>
+
               <div>
                 <label className="block font-bold text-slate-700 mb-1">분류 태그 (쉼표로 구분)</label>
                 <input type="text" value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold" placeholder="예: VIP, 피로, 수면" />
@@ -532,8 +544,8 @@ export default function PatientsPage() {
                     <div className="flex flex-col sm:flex-row gap-4 items-start">
                       <div className="flex-1 space-y-2 min-w-0 w-full">
                         <div className="flex flex-wrap gap-x-4 text-sm font-bold text-slate-800 mb-2">
-                          {c.symptoms && <div>주호소: {c.symptoms}</div>}
-                          {c.prescription && <div className="text-teal-700">처방: {c.prescription}</div>}
+                          {c.symptoms && <div>{c.symptoms}</div>}
+                          {c.prescription && <div className="text-teal-700">{c.prescription}</div>}
                         </div>
                         {c.symptom_detail && (
                           <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-slate-700 whitespace-pre-line leading-relaxed"><strong className="text-slate-900 block mb-1">증상 상세:</strong>{c.symptom_detail}</div>
