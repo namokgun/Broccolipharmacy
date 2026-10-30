@@ -56,6 +56,7 @@ export default function Sidebar() {
         </div>
 
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto text-xs">
+          {/* 1. 대시보드 */}
           <Link 
             href="/" 
             className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
@@ -65,15 +66,17 @@ export default function Sidebar() {
             <span>📊</span> 대시보드
           </Link>
 
+          {/* 2. 환자 목록 */}
           <Link 
-            href="/stats" 
+            href="/patients" 
             className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
-              pathname === "/stats" ? "bg-teal-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+              pathname === "/patients" ? "bg-teal-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
             }`}
           >
-            <span>📈</span> 통계 분석
+            <span>👥</span> 환자 목록
           </Link>
 
+          {/* 3. 새 상담 기록 */}
           <Link 
             href="/consultations" 
             onClick={() => handleNavClick("")}
@@ -84,6 +87,7 @@ export default function Sidebar() {
             <span>📝</span> 새 상담 기록
           </Link>
           
+          {/* 4. 기록 조회 */}
           <Link 
             href="/consultations#history" 
             onClick={() => handleNavClick("#history")}
@@ -94,6 +98,7 @@ export default function Sidebar() {
             <span>📂</span> 기록 조회
           </Link>
 
+          {/* 5. 상담 캘린더 */}
           <Link 
             href="/schedules" 
             className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
@@ -102,7 +107,18 @@ export default function Sidebar() {
           >
             <span>📅</span> 상담 캘린더
           </Link>
+
+          {/* 6. 통계 분석 */}
+          <Link 
+            href="/stats" 
+            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
+              pathname === "/stats" ? "bg-teal-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
+          >
+            <span>📈</span> 통계 분석
+          </Link>
           
+          {/* 피드백 모니터링 (필요시 별도 유지) */}
           <Link 
             href="/feedbacks" 
             className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
@@ -110,15 +126,6 @@ export default function Sidebar() {
             }`}
           >
             <span>📌</span> 피드백 모니터링
-          </Link>
-
-          <Link 
-            href="/patients" 
-            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
-              pathname === "/patients" ? "bg-teal-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <span>👥</span> 환자 목록
           </Link>
         </nav>
 
@@ -142,6 +149,7 @@ export default function Sidebar() {
 
       {/* 📱 모바일 전용 하단 고정 탭 바 */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 z-50 flex justify-around items-center px-1 shadow-lg">
+        {/* 1. 대시보드 */}
         <Link 
           href="/" 
           className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
@@ -152,16 +160,18 @@ export default function Sidebar() {
           <span>대시보드</span>
         </Link>
 
+        {/* 2. 환자 */}
         <Link 
-          href="/stats" 
+          href="/patients" 
           className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
-            pathname === "/stats" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
+            pathname === "/patients" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
           }`}
         >
-          <span className="text-lg mb-0.5">📈</span>
-          <span>통계</span>
+          <span className="text-lg mb-0.5">👥</span>
+          <span>환자</span>
         </Link>
 
+        {/* 3. 상담등록 */}
         <Link 
           href="/consultations" 
           onClick={() => handleNavClick("")}
@@ -173,6 +183,7 @@ export default function Sidebar() {
           <span>상담등록</span>
         </Link>
 
+        {/* 4. 기록조회 */}
         <Link 
           href="/consultations#history" 
           onClick={() => handleNavClick("#history")}
@@ -184,16 +195,7 @@ export default function Sidebar() {
           <span>기록조회</span>
         </Link>
 
-        <Link 
-          href="/feedbacks" 
-          className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
-            pathname === "/feedbacks" ? "text-purple-900 font-bold" : "text-slate-500 hover:text-purple-800"
-          }`}
-        >
-          <span className="text-lg mb-0.5">📌</span>
-          <span>피드백</span>
-        </Link>
-
+        {/* 5. 상담일정 */}
         <Link 
           href="/schedules" 
           className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
@@ -204,14 +206,26 @@ export default function Sidebar() {
           <span>상담일정</span>
         </Link>
 
+        {/* 6. 통계 */}
         <Link 
-          href="/patients" 
+          href="/stats" 
           className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
-            pathname === "/patients" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
+            pathname === "/stats" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
           }`}
         >
-          <span className="text-lg mb-0.5">👥</span>
-          <span>환자</span>
+          <span className="text-lg mb-0.5">📈</span>
+          <span>통계</span>
+        </Link>
+
+        {/* 피드백 */}
+        <Link 
+          href="/feedbacks" 
+          className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
+            pathname === "/feedbacks" ? "text-purple-900 font-bold" : "text-slate-500 hover:text-purple-800"
+          }`}
+        >
+          <span className="text-lg mb-0.5">📌</span>
+          <span>피드백</span>
         </Link>
       </nav>
     </>

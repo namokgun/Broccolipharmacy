@@ -9,7 +9,7 @@ export default function StatsPage() {
   const [consultations, setConsultations] = useState<any[]>([]);
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
 
-  const [periodFilter, setPeriodFilter] = useState("month");
+  const [periodFilter, setPeriodFilter] = useState("6months");
 
   useEffect(() => {
     setCurrentDate(new Date());
@@ -38,70 +38,39 @@ export default function StatsPage() {
 
   if (!currentDate) return <div className="p-8 text-center text-slate-400 text-xs">통계 로딩 중...</div>;
 
-  let startDate = new Date();
-  let endDate = new Date();
-  let prevStartDate = new Date();
-  let prevEndDate = new Date();
-
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth();
-  const todayDate = currentDate.getDate();
 
-  if (periodFilter === "month") {
-    startDate = new Date(currentYear, currentMonth, 1);
-    endDate = new Date(currentYear, currentMonth + 1, 0); 
-    prevStartDate = new Date(currentYear, currentMonth - 1, 1);
-    prevEndDate = new Date(currentYear, currentMonth, 0);
-  } else if (periodFilter === "lastMonth") {
-    startDate = new Date(currentYear, currentMonth - 1, 1);
-    endDate = new Date(currentYear, currentMonth, 0);
-    prevStartDate = new Date(currentYear, currentMonth - 2, 1);
-    prevEndDate = new Date(currentYear, currentMonth - 1, 0);
-  } else if (periodFilter === "3months") {
-    startDate = new Date(currentYear, currentMonth - 3, todayDate);
-    endDate = currentDate;
-    prevStartDate = new Date(currentYear, currentMonth - 6, todayDate);
-    prevEndDate = new Date(currentYear, currentMonth - 3, todayDate - 1);
-  } else if (periodFilter === "6months") {
-    startDate = new Date(currentYear, currentMonth - 6, todayDate);
-    endDate = currentDate;
-    prevStartDate = new Date(currentYear, currentMonth - 12, todayDate);
-    prevEndDate = new Date(currentYear, currentMonth - 6, todayDate - 1);
-  } else if (periodFilter === "1year") {
-    startDate = new Date(currentYear - 1, currentMonth, todayDate);
-    endDate = currentDate;
-    prevStartDate = new Date(currentYear - 2, currentMonth, todayDate);
-    prevEndDate = new Date(currentYear - 1, currentMonth, todayDate - 1);
+  // 🟢 선택 필터별 월 개수 산정 (3개월, 6개월, 1년)
+  const monthCount = periodFilter === "3months" ? 3 : periodFilter === "1year" ? 12 : 6;
+
+  // 🟢 월별 범주 목록 생성 (YYYY-MM)
+  const monthlyBuckets: { yearMonth: string, label: string }[] = [];
+  for (let i = monthCount - 1; i >= 0; i--) {
+    const d = new Date(currentYear, currentMonth - i, 1);
+    const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const label = `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}`;
+    monthlyBuckets.push({ yearMonth: ym, label });
   }
 
-  const formatYMD = (d: Date) => {
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  };
+  // 이번 달 / 지난달 집계 (상단 요약 카드용)
+  const thisYm = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}`;
+  const lastMonthDate = new Date(currentYear, currentMonth - 1, 1);
+  const lastYm = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}`;
 
-  const startStr = formatYMD(startDate);
-  const endStr = formatYMD(endDate);
-  const prevStartStr = formatYMD(prevStartDate);
-  const prevEndStr = formatYMD(prevEndDate);
+  const currentConsultations = consultations.filter(c => c.consult_date_str?.startsWith(thisYm));
+  const prevConsultations = consultations.filter(c => c.consult_date_str?.startsWith(lastYm));
 
-  const currentConsultations = consultations.filter(c => c.consult_date_str >= startStr && c.consult_date_str <= endStr);
-  const currentPatients = patients.filter(p => {
-    const d = p.created_at?.split('T')[0];
-    return d >= startStr && d <= endStr;
-  });
+  const currentPatients = patients.filter(p => p.created_at?.startsWith(thisYm));
+  const prevPatients = patients.filter(p => p.created_at?.startsWith(lastYm));
+
   const currentSales = currentConsultations.reduce((sum, c) => sum + (c.amount || 0), 0);
-  const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
-  const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
-  const dailyAverageSales = Math.round(currentSales / diffDays);
-
-  const prevConsultations = consultations.filter(c => c.consult_date_str >= prevStartStr && c.consult_date_str <= prevEndStr);
-  const prevPatients = patients.filter(p => {
-    const d = p.created_at?.split('T')[0];
-    return d >= prevStartStr && d <= prevEndStr;
-  });
   const prevSales = prevConsultations.reduce((sum, c) => sum + (c.amount || 0), 0);
-  const prevDiffTime = Math.abs(prevEndDate.getTime() - prevStartDate.getTime());
-  const prevDiffDays = Math.max(1, Math.ceil(prevDiffTime / (1000 * 60 * 60 * 24)));
-  const prevDailyAverageSales = Math.round(prevSales / prevDiffDays);
+
+  const daysPassed = Math.max(1, currentDate.getDate());
+  const dailyAverageSales = Math.round(currentSales / daysPassed);
+  const lastMonthTotalDays = new Date(lastMonthDate.getFullYear(), lastMonthDate.getMonth() + 1, 0).getDate();
+  const prevDailyAverageSales = Math.round(prevSales / lastMonthTotalDays);
 
   const calcRateText = (current: number, previous: number) => {
     if (previous === 0) return current > 0 ? "+100%" : "0%";
@@ -123,6 +92,7 @@ export default function StatsPage() {
   const newPatientRate = calcRateText(currentPatients.length, prevPatients.length);
   const dailyAvgRate = calcRateText(dailyAverageSales, prevDailyAverageSales);
 
+  // 체질별 환자군 집계
   const constitutionCounts: Record<string, number> = {};
   patients.forEach(p => {
     let cType = p.constitution || p.sasang || p.body_type || p.type || p['체질'] || "";
@@ -133,52 +103,42 @@ export default function StatsPage() {
   const constitutionArray = Object.entries(constitutionCounts).sort((a, b) => b[1] - a[1]);
   const donutColors = ["#14b8a6", "#f59e0b", "#3b82f6", "#8b5cf6", "#94a3b8", "#f43f5e", "#10b981"]; 
 
-  const chartDates: string[] = [];
-  let tempDate = new Date(startDate);
-  while (tempDate <= endDate) {
-    chartDates.push(formatYMD(tempDate));
-    tempDate.setDate(tempDate.getDate() + 1);
-  }
+  // 🟢 월별 차트 데이터 생성 (월 단위)
+  const monthlyChartData = monthlyBuckets.map((bucket, idx) => {
+    const monthConsults = consultations.filter(c => c.consult_date_str?.startsWith(bucket.yearMonth));
+    const sales = monthConsults.reduce((sum, c) => sum + (c.amount || 0), 0);
+    const activeCustomers = new Set(monthConsults.map(c => c.patient_id || c.id)).size;
 
-  const dailySalesMap: Record<string, { sales: number, activeCustomers: number }> = {};
-  chartDates.forEach(d => { dailySalesMap[d] = { sales: 0, activeCustomers: 0 }; });
+    // 이전 달 대비 증감률
+    const prevBucketYm = monthlyBuckets[idx - 1]?.yearMonth;
+    let prevSalesVal = 0;
+    let prevCustVal = 0;
 
-  currentConsultations.forEach(c => {
-    const d = c.consult_date_str;
-    if (dailySalesMap[d]) {
-      dailySalesMap[d].sales += (c.amount || 0);
-      dailySalesMap[d].activeCustomers += 1;
+    if (prevBucketYm) {
+      const prevConsults = consultations.filter(c => c.consult_date_str?.startsWith(prevBucketYm));
+      prevSalesVal = prevConsults.reduce((sum, c) => sum + (c.amount || 0), 0);
+      prevCustVal = new Set(prevConsults.map(c => c.patient_id || c.id)).size;
     }
-  });
 
-  const prevDailySalesMap: Record<number, { sales: number, activeCustomers: number }> = {};
-  prevConsultations.forEach(c => {
-    const dayIndex = new Date(c.consult_date_str).getDate(); 
-    if (!prevDailySalesMap[dayIndex]) prevDailySalesMap[dayIndex] = { sales: 0, activeCustomers: 0 };
-    prevDailySalesMap[dayIndex].sales += (c.amount || 0);
-    prevDailySalesMap[dayIndex].activeCustomers += 1;
-  });
+    let sRate = calcRateValue(sales, prevSalesVal);
+    let cRate = calcRateValue(activeCustomers, prevCustVal);
 
-  const dailyChartData = chartDates.map(dateStr => {
-    const dayIndex = new Date(dateStr).getDate();
-    const sales = dailySalesMap[dateStr].sales;
-    const activeCustomers = dailySalesMap[dateStr].activeCustomers;
-
-    const prevSalesDay = prevDailySalesMap[dayIndex]?.sales || 0;
-    const prevCustDay = prevDailySalesMap[dayIndex]?.activeCustomers || 0;
-
-    let sRate = calcRateValue(sales, prevSalesDay);
-    let cRate = calcRateValue(activeCustomers, prevCustDay);
-
-    // 🟢 0% ~ 100% 범위로 리미트 수정
     sRate = Math.max(0, Math.min(100, sRate));
     cRate = Math.max(0, Math.min(100, cRate));
 
-    return { dateStr, dayLabel: dateStr.slice(5).replace('-', '.'), sales, activeCustomers, sRate, cRate };
+    return { 
+      yearMonth: bucket.yearMonth, 
+      label: bucket.label, 
+      sales, 
+      activeCustomers, 
+      sRate, 
+      cRate 
+    };
   });
 
+  // 🟢 월별 SVG 차트 렌더링
   const renderSVGChart = (type: "customer" | "sales") => {
-    const maxVal = Math.max(...dailyChartData.map(d => type === "customer" ? d.activeCustomers : d.sales), 1);
+    const maxVal = Math.max(...monthlyChartData.map(d => type === "customer" ? d.activeCustomers : d.sales), 1);
     
     const barColor = type === "customer" ? "#94a3b8" : "#e5e5e5"; 
     const lineColor = type === "customer" ? "#334155" : "#78350f"; 
@@ -186,13 +146,12 @@ export default function StatsPage() {
     return (
       <div className="relative w-full h-[240px] mt-4 select-none">
         
-        {/* Y축 범례 (좌측: 숫자, 우측: 퍼센트) */}
-        <div className="absolute left-0 top-4 bottom-8 flex flex-col justify-between text-[10px] text-slate-400 w-8 text-right pr-1 z-0">
+        {/* Y축 범례 */}
+        <div className="absolute left-0 top-4 bottom-8 flex flex-col justify-between text-[10px] text-slate-400 w-10 text-right pr-1 z-0">
           <span>{type === "customer" ? maxVal : `${Math.round(maxVal / 10000)}만`}</span>
           <span>{type === "customer" ? Math.round(maxVal/2) : `${Math.round(maxVal / 20000)}만`}</span>
           <span>0</span>
         </div>
-        {/* 🟢 우측 범례 100% ~ 0% 로 수정 */}
         <div className="absolute right-0 top-4 bottom-8 flex flex-col justify-between text-[10px] text-slate-400 w-8 pl-1 z-0">
           <span>100%</span>
           <span>50%</span>
@@ -200,7 +159,7 @@ export default function StatsPage() {
         </div>
 
         {/* 차트 영역 */}
-        <div className="absolute left-10 right-10 top-4 bottom-8 border-b border-slate-200">
+        <div className="absolute left-12 right-10 top-4 bottom-8 border-b border-slate-200">
           <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
             
             {/* 가이드 라인 (0%, 50%) */}
@@ -208,49 +167,49 @@ export default function StatsPage() {
             <line x1="0" y1="50%" x2="100%" y2="50%" stroke="#e2e8f0" strokeDasharray="4" strokeWidth="1.5" />
 
             {/* 데이터 막대(Bar) & 점(Dots) */}
-            {dailyChartData.map((d, i) => {
-              const x = (i / Math.max(1, dailyChartData.length - 1)) * 100;
+            {monthlyChartData.map((d, i) => {
+              const x = (i / Math.max(1, monthlyChartData.length - 1)) * 100;
               const val = type === "customer" ? d.activeCustomers : d.sales;
               const heightPct = (val / maxVal) * 100; 
               
               const rate = type === "customer" ? d.cRate : d.sRate;
-              // 🟢 0%~100% 스케일로 매핑 (0%면 y는 100(최하단))
               const y = 100 - rate; 
 
-              const barWidth = dailyChartData.length > 31 ? 1 : (dailyChartData.length > 15 ? 2 : 4);
+              const barWidth = 8;
 
               return (
                 <g key={`group-${i}`} className="group cursor-pointer">
-                  {/* 숨겨진 호버 박스 (툴팁 인식용) */}
-                  <rect x={`${x - barWidth}%`} y="0" width={`${barWidth * 2}%`} height="100%" fill="transparent" />
+                  {/* 숨겨진 호버 박스 */}
+                  <rect x={`${x - (barWidth)}%`} y="0" width={`${barWidth * 2}%`} height="100%" fill="transparent" />
                   
                   {/* 데이터 막대 */}
                   {val > 0 && (
                     <rect 
-                      x={`${x - (barWidth/2)}%`} 
+                      x={`${x - (barWidth / 2)}%`} 
                       y={`${100 - heightPct}%`} 
                       width={`${barWidth}%`} 
                       height={`${heightPct}%`} 
                       fill={barColor} 
-                      className="transition-all duration-300"
+                      rx="3"
+                      className="transition-all duration-300 group-hover:opacity-80"
                     />
                   )}
 
-                  {/* 증감률 나타내는 동그라미 점 (Line-dot) */}
+                  {/* 증감률 점 */}
                   <circle 
                     cx={`${x}%`} 
                     cy={`${y}%`} 
-                    r="3.5" 
+                    r="4" 
                     fill="#ffffff" 
                     stroke={lineColor} 
-                    strokeWidth="2" 
-                    className="group-hover:r-[5] transition-all"
+                    strokeWidth="2.5" 
+                    className="group-hover:r-[6] transition-all"
                   />
                   
                   {/* 호버 툴팁 */}
                   <g className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    <rect x={`${x - 10}%`} y="-20" width="80" height="22" rx="4" fill="#1e293b" />
-                    <text x={`${x}%`} y="-6" fill="white" fontSize="10" fontWeight="bold" textAnchor="middle">
+                    <rect x={`${x - 12}%`} y="-22" width="90" height="22" rx="4" fill="#1e293b" />
+                    <text x={`${x}%`} y="-8" fill="white" fontSize="10" fontWeight="bold" textAnchor="middle">
                       {val.toLocaleString()}{type === "customer" ? "명" : "원"}
                     </text>
                   </g>
@@ -260,13 +219,11 @@ export default function StatsPage() {
           </svg>
         </div>
 
-        {/* X축 날짜 렌더링 (시작, 중간, 끝) */}
-        <div className="absolute left-10 right-10 bottom-0 h-6 flex justify-between items-end text-[10px] font-semibold text-slate-400">
-          <span>{dailyChartData[0]?.dayLabel}</span>
-          {dailyChartData.length > 2 && (
-             <span>{dailyChartData[Math.floor(dailyChartData.length / 2)]?.dayLabel}</span>
-          )}
-          <span>{dailyChartData[dailyChartData.length - 1]?.dayLabel}</span>
+        {/* X축 월별 라벨 */}
+        <div className="absolute left-12 right-10 bottom-0 h-6 flex justify-between items-end text-[10px] font-semibold text-slate-400">
+          {monthlyChartData.map((d, idx) => (
+            <span key={idx}>{d.label}</span>
+          ))}
         </div>
       </div>
     );
@@ -283,15 +240,13 @@ export default function StatsPage() {
       
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white px-6 py-5 rounded-2xl shadow-sm border border-slate-200 gap-4">
         <div>
-          <h1 className="text-xl font-extrabold text-slate-900">📊 통계 및 성과 분석</h1>
-          <p className="text-xs font-semibold text-slate-500 mt-1">상담 데이터를 기반으로 약국의 건강관리 성과를 분석합니다.</p>
+          <h1 className="text-xl font-extrabold text-slate-900">📊 통계 및 성과 분석 (월별)</h1>
+          <p className="text-xs font-semibold text-slate-500 mt-1">상담 데이터를 기반으로 약국의 건강관리 성과를 월별로 분석합니다.</p>
         </div>
         <div className="flex items-center gap-1.5 text-xs">
-          <button onClick={() => setPeriodFilter("month")} className={getFilterClass("month")}>이번 달</button>
-          <button onClick={() => setPeriodFilter("lastMonth")} className={getFilterClass("lastMonth")}>지난달</button>
-          <button onClick={() => setPeriodFilter("3months")} className={getFilterClass("3months")}>3개월</button>
-          <button onClick={() => setPeriodFilter("6months")} className={getFilterClass("6months")}>6개월</button>
-          <button onClick={() => setPeriodFilter("1year")} className={getFilterClass("1year")}>1년</button>
+          <button onClick={() => setPeriodFilter("3months")} className={getFilterClass("3months")}>최근 3개월</button>
+          <button onClick={() => setPeriodFilter("6months")} className={getFilterClass("6months")}>최근 6개월</button>
+          <button onClick={() => setPeriodFilter("1year")} className={getFilterClass("1year")}>최근 1년</button>
         </div>
       </div>
 
@@ -299,36 +254,35 @@ export default function StatsPage() {
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
           <span className="text-xs font-bold text-slate-500 mb-2">총 고객 수</span>
           <div className="text-2xl font-extrabold text-slate-900 mb-2">{patients.length} <span className="text-sm font-bold text-slate-500">명</span></div>
-          <div className="text-[11px] font-bold text-slate-400 flex items-center gap-1">전기 대비 <span className={`px-1.5 py-0.5 rounded ${getRateColor(patients.length, patients.length - currentPatients.length)}`}>{patientRate}</span></div>
+          <div className="text-[11px] font-bold text-slate-400 flex items-center gap-1">전월 대비 <span className={`px-1.5 py-0.5 rounded ${getRateColor(patients.length, patients.length - currentPatients.length)}`}>{patientRate}</span></div>
         </div>
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
-          <span className="text-xs font-bold text-slate-500 mb-2">해당 기간 총 매출</span>
+          <span className="text-xs font-bold text-slate-500 mb-2">이번 달 총 매출</span>
           <div className="text-2xl font-extrabold text-slate-900 mb-2 truncate" title={`${currentSales.toLocaleString()}원`}>{currentSales.toLocaleString()} <span className="text-sm font-bold text-slate-500">원</span></div>
-          <div className="text-[11px] font-bold text-slate-400 flex items-center gap-1">전기 대비 <span className={`px-1.5 py-0.5 rounded ${getRateColor(currentSales, prevSales)}`}>{salesRate}</span></div>
+          <div className="text-[11px] font-bold text-slate-400 flex items-center gap-1">전월 대비 <span className={`px-1.5 py-0.5 rounded ${getRateColor(currentSales, prevSales)}`}>{salesRate}</span></div>
         </div>
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
-          <span className="text-xs font-bold text-slate-500 mb-2">평균 일매출</span>
+          <span className="text-xs font-bold text-slate-500 mb-2">이번 달 일평균 매출</span>
           <div className="text-2xl font-extrabold text-slate-900 mb-2 truncate" title={`${dailyAverageSales.toLocaleString()}원`}>{dailyAverageSales.toLocaleString()} <span className="text-sm font-bold text-slate-500">원</span></div>
-          <div className="text-[11px] font-bold text-slate-400 flex items-center gap-1">전기 대비 <span className={`px-1.5 py-0.5 rounded ${getRateColor(dailyAverageSales, prevDailyAverageSales)}`}>{dailyAvgRate}</span></div>
+          <div className="text-[11px] font-bold text-slate-400 flex items-center gap-1">전월 대비 <span className={`px-1.5 py-0.5 rounded ${getRateColor(dailyAverageSales, prevDailyAverageSales)}`}>{dailyAvgRate}</span></div>
         </div>
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
-          <span className="text-xs font-bold text-slate-500 mb-2">신규 등록 환자</span>
+          <span className="text-xs font-bold text-slate-500 mb-2">이번 달 신규 환자</span>
           <div className="text-2xl font-extrabold text-slate-900 mb-2">{currentPatients.length} <span className="text-sm font-bold text-slate-500">명</span></div>
-          <div className="text-[11px] font-bold text-slate-400 flex items-center gap-1">전기 대비 <span className={`px-1.5 py-0.5 rounded ${getRateColor(currentPatients.length, prevPatients.length)}`}>{newPatientRate}</span></div>
+          <div className="text-[11px] font-bold text-slate-400 flex items-center gap-1">전월 대비 <span className={`px-1.5 py-0.5 rounded ${getRateColor(currentPatients.length, prevPatients.length)}`}>{newPatientRate}</span></div>
         </div>
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between col-span-2 md:col-span-1">
-          <span className="text-xs font-bold text-slate-500 mb-2">총 상담 건수</span>
+          <span className="text-xs font-bold text-slate-500 mb-2">이번 달 상담 건수</span>
           <div className="text-2xl font-extrabold text-slate-900 mb-2">{currentConsultations.length} <span className="text-sm font-bold text-slate-500">건</span></div>
-          <div className="text-[11px] font-bold text-slate-400 flex items-center gap-1">전기 대비 <span className={`px-1.5 py-0.5 rounded ${getRateColor(currentConsultations.length, prevConsultations.length)}`}>{consultRate}</span></div>
+          <div className="text-[11px] font-bold text-slate-400 flex items-center gap-1">전월 대비 <span className={`px-1.5 py-0.5 rounded ${getRateColor(currentConsultations.length, prevConsultations.length)}`}>{consultRate}</span></div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col h-[340px]">
           <div className="flex justify-between items-center border-b border-slate-50 pb-3">
             <h3 className="text-[15px] font-extrabold text-slate-800 flex items-center gap-2">
-              <span className="text-slate-400">👥</span> 고객 수 추이
+              <span className="text-slate-400">👥</span> 월별 고객 수 추이
             </h3>
             <div className="flex items-center gap-3 text-[11px] font-bold text-slate-400">
               <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 bg-[#94a3b8] rounded-sm"></span> 고객 수(명)</span>
@@ -341,7 +295,7 @@ export default function StatsPage() {
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col h-[340px]">
           <div className="flex justify-between items-center border-b border-slate-50 pb-3">
             <h3 className="text-[15px] font-extrabold text-slate-800 flex items-center gap-2">
-              <span className="text-slate-400">💰</span> 매출 추이
+              <span className="text-slate-400">💰</span> 월별 매출 추이
             </h3>
             <div className="flex items-center gap-3 text-[11px] font-bold text-slate-400">
               <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 bg-[#e5e5e5] rounded-sm"></span> 매출(원)</span>
@@ -350,11 +304,11 @@ export default function StatsPage() {
           </div>
           {renderSVGChart("sales")}
         </div>
-
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         
+        {/* 체질 분포 도넛 차트 (원본 유지) */}
         <div className="lg:col-span-5 bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between h-[340px]">
           <div className="flex justify-between items-center border-b border-slate-50 pb-3 mb-6">
             <h3 className="text-[15px] font-extrabold text-slate-800 flex items-center gap-2">
@@ -416,10 +370,11 @@ export default function StatsPage() {
           </div>
         </div>
 
+        {/* 월별 매출 현황 테이블 */}
         <div className="lg:col-span-7 bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between h-[340px]">
           <div className="flex justify-between items-center border-b border-slate-50 pb-3 mb-2">
             <h3 className="text-[15px] font-extrabold text-slate-800 flex items-center gap-2">
-              <span className="text-slate-400">📄</span> 최근 매출 현황
+              <span className="text-slate-400">📄</span> 월별 최근 매출 현황
             </h3>
             <Link href="/consultations#history" className="text-[11px] font-bold text-slate-400 hover:text-slate-800 transition">
               더보기 →
@@ -430,30 +385,27 @@ export default function StatsPage() {
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-50 text-slate-500 border-b border-slate-100">
                 <tr>
-                  <th className="py-3 px-4 font-bold rounded-tl-lg">날짜</th>
-                  <th className="py-3 px-4 font-bold">매출액</th>
+                  <th className="py-3 px-4 font-bold rounded-tl-lg">년월</th>
+                  <th className="py-3 px-4 font-bold">월 매출액</th>
                   <th className="py-3 px-4 font-bold">방문 고객수</th>
-                  <th className="py-3 px-4 font-bold text-right rounded-tr-lg">평균 객단가</th>
+                  <th className="py-3 px-4 font-bold text-right rounded-tr-lg">전월 대비 증감</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {currentConsultations.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="text-center py-12 text-slate-400 font-bold">매출 데이터가 없습니다.</td>
-                  </tr>
-                ) : (
-                  [...dailyChartData].reverse().filter(d => d.sales > 0 || d.activeCustomers > 0).slice(0, 5).map((data, idx) => {
-                    const avgTicket = data.activeCustomers > 0 ? Math.round(data.sales / data.activeCustomers) : 0;
-                    return (
-                      <tr key={idx} className="hover:bg-slate-50/80 transition">
-                        <td className="py-3 px-4 text-slate-500 font-bold">{data.dateStr}</td>
-                        <td className="py-3 px-4 text-slate-900 font-extrabold">{data.sales.toLocaleString()} 원</td>
-                        <td className="py-3 px-4 text-slate-500 font-bold">{data.activeCustomers} 명</td>
-                        <td className="py-3 px-4 text-slate-900 font-extrabold text-right">{avgTicket.toLocaleString()} 원</td>
-                      </tr>
-                    );
-                  })
-                )}
+                {[...monthlyChartData].reverse().map((data, idx) => {
+                  return (
+                    <tr key={idx} className="hover:bg-slate-50/80 transition">
+                      <td className="py-3 px-4 text-slate-500 font-bold">{data.label}</td>
+                      <td className="py-3 px-4 text-slate-900 font-extrabold">{data.sales.toLocaleString()} 원</td>
+                      <td className="py-3 px-4 text-slate-500 font-bold">{data.activeCustomers} 명</td>
+                      <td className="py-3 px-4 text-slate-900 font-extrabold text-right">
+                        <span className={`px-1.5 py-0.5 rounded text-[11px] ${data.sRate > 0 ? "text-emerald-600 bg-emerald-50" : "text-slate-500 bg-slate-100"}`}>
+                          {data.sRate > 0 ? `+${data.sRate.toFixed(0)}%` : `${data.sRate.toFixed(0)}%`}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
