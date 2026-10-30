@@ -5,7 +5,6 @@ import { supabase } from "@/app/lib/supabase";
 
 const CONSTITUTION_OPTIONS = ["선택 안함", "태양인", "태음인", "소양인", "소음인", "강아지", "고양이"];
 
-// 태그 글자에 따라 일관된 컬러를 반환하는 함수
 const getTagColor = (tag: string) => {
   const colors = [
     "bg-red-100 text-red-800 border-red-200", 
@@ -29,16 +28,12 @@ export default function PatientsPage() {
   const [consultations, setConsultations] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   
-  // 우측 상세 조회를 위한 선택된 환자 상태
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
-
-  // 정렬 상태 관리
   const [sortConfig, setSortConfig] = useState({ key: "name", direction: "asc" });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPatientId, setEditingPatientId] = useState<string | null>(null);
 
-  // 팝업 상태들
   const [historyModalPatient, setHistoryModalPatient] = useState<any | null>(null);
   const [photosModalPatient, setPhotosModalPatient] = useState<any | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
@@ -54,9 +49,28 @@ export default function PatientsPage() {
   const [tagsInput, setTagsInput] = useState("");
   const [memo, setMemo] = useState("");
 
+  // 🟢 빌드 에러 방지를 위해 날짜 계산을 상태값으로 처리
+  const [activeCount, setActiveCount] = useState(0);
+
   useEffect(() => {
     fetchData();
   }, []);
+
+  // 🟢 상담 데이터가 바뀔 때 안전하게 활성 고객 수 계산
+  useEffect(() => {
+    if (consultations.length > 0) {
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+      const activePatientIds = new Set(
+        consultations
+          .filter(c => new Date(c.consultation_date || c.created_at) >= threeMonthsAgo)
+          .map(c => c.patient_id)
+      );
+      setActiveCount(activePatientIds.size);
+    } else {
+      setActiveCount(0);
+    }
+  }, [consultations]);
 
   const fetchData = async () => {
     const { data: pData } = await supabase.from("patients").select("*").order("name");
@@ -106,16 +120,7 @@ export default function PatientsPage() {
     return { count, totalAmount, lastDate, lastPrescription, pConsults };
   };
 
-  // 상단 통계 계산
   const totalPatientsCount = patients.length;
-  const threeMonthsAgo = new Date();
-  threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-  const activePatientIds = new Set(
-    consultations
-      .filter(c => new Date(c.consultation_date || c.created_at) >= threeMonthsAgo)
-      .map(c => c.patient_id)
-  );
-  const activeCount = activePatientIds.size;
 
   const patientConsultCounts: Record<string, number> = {};
   consultations.forEach(c => {
