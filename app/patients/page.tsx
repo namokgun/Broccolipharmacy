@@ -29,7 +29,6 @@ export default function PatientsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
-  const [sortConfig, setSortConfig] = useState({ key: "name", direction: "asc" });
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingPatientId, setEditingPatientId] = useState<string | null>(null);
@@ -49,14 +48,12 @@ export default function PatientsPage() {
   const [tagsInput, setTagsInput] = useState("");
   const [memo, setMemo] = useState("");
 
-  // 🟢 빌드 에러 방지를 위해 날짜 계산을 상태값으로 처리
   const [activeCount, setActiveCount] = useState(0);
 
   useEffect(() => {
     fetchData();
   }, []);
 
-  // 🟢 상담 데이터가 바뀔 때 안전하게 활성 고객 수 계산
   useEffect(() => {
     if (consultations.length > 0) {
       const threeMonthsAgo = new Date();
@@ -204,16 +201,7 @@ export default function PatientsPage() {
     return matchNameOrId || matchTag || matchAddress;
   });
 
-  const sortedPatients = [...filteredPatients].sort((a, b) => {
-    let valA = a[sortConfig.key];
-    let valB = b[sortConfig.key];
-    if (valA === undefined || valA === null) valA = "";
-    if (valB === undefined || valB === null) valB = "";
-    if (typeof valA === "string" && typeof valB === "string") {
-      return sortConfig.direction === "asc" ? valA.localeCompare(valB) : valB.localeCompare(valA);
-    }
-    return sortConfig.direction === "asc" ? valA - valB : valB - valA;
-  });
+  const sortedPatients = [...filteredPatients].sort((a, b) => a.name.localeCompare(b.name));
 
   const selectedPatientStats = selectedPatient ? getPatientStats(selectedPatient.id) : { count: 0, totalAmount: 0, lastDate: "-", lastPrescription: "-", pConsults: [] };
   const selectedPatientAllPhotos = selectedPatient 
@@ -301,9 +289,9 @@ export default function PatientsPage() {
                       <span className="text-slate-500 text-[11px]">{p.phone || "연락처 없음"}</span>
                     </div>
 
-                    {/* 연령, 성별, 체질, 최근방문, 상담횟수, 태그 */}
+                    {/* 연령, 성별, 체질, 최근방문, 상담횟수, 태그 (부제목 없이 1줄로 길게 표기) */}
                     <div className="flex-1 flex items-center gap-2 truncate text-[11px]">
-                      <span className="text-slate-600 font-semibold">{ageText} / {p.gender || "-"}</span>
+                      <span className="text-slate-600 font-semibold whitespace-nowrap">{ageText} / {p.gender || "-"}</span>
                       {p.body_type && p.body_type !== "선택 안함" && (
                         <span className="bg-teal-50 text-teal-800 px-2 py-0.5 rounded-md font-bold whitespace-nowrap">
                           {p.body_type}
@@ -312,7 +300,6 @@ export default function PatientsPage() {
                       <span className="text-slate-500 whitespace-nowrap">{p.lastDate}</span>
                       <span className="text-slate-700 font-bold whitespace-nowrap">{p.count}회</span>
                       
-                      {/* 메모 자리에는 태그 표시 */}
                       <div className="flex flex-wrap gap-1 truncate">
                         {p.tags && p.tags.map((tag: string, idx: number) => (
                           <span key={idx} className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border whitespace-nowrap ${getTagColor(tag)}`}>{tag}</span>
