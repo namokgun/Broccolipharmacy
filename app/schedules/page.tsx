@@ -19,6 +19,34 @@ const THEME_CLASSES: Record<string, { bg: string, text: string }> = {
   rose: { bg: "bg-rose-50 border-rose-200", text: "text-rose-900" },
 };
 
+// 🟢 순수 날짜 연산 함수 (타임존 오류 방지)
+const addDays = (dateStr: string, days: number): string => {
+  if (!dateStr || !days) return "";
+  const cleanStr = dateStr.slice(0, 10);
+  const parts = cleanStr.split("-");
+  if (parts.length !== 3) return "";
+  const y = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10) - 1;
+  const d = parseInt(parts[2], 10);
+  const target = new Date(y, m, d + days);
+  const ty = target.getFullYear();
+  const tm = String(target.getMonth() + 1).padStart(2, "0");
+  const td = String(target.getDate()).padStart(2, "0");
+  return `${ty}-${tm}-${td}`;
+};
+
+// 🟢 날짜 요약 텍스트 가공 (건 / 원 띄어쓰기 한 칸 및 0원 생략)
+const formatSummaryText = (count: number, totalAmount: number) => {
+  if (count <= 0) return null;
+  if (totalAmount <= 0) return `${count}건`;
+  
+  const amountText = totalAmount >= 10000 
+    ? `${(totalAmount / 10000).toFixed(0)}만` 
+    : `${totalAmount.toLocaleString()}원`;
+    
+  return `${count}건 / ${amountText}`;
+};
+
 export default function SchedulesPage() {
   const [schedules, setSchedules] = useState<any[]>([]);
   const [consultations, setConsultations] = useState<any[]>([]); 
@@ -67,6 +95,25 @@ export default function SchedulesPage() {
     setCurrentDate(new Date());
     fetchData(); 
   }, []);
+
+  // 🟢 피드백 완료 (줄긋기) 토글 함수
+  const handleToggleFeedbackComplete = async (e: React.MouseEvent, c: any) => {
+    e.stopPropagation();
+    const newStatus = !c.feedback_completed;
+
+    // UI 즉시 반영 (Optimistic Update)
+    setConsultations(prev => prev.map(item => item.id === c.id ? { ...item, feedback_completed: newStatus } : item));
+    if (selectedDetailConsultation?.id === c.id) {
+      setSelectedDetailConsultation((prev: any) => ({ ...prev, feedback_completed: newStatus }));
+    }
+
+    // Supabase DB 업데이트
+    const { error } = await supabase.from("consultations").update({ feedback_completed: newStatus }).eq("id", c.id);
+    if (error) {
+      console.error("피드백 완료 상태 변경 실패:", error.message);
+      fetchData(); // 에러 시 복구
+    }
+  };
 
   const handleSubmitSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,14 +169,6 @@ export default function SchedulesPage() {
     setEditingId(null); setScheduleDate(dateStr); setScheduleTime("14:00"); setTitle(""); setContent(""); setTheme("blue"); setIsModalOpen(true); 
   };
 
-  // 피드백 예정일 계산 함수 (상담일 + feedback_days)
-  const getFeedbackTargetDate = (consultDateStr: string, days: number) => {
-    if (!consultDateStr || !days) return "";
-    const d = new Date(consultDateStr);
-    d.setDate(d.getDate() + days);
-    return d.toISOString().split('T')[0];
-  };
-
   if (!currentDate) return <div className="flex h-40 items-center justify-center text-slate-400">캘린더 로딩 중...</div>;
 
   const year = currentDate.getFullYear(); 
@@ -159,7 +198,7 @@ export default function SchedulesPage() {
         </div>
       </div>
 
-      {/* 🟢 핵심: 좌우 1:1 동시 배치 영역 (grid-cols-1 xl:grid-cols-2) */}
+      {/* 🟢 좌우 1:1 동시 배치 영역 (grid-cols-1 xl:grid-cols-2) */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 flex-1 min-h-0 overflow-y-auto pr-1">
         
         {/* ======================================================== */}
@@ -197,13 +236,17 @@ export default function SchedulesPage() {
               const visibleItems = allDayItems.slice(0, MAX_VISIBLE); 
               const hiddenCount = allDayItems.length - MAX_VISIBLE;
 
+              const summaryText = formatSummaryText(dayConsultations.length, totalAmount);
+
               return (
                 <div key={`day-left-${d}`} onDoubleClick={() => handleDateDoubleClick(dateStr)} className={`rounded-xl p-1.5 border transition flex flex-col items-start cursor-pointer hover:border-teal-400 overflow-hidden select-none min-h-[72px] ${isToday ? "bg-teal-50/40 border-teal-500 shadow-2xs" : "bg-white border-slate-100 hover:bg-slate-50/50"}`}>
+                  
+                  {/* 상단 요약 라인 */}
                   <div className="flex justify-between items-start w-full mb-0.5">
                     <span className={`text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full flex-shrink-0 ${isToday ? "bg-teal-900 text-white" : "text-slate-700"}`}>{d}</span>
-                    {dayConsultations.length > 0 && (
-                      <div className="text-[8px] font-bold text-teal-700 text-right leading-none">
-                        {dayConsultations.length}건/{(totalAmount/10000).toFixed(0)}만
+                    {summaryText && (
+                      <div className="text-[8px] font-bold text-teal-700 text-right leading-none truncate pl-1">
+                        {summaryText}
                       </div>
                     )}
                   </div>
@@ -227,11 +270,13 @@ export default function SchedulesPage() {
                         );
                       }
                     })}
-                    {hiddenCount > 0 && (
+
+                    {/* 🟢 및0개/0개 방지: hiddenCount > 0일 때만 표시 */}
+                    {hiddenCount > 0 ? (
                       <div onClick={(e) => { e.stopPropagation(); setDayDetailType("consult"); setDayDetailDate(dateStr); }} className="text-[8px] font-semibold text-slate-500 hover:text-slate-800 transition px-0.5 cursor-pointer">
                         +{hiddenCount}개 더보기
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               );
@@ -260,11 +305,11 @@ export default function SchedulesPage() {
               const d = i + 1; 
               const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
               
-              // 해당 날짜에 피드백이 예정되어 있는 상담 목록 조회
+              // 해당 날짜에 피드백이 예정되어 있는 상담 데이터 정확히 조회
               const dayFeedbacks = consultations.filter(c => {
                 if (!c.feedback_days || c.feedback_days <= 0) return false;
                 const cDateStr = c.consultation_date || c.created_at.split('T')[0];
-                const targetDate = getFeedbackTargetDate(cDateStr, c.feedback_days);
+                const targetDate = addDays(cDateStr, c.feedback_days);
                 return targetDate === dateStr;
               });
 
@@ -285,20 +330,31 @@ export default function SchedulesPage() {
                   </div>
 
                   <div className="w-full space-y-0.5 text-left flex-1">
-                    {visibleItems.map((c, idx) => (
-                      <div 
-                        key={`f-${c.id || idx}`} 
-                        onClick={(e) => handleScheduleClick(e, { type: 'feedback', data: c })} 
-                        className="text-[9px] px-1.5 py-0.5 rounded truncate flex items-center justify-between transition cursor-pointer font-bold border bg-purple-50 border-purple-200 text-purple-900 hover:bg-purple-100"
-                      >
-                        <span className="truncate">📌 {c.patients?.name || "알수없음"} ({c.feedback_days}일차)</span>
-                      </div>
-                    ))}
-                    {hiddenCount > 0 && (
+                    {visibleItems.map((c, idx) => {
+                      const isDone = !!c.feedback_completed;
+                      return (
+                        <div 
+                          key={`f-${c.id || idx}`} 
+                          onClick={(e) => handleScheduleClick(e, { type: 'feedback', data: c })} 
+                          className={`text-[9px] px-1.5 py-0.5 rounded truncate flex items-center justify-between transition cursor-pointer font-bold border ${
+                            isDone 
+                              ? "bg-slate-100 text-slate-400 border-slate-200 line-through opacity-60" 
+                              : "bg-purple-50 border-purple-200 text-purple-900 hover:bg-purple-100"
+                          }`}
+                        >
+                          <span className="truncate">
+                            {isDone ? "✓ " : "📌 "}{c.patients?.name || "알수없음"} ({c.feedback_days}일차)
+                          </span>
+                        </div>
+                      );
+                    })}
+
+                    {/* 🟢 및0개/0개 방지: hiddenCount > 0일 때만 표시 */}
+                    {hiddenCount > 0 ? (
                       <div onClick={(e) => { e.stopPropagation(); setDayDetailType("feedback"); setDayDetailDate(dateStr); }} className="text-[8px] font-semibold text-purple-600 hover:text-purple-900 transition px-0.5 cursor-pointer">
                         +{hiddenCount}개 더보기
                       </div>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               );
@@ -360,20 +416,36 @@ export default function SchedulesPage() {
                 consultations.filter(c => {
                   if (!c.feedback_days || c.feedback_days <= 0) return false;
                   const cDateStr = c.consultation_date || c.created_at.split('T')[0];
-                  return getFeedbackTargetDate(cDateStr, c.feedback_days) === dayDetailDate;
-                }).map((c, idx) => (
-                  <div 
-                    key={`f-modal-${c.id || idx}`}
-                    onClick={(e) => { setDayDetailDate(null); handleScheduleClick(e, { type: 'feedback', data: c }); }}
-                    className="px-2.5 py-2 rounded-xl flex flex-col gap-1 transition cursor-pointer font-bold border bg-purple-50 border-purple-200 text-purple-900 hover:bg-purple-100 shadow-xs text-xs"
-                  >
-                    <div className="flex justify-between items-center">
-                      <span>📌 {c.patients?.name || "알수없음"}</span>
-                      <span className="text-[10px] bg-purple-200 text-purple-900 px-1.5 py-0.5 rounded-md">{c.feedback_days}일차 피드백</span>
+                  return addDays(cDateStr, c.feedback_days) === dayDetailDate;
+                }).map((c, idx) => {
+                  const isDone = !!c.feedback_completed;
+                  return (
+                    <div 
+                      key={`f-modal-${c.id || idx}`}
+                      onClick={(e) => { setDayDetailDate(null); handleScheduleClick(e, { type: 'feedback', data: c }); }}
+                      className={`px-2.5 py-2 rounded-xl flex flex-col gap-1 transition cursor-pointer font-bold border shadow-xs text-xs ${
+                        isDone 
+                          ? "bg-slate-100 border-slate-200 text-slate-400 line-through" 
+                          : "bg-purple-50 border-purple-200 text-purple-900 hover:bg-purple-100"
+                      }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span>{isDone ? "✓ " : "📌 "}{c.patients?.name || "알수없음"}</span>
+                        <div className="flex items-center gap-1">
+                          <button 
+                            type="button" 
+                            onClick={(e) => handleToggleFeedbackComplete(e, c)} 
+                            className="text-[10px] bg-white border border-purple-300 text-purple-800 px-1.5 py-0.5 rounded hover:bg-purple-50"
+                          >
+                            {isDone ? "미완료 변경" : "완료(줄긋기)"}
+                          </button>
+                          <span className="text-[10px] bg-purple-200 text-purple-900 px-1.5 py-0.5 rounded-md">{c.feedback_days}일차</span>
+                        </div>
+                      </div>
+                      <span className="text-[11px] font-normal truncate">{c.prescription || "처방 기록 없음"}</span>
                     </div>
-                    <span className="text-[11px] font-normal text-purple-800 truncate">{c.prescription || "처방 기록 없음"}</span>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -403,7 +475,7 @@ export default function SchedulesPage() {
         </div>
       )}
 
-      {/* 상담 기록 상세 보기 모달 */}
+      {/* 상담 및 피드백 기록 상세 보기 모달 */}
       {selectedDetailConsultation && (
         <div onClick={() => setSelectedDetailConsultation(null)} className="fixed inset-0 z-[110] bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-xl max-h-[85vh] rounded-3xl p-5 shadow-2xl border border-slate-200 flex flex-col space-y-3 cursor-default" onClick={e => e.stopPropagation()}>
@@ -421,6 +493,30 @@ export default function SchedulesPage() {
 
             <div className="flex-1 overflow-y-auto space-y-2 pr-1 text-xs">
               <div className="flex flex-col gap-2">
+                
+                {/* 🟢 피드백 상태 완료(줄긋기) 토글 버튼 */}
+                {selectedDetailConsultation.feedback_days > 0 && (
+                  <div className="p-2.5 bg-purple-50 rounded-xl border border-purple-200 flex justify-between items-center">
+                    <div>
+                      <span className="text-[10px] font-bold text-purple-700 block">🔔 피드백 상태 ({selectedDetailConsultation.feedback_days}일차)</span>
+                      <span className={`text-xs font-extrabold ${selectedDetailConsultation.feedback_completed ? "text-slate-400 line-through" : "text-purple-900"}`}>
+                        {selectedDetailConsultation.feedback_completed ? "피드백 진행 완료" : "피드백 미완료 (진행 중)"}
+                      </span>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={(e) => handleToggleFeedbackComplete(e, selectedDetailConsultation)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                        selectedDetailConsultation.feedback_completed 
+                          ? "bg-slate-200 text-slate-700 hover:bg-slate-300" 
+                          : "bg-purple-900 text-white hover:bg-purple-800"
+                      }`}
+                    >
+                      {selectedDetailConsultation.feedback_completed ? "미완료 상태로 변경" : "피드백 완료 (줄긋기)"}
+                    </button>
+                  </div>
+                )}
+
                 <div className="flex flex-wrap gap-x-4 text-xs font-bold text-slate-800 mb-1">
                   {selectedDetailConsultation.symptoms && <div><span className="text-slate-400 text-[10px] mr-1">주호소</span>{selectedDetailConsultation.symptoms}</div>}
                   {selectedDetailConsultation.prescription && <div className="text-teal-700"><span className="text-teal-400 text-[10px] mr-1">처방</span>{selectedDetailConsultation.prescription}</div>}
