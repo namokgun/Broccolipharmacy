@@ -66,6 +66,15 @@ export default function Sidebar() {
           </Link>
 
           <Link 
+            href="/stats" 
+            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
+              pathname === "/stats" ? "bg-teal-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
+          >
+            <span>📈</span> 통계 분석
+          </Link>
+
+          <Link 
             href="/consultations" 
             onClick={() => handleNavClick("")}
             className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
@@ -141,6 +150,16 @@ export default function Sidebar() {
         >
           <span className="text-lg mb-0.5">📊</span>
           <span>대시보드</span>
+        </Link>
+
+        <Link 
+          href="/stats" 
+          className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
+            pathname === "/stats" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <span className="text-lg mb-0.5">📈</span>
+          <span>통계</span>
         </Link>
 
         <Link 
