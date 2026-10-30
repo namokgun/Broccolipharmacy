@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
+import { supabase } from "@/app/lib/supabase";
 
 const THEMES: Record<string, { bg: string, text: string, ring: string, label: string }> = {
   blue: { bg: "bg-blue-500", text: "text-white", ring: "ring-blue-400", label: "블루" },
@@ -28,6 +28,7 @@ export default function SchedulesPage() {
   const [selectedDetailConsultation, setSelectedDetailConsultation] = useState<any | null>(null); 
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null); 
   const [dayDetailDate, setDayDetailDate] = useState<string | null>(null); 
+  const [dayDetailType, setDayDetailType] = useState<"consult" | "feedback">("consult");
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -41,7 +42,7 @@ export default function SchedulesPage() {
     const { data: sData } = await supabase.from("schedules").select("*").order("schedule_date", { ascending: true }).order("time", { ascending: true });
     if (sData) setSchedules(sData);
 
-    const { data: cData } = await supabase.from("consultations").select("*, patients(name)").order("created_at", { ascending: false });
+    const { data: cData } = await supabase.from("consultations").select("*, patients(name, phone)").order("created_at", { ascending: false });
     if (cData) {
       const withSignedUrls = await Promise.all(
         cData.map(async (c) => {
@@ -98,7 +99,7 @@ export default function SchedulesPage() {
   
   const handleScheduleClick = (e: React.MouseEvent, item: any) => { 
     e.stopPropagation(); 
-    if (item.type === 'consultation') {
+    if (item.type === 'consultation' || item.type === 'feedback') {
       setSelectedDetailConsultation(item.data); 
     } else {
       setSelectedDetailSchedule(item.data);    
@@ -121,6 +122,14 @@ export default function SchedulesPage() {
     setEditingId(null); setScheduleDate(dateStr); setScheduleTime("14:00"); setTitle(""); setContent(""); setTheme("blue"); setIsModalOpen(true); 
   };
 
+  // 피드백 예정일 계산 함수 (상담일 + feedback_days)
+  const getFeedbackTargetDate = (consultDateStr: string, days: number) => {
+    if (!consultDateStr || !days) return "";
+    const d = new Date(consultDateStr);
+    d.setDate(d.getDate() + days);
+    return d.toISOString().split('T')[0];
+  };
+
   if (!currentDate) return <div className="flex h-40 items-center justify-center text-slate-400">캘린더 로딩 중...</div>;
 
   const year = currentDate.getFullYear(); 
@@ -132,10 +141,11 @@ export default function SchedulesPage() {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
 
   return (
-    <div className="w-full h-[calc(100vh-80px)] flex flex-col space-y-4 overflow-hidden">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 flex-shrink-0">
-        <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-slate-900">
-          📅 상담 캘린더 ({year}년 {month + 1}월)
+    <div className="w-full h-[calc(100vh-80px)] flex flex-col space-y-3 overflow-hidden pb-4">
+      {/* 상단 컨트롤 헤더 */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 flex-shrink-0">
+        <h1 className="text-xl md:text-2xl font-extrabold tracking-tight text-slate-900">
+          📅 캘린더 센터 ({year}년 {month + 1}월)
         </h1>
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center bg-white border border-slate-200 rounded-xl p-1 shadow-2xs">
@@ -143,135 +153,234 @@ export default function SchedulesPage() {
             <button onClick={handleToday} className="px-3 py-1 hover:bg-slate-100 rounded-lg text-xs font-bold text-slate-800 transition">오늘</button>
             <button onClick={handleNext} className="px-3 py-1 hover:bg-slate-100 rounded-lg text-xs font-bold text-slate-600 transition">&gt;</button>
           </div>
-          <button onClick={() => { setEditingId(null); setScheduleDate(new Date().toISOString().split('T')[0]); setScheduleTime("14:00"); setTitle(""); setContent(""); setTheme("blue"); setIsModalOpen(true); }} className="px-4 py-2 bg-teal-900 hover:bg-teal-800 text-white font-semibold rounded-xl transition text-xs md:text-sm shadow-sm">
+          <button onClick={() => { setEditingId(null); setScheduleDate(new Date().toISOString().split('T')[0]); setScheduleTime("14:00"); setTitle(""); setContent(""); setTheme("blue"); setIsModalOpen(true); }} className="px-3.5 py-2 bg-teal-900 hover:bg-teal-800 text-white font-semibold rounded-xl transition text-xs shadow-sm">
             + 새로운 이벤트
           </button>
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 flex flex-col flex-1 overflow-hidden p-4 md:p-6">
-        <div className="grid grid-cols-7 text-center text-xs font-bold text-slate-400 mb-2 pb-2 border-b border-slate-100 flex-shrink-0">
-          <span className="text-red-500">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span className="text-blue-500">토</span>
-        </div>
-        <div className="grid grid-cols-7 text-center gap-1.5 flex-1 min-h-0 overflow-y-auto">
-          {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`empty-${i}`} className="bg-slate-50/20 rounded-2xl" />)}
-          {Array.from({ length: daysInMonth }).map((_, i) => {
-            const d = i + 1; 
-            const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
-            
-            const daySchedules = schedules.filter(s => s.schedule_date === dateStr);
-            const dayConsultations = consultations.filter(c => (c.consultation_date || c.created_at.split('T')[0]) === dateStr);
-            
-            // 🟢 일별 총 금액 합산
-            const totalAmount = dayConsultations.reduce((sum, c) => sum + (c.amount || 0), 0);
+      {/* 🟢 핵심: 좌우 1:1 동시 배치 영역 (grid-cols-1 xl:grid-cols-2) */}
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 flex-1 min-h-0 overflow-y-auto pr-1">
+        
+        {/* ======================================================== */}
+        {/* 1. 좌측: 상담 및 일정 캘린더 */}
+        {/* ======================================================== */}
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 flex flex-col p-3 md:p-4">
+          <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-100 flex-shrink-0">
+            <h2 className="text-sm font-extrabold text-teal-950 flex items-center gap-1.5">
+              <span>🩺</span> 상담 및 약국 일정
+            </h2>
+            <span className="text-[10px] text-slate-400 font-semibold">내방 상담 / 일정 등록</span>
+          </div>
 
-            const allDayItems = [
-              ...dayConsultations.map(c => ({ type: 'consultation', data: c })),
-              ...daySchedules.map(s => ({ type: 'schedule', data: s }))
-            ];
+          <div className="grid grid-cols-7 text-center text-[10px] font-bold text-slate-400 mb-1.5 pb-1 border-b border-slate-100 flex-shrink-0">
+            <span className="text-red-500">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span className="text-blue-500">토</span>
+          </div>
 
-            const isToday = d === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear();
-            const MAX_VISIBLE = 3; 
-            const visibleItems = allDayItems.slice(0, MAX_VISIBLE); 
-            const hiddenCount = allDayItems.length - MAX_VISIBLE;
+          <div className="grid grid-cols-7 text-center gap-1 flex-1 min-h-0 overflow-y-auto">
+            {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`empty-left-${i}`} className="bg-slate-50/20 rounded-xl" />)}
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const d = i + 1; 
+              const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+              
+              const daySchedules = schedules.filter(s => s.schedule_date === dateStr);
+              const dayConsultations = consultations.filter(c => (c.consultation_date || c.created_at.split('T')[0]) === dateStr);
+              const totalAmount = dayConsultations.reduce((sum, c) => sum + (c.amount || 0), 0);
 
-            return (
-              <div key={`day-${d}`} onDoubleClick={() => handleDateDoubleClick(dateStr)} className={`rounded-2xl p-2 border transition flex flex-col items-start cursor-pointer hover:border-teal-400 overflow-hidden select-none ${isToday ? "bg-teal-50/40 border-teal-500 shadow-2xs" : "bg-white border-slate-100 hover:bg-slate-50/50"}`}>
-                
-                {/* 🟢 좌측상단: 날짜, 우측상단: 상담요약(총 0건 000만) */}
-                <div className="flex justify-between items-start w-full mb-1">
-                  <span className={`text-[10px] md:text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full flex-shrink-0 ${isToday ? "bg-teal-900 text-white" : "text-slate-700"}`}>
-                    {d}
-                  </span>
-                  {dayConsultations.length > 0 && (
-                    <div className="text-[9px] font-bold text-teal-700 text-right leading-tight">
-                      총 {dayConsultations.length}건<br/>{(totalAmount/10000).toFixed(0)}만
-                    </div>
-                  )}
+              const allDayItems = [
+                ...dayConsultations.map(c => ({ type: 'consultation', data: c })),
+                ...daySchedules.map(s => ({ type: 'schedule', data: s }))
+              ];
+
+              const isToday = d === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear();
+              const MAX_VISIBLE = 2; 
+              const visibleItems = allDayItems.slice(0, MAX_VISIBLE); 
+              const hiddenCount = allDayItems.length - MAX_VISIBLE;
+
+              return (
+                <div key={`day-left-${d}`} onDoubleClick={() => handleDateDoubleClick(dateStr)} className={`rounded-xl p-1.5 border transition flex flex-col items-start cursor-pointer hover:border-teal-400 overflow-hidden select-none min-h-[72px] ${isToday ? "bg-teal-50/40 border-teal-500 shadow-2xs" : "bg-white border-slate-100 hover:bg-slate-50/50"}`}>
+                  <div className="flex justify-between items-start w-full mb-0.5">
+                    <span className={`text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full flex-shrink-0 ${isToday ? "bg-teal-900 text-white" : "text-slate-700"}`}>{d}</span>
+                    {dayConsultations.length > 0 && (
+                      <div className="text-[8px] font-bold text-teal-700 text-right leading-none">
+                        {dayConsultations.length}건/{(totalAmount/10000).toFixed(0)}만
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="w-full space-y-0.5 text-left flex-1">
+                    {visibleItems.map((item, idx) => {
+                      if (item.type === 'consultation') {
+                        const c = item.data;
+                        return (
+                          <div key={`c-${c.id || idx}`} onClick={(e) => handleScheduleClick(e, item)} className="text-[9px] px-1.5 py-0.5 rounded truncate flex items-center justify-between transition cursor-pointer font-bold border bg-teal-50 border-teal-200 text-teal-900 hover:bg-teal-100">
+                            <span className="truncate">🩺 {c.patients?.name || "알수없음"}</span>
+                          </div>
+                        );
+                      } else {
+                        const s = item.data;
+                        const tc = THEME_CLASSES[s.theme || "blue"] || THEME_CLASSES.blue;
+                        return (
+                          <div key={`s-${s.id || idx}`} onClick={(e) => handleScheduleClick(e, item)} className={`text-[9px] px-1.5 py-0.5 rounded truncate flex items-center justify-between transition cursor-pointer font-semibold border hover:opacity-80 ${tc.bg} ${tc.text}`}>
+                            <span className="truncate">{s.title}</span>
+                          </div>
+                        );
+                      }
+                    })}
+                    {hiddenCount > 0 && (
+                      <div onClick={(e) => { e.stopPropagation(); setDayDetailType("consult"); setDayDetailDate(dateStr); }} className="text-[8px] font-semibold text-slate-500 hover:text-slate-800 transition px-0.5 cursor-pointer">
+                        +{hiddenCount}개 더보기
+                      </div>
+                    )}
+                  </div>
                 </div>
+              );
+            })}
+          </div>
+        </div>
 
-                <div className="w-full space-y-1 text-left flex-1">
-                  {visibleItems.map((item, idx) => {
+        {/* ======================================================== */}
+        {/* 2. 우측: 피드백 모니터링 캘린더 */}
+        {/* ======================================================== */}
+        <div className="bg-white rounded-3xl shadow-sm border border-purple-200/80 flex flex-col p-3 md:p-4">
+          <div className="flex justify-between items-center mb-2 pb-2 border-b border-purple-100 flex-shrink-0">
+            <h2 className="text-sm font-extrabold text-purple-950 flex items-center gap-1.5">
+              <span>🔔</span> 피드백 모니터링 캘린더
+            </h2>
+            <span className="text-[10px] text-purple-500 font-semibold">피드백 도달 예정일</span>
+          </div>
+
+          <div className="grid grid-cols-7 text-center text-[10px] font-bold text-slate-400 mb-1.5 pb-1 border-b border-slate-100 flex-shrink-0">
+            <span className="text-red-500">일</span><span>월</span><span>화</span><span>수</span><span>목</span><span>금</span><span className="text-blue-500">토</span>
+          </div>
+
+          <div className="grid grid-cols-7 text-center gap-1 flex-1 min-h-0 overflow-y-auto">
+            {Array.from({ length: firstDayOfMonth }).map((_, i) => <div key={`empty-right-${i}`} className="bg-purple-50/20 rounded-xl" />)}
+            {Array.from({ length: daysInMonth }).map((_, i) => {
+              const d = i + 1; 
+              const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+              
+              // 해당 날짜에 피드백이 예정되어 있는 상담 목록 조회
+              const dayFeedbacks = consultations.filter(c => {
+                if (!c.feedback_days || c.feedback_days <= 0) return false;
+                const cDateStr = c.consultation_date || c.created_at.split('T')[0];
+                const targetDate = getFeedbackTargetDate(cDateStr, c.feedback_days);
+                return targetDate === dateStr;
+              });
+
+              const isToday = d === new Date().getDate() && month === new Date().getMonth() && year === new Date().getFullYear();
+              const MAX_VISIBLE = 2; 
+              const visibleItems = dayFeedbacks.slice(0, MAX_VISIBLE); 
+              const hiddenCount = dayFeedbacks.length - MAX_VISIBLE;
+
+              return (
+                <div key={`day-right-${d}`} className={`rounded-xl p-1.5 border transition flex flex-col items-start cursor-pointer hover:border-purple-400 overflow-hidden select-none min-h-[72px] ${isToday ? "bg-purple-50/40 border-purple-500 shadow-2xs" : "bg-white border-slate-100 hover:bg-purple-50/20"}`}>
+                  <div className="flex justify-between items-start w-full mb-0.5">
+                    <span className={`text-[10px] font-bold w-4 h-4 flex items-center justify-center rounded-full flex-shrink-0 ${isToday ? "bg-purple-900 text-white" : "text-slate-700"}`}>{d}</span>
+                    {dayFeedbacks.length > 0 && (
+                      <span className="text-[8px] font-bold text-purple-700 bg-purple-100 px-1 rounded-md">
+                        {dayFeedbacks.length}건
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="w-full space-y-0.5 text-left flex-1">
+                    {visibleItems.map((c, idx) => (
+                      <div 
+                        key={`f-${c.id || idx}`} 
+                        onClick={(e) => handleScheduleClick(e, { type: 'feedback', data: c })} 
+                        className="text-[9px] px-1.5 py-0.5 rounded truncate flex items-center justify-between transition cursor-pointer font-bold border bg-purple-50 border-purple-200 text-purple-900 hover:bg-purple-100"
+                      >
+                        <span className="truncate">📌 {c.patients?.name || "알수없음"} ({c.feedback_days}일차)</span>
+                      </div>
+                    ))}
+                    {hiddenCount > 0 && (
+                      <div onClick={(e) => { e.stopPropagation(); setDayDetailType("feedback"); setDayDetailDate(dateStr); }} className="text-[8px] font-semibold text-purple-600 hover:text-purple-900 transition px-0.5 cursor-pointer">
+                        +{hiddenCount}개 더보기
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+      </div>
+
+      {/* 🟢 특정 날짜의 모든 일정 보기 모달 ("+X개 더보기" 클릭 시) */}
+      {dayDetailDate && (
+        <div onClick={() => setDayDetailDate(null)} className="fixed inset-0 z-[90] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
+          <div className="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl border border-slate-200 flex flex-col cursor-default max-h-[80vh]" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b pb-2 mb-3">
+              <h3 className="text-base font-bold text-slate-900">
+                {dayDetailType === "consult" ? "📅" : "🔔"} {dayDetailDate} {dayDetailType === "consult" ? "상담/일정 전체" : "피드백 목록 전체"}
+              </h3>
+              <button onClick={() => setDayDetailDate(null)} className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+              {dayDetailType === "consult" ? (
+                (() => {
+                  const daySchedules = schedules.filter(s => s.schedule_date === dayDetailDate);
+                  const dayConsultations = consultations.filter(c => (c.consultation_date || c.created_at.split('T')[0]) === dayDetailDate);
+                  const allDayItems = [
+                    ...dayConsultations.map(c => ({ type: 'consultation', data: c })),
+                    ...daySchedules.map(s => ({ type: 'schedule', data: s }))
+                  ];
+
+                  return allDayItems.map((item, idx) => {
                     if (item.type === 'consultation') {
                       const c = item.data;
                       return (
-                        <div key={`c-${c.id || idx}`} onClick={(e) => handleScheduleClick(e, item)} className="text-[10px] md:text-[11px] px-2 py-1 rounded-lg truncate flex items-center justify-between transition cursor-pointer font-bold border bg-teal-50 border-teal-200 text-teal-900 hover:bg-teal-100">
-                          <span className="truncate">🩺 {c.patients?.name || "알수없음"} / {c.prescription || "처방없음"}</span>
+                        <div 
+                          key={`c-${c.id || idx}`} 
+                          onClick={(e) => { setDayDetailDate(null); handleScheduleClick(e, item); }} 
+                          className="px-2.5 py-2 rounded-xl flex items-center justify-between transition cursor-pointer font-bold border bg-teal-50 border-teal-200 text-teal-900 hover:bg-teal-100 shadow-xs text-xs"
+                        >
+                          <span className="whitespace-pre-line leading-tight">🩺 {c.patients?.name || "알수없음"}<br/>{c.prescription || "처방없음"}</span>
                         </div>
                       );
                     } else {
                       const s = item.data;
                       const tc = THEME_CLASSES[s.theme || "blue"] || THEME_CLASSES.blue;
                       return (
-                        <div key={`s-${s.id || idx}`} onClick={(e) => handleScheduleClick(e, item)} className={`text-[10px] md:text-[11px] px-2 py-1 rounded-lg truncate flex items-center justify-between transition cursor-pointer font-semibold border hover:opacity-80 ${tc.bg} ${tc.text}`}>
+                        <div 
+                          key={`s-${s.id || idx}`} 
+                          onClick={(e) => { setDayDetailDate(null); handleScheduleClick(e, item); }} 
+                          className={`px-2.5 py-2 rounded-xl flex items-center justify-between transition cursor-pointer font-semibold border hover:opacity-80 shadow-xs text-xs ${tc.bg} ${tc.text}`}
+                        >
                           <span className="truncate">{s.title}</span>
                         </div>
                       );
                     }
-                  })}
-                  {hiddenCount > 0 && (
-                    <div onClick={(e) => { e.stopPropagation(); setDayDetailDate(dateStr); }} className="text-[10px] font-semibold text-slate-500 hover:text-slate-800 transition px-1 cursor-pointer">
-                      및 {hiddenCount}개...
+                  });
+                })()
+              ) : (
+                consultations.filter(c => {
+                  if (!c.feedback_days || c.feedback_days <= 0) return false;
+                  const cDateStr = c.consultation_date || c.created_at.split('T')[0];
+                  return getFeedbackTargetDate(cDateStr, c.feedback_days) === dayDetailDate;
+                }).map((c, idx) => (
+                  <div 
+                    key={`f-modal-${c.id || idx}`}
+                    onClick={(e) => { setDayDetailDate(null); handleScheduleClick(e, { type: 'feedback', data: c }); }}
+                    className="px-2.5 py-2 rounded-xl flex flex-col gap-1 transition cursor-pointer font-bold border bg-purple-50 border-purple-200 text-purple-900 hover:bg-purple-100 shadow-xs text-xs"
+                  >
+                    <div className="flex justify-between items-center">
+                      <span>📌 {c.patients?.name || "알수없음"}</span>
+                      <span className="text-[10px] bg-purple-200 text-purple-900 px-1.5 py-0.5 rounded-md">{c.feedback_days}일차 피드백</span>
                     </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 🟢 특정 날짜의 모든 일정 보기 모달 ("및 X개..." 클릭 시) - 폰트 크기 최소화 */}
-      {dayDetailDate && (
-        <div onClick={() => setDayDetailDate(null)} className="fixed inset-0 z-[90] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
-          <div className="bg-white w-full max-w-sm rounded-3xl p-5 shadow-2xl border border-slate-200 flex flex-col cursor-default max-h-[80vh]" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center border-b pb-2 mb-3">
-              <h3 className="text-base font-bold text-slate-900">📅 {dayDetailDate} 일정 전체</h3>
-              <button onClick={() => setDayDetailDate(null)} className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
-            </div>
-            
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1">
-              {(() => {
-                const daySchedules = schedules.filter(s => s.schedule_date === dayDetailDate);
-                const dayConsultations = consultations.filter(c => (c.consultation_date || c.created_at.split('T')[0]) === dayDetailDate);
-                const allDayItems = [
-                  ...dayConsultations.map(c => ({ type: 'consultation', data: c })),
-                  ...daySchedules.map(s => ({ type: 'schedule', data: s }))
-                ];
-
-                return allDayItems.map((item, idx) => {
-                  if (item.type === 'consultation') {
-                    const c = item.data;
-                    return (
-                      <div 
-                        key={`c-${c.id || idx}`} 
-                        onClick={(e) => { setDayDetailDate(null); handleScheduleClick(e, item); }} 
-                        className="px-2.5 py-2 rounded-xl flex items-center justify-between transition cursor-pointer font-bold border bg-teal-50 border-teal-200 text-teal-900 hover:bg-teal-100 shadow-xs text-xs"
-                      >
-                        <span className="whitespace-pre-line leading-tight">🩺 {c.patients?.name || "알수없음"}<br/>{c.prescription || "처방없음"}</span>
-                      </div>
-                    );
-                  } else {
-                    const s = item.data;
-                    const tc = THEME_CLASSES[s.theme || "blue"] || THEME_CLASSES.blue;
-                    return (
-                      <div 
-                        key={`s-${s.id || idx}`} 
-                        onClick={(e) => { setDayDetailDate(null); handleScheduleClick(e, item); }} 
-                        className={`px-2.5 py-2 rounded-xl flex items-center justify-between transition cursor-pointer font-semibold border hover:opacity-80 shadow-xs text-xs ${tc.bg} ${tc.text}`}
-                      >
-                        <span className="truncate">{s.title}</span>
-                      </div>
-                    );
-                  }
-                });
-              })()}
+                    <span className="text-[11px] font-normal text-purple-800 truncate">{c.prescription || "처방 기록 없음"}</span>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* 기존 일반 일정 상세 모달 */}
+      {/* 일반 일정 상세 모달 */}
       {selectedDetailSchedule && (
         <div className="fixed inset-0 z-[70] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setSelectedDetailSchedule(null)}>
           <div className="bg-white w-full max-w-sm p-5 rounded-3xl shadow-2xl border border-slate-100" onClick={e => e.stopPropagation()}>
@@ -294,7 +403,7 @@ export default function SchedulesPage() {
         </div>
       )}
 
-      {/* 🟢 자동 연동된 상담 기록 상세 보기 모달 (폰트 및 레이아웃 압축, 코멘트/추후관리 나란히) */}
+      {/* 상담 기록 상세 보기 모달 */}
       {selectedDetailConsultation && (
         <div onClick={() => setSelectedDetailConsultation(null)} className="fixed inset-0 z-[110] bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-xl max-h-[85vh] rounded-3xl p-5 shadow-2xl border border-slate-200 flex flex-col space-y-3 cursor-default" onClick={e => e.stopPropagation()}>
@@ -325,7 +434,7 @@ export default function SchedulesPage() {
                   </div>
                 )}
                 
-                {/* 🟢 코멘트 및 추후관리 나란히 배치 */}
+                {/* 코멘트 및 추후관리 나란히 배치 */}
                 <div className="grid grid-cols-2 gap-2">
                   {selectedDetailConsultation.consult_memo && (
                     <div className="p-2 bg-slate-50 rounded-xl border border-slate-100 text-[11px] text-slate-700 whitespace-pre-line leading-relaxed">
