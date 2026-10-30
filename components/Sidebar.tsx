@@ -23,17 +23,8 @@ export default function Sidebar() {
     router.push("/login");
   };
 
-  const isConsultPage = pathname === "/consultations";
-  const isWriteActive = isConsultPage && currentHash !== "#history";
-  const isHistoryActive = isConsultPage && currentHash === "#history";
-
-  const handleNavClick = (hash: string) => {
-    setCurrentHash(hash);
-    if (pathname === "/consultations") {
-      window.location.hash = hash;
-      window.dispatchEvent(new Event("hashchange"));
-    }
-  };
+  const isWriteActive = pathname === "/consultations";
+  const isHistoryActive = pathname === "/consultations/history";
 
   return (
     <>
@@ -76,10 +67,9 @@ export default function Sidebar() {
             <span>👥</span> 환자 목록
           </Link>
 
-          {/* 3. 새 상담 기록 */}
+          {/* 3. 새 상담 기록 (작성 페이지) */}
           <Link 
             href="/consultations" 
-            onClick={() => handleNavClick("")}
             className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
               isWriteActive ? "bg-teal-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
             }`}
@@ -87,10 +77,9 @@ export default function Sidebar() {
             <span>📝</span> 새 상담 기록
           </Link>
           
-          {/* 4. 기록 조회 */}
+          {/* 4. 기록 조회 (조회 페이지) */}
           <Link 
-            href="/consultations#history" 
-            onClick={() => handleNavClick("#history")}
+            href="/consultations/history" 
             className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
               isHistoryActive ? "bg-teal-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
             }`}
@@ -161,7 +150,6 @@ export default function Sidebar() {
 
         <Link 
           href="/consultations" 
-          onClick={() => handleNavClick("")}
           className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
             isWriteActive ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
           }`}
@@ -171,8 +159,7 @@ export default function Sidebar() {
         </Link>
 
         <Link 
-          href="/consultations#history" 
-          onClick={() => handleNavClick("#history")}
+          href="/consultations/history" 
           className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
             isHistoryActive ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
           }`}
