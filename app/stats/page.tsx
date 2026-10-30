@@ -9,7 +9,6 @@ export default function StatsPage() {
   const [consultations, setConsultations] = useState<any[]>([]);
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
 
-  // 🟢 기간 필터 상태값 ("month", "lastMonth", "3months", "6months", "1year")
   const [periodFilter, setPeriodFilter] = useState("month");
 
   useEffect(() => {
@@ -39,7 +38,6 @@ export default function StatsPage() {
 
   if (!currentDate) return <div className="p-8 text-center text-slate-400 text-xs">통계 로딩 중...</div>;
 
-  // 🟢 필터에 따른 시작일/종료일 및 비교(이전) 시작일/종료일 계산 로직
   let startDate = new Date();
   let endDate = new Date();
   let prevStartDate = new Date();
@@ -51,7 +49,7 @@ export default function StatsPage() {
 
   if (periodFilter === "month") {
     startDate = new Date(currentYear, currentMonth, 1);
-    endDate = new Date(currentYear, currentMonth + 1, 0); // 이번달 말일
+    endDate = new Date(currentYear, currentMonth + 1, 0); 
     prevStartDate = new Date(currentYear, currentMonth - 1, 1);
     prevEndDate = new Date(currentYear, currentMonth, 0);
   } else if (periodFilter === "lastMonth") {
@@ -76,7 +74,6 @@ export default function StatsPage() {
     prevEndDate = new Date(currentYear - 1, currentMonth, todayDate - 1);
   }
 
-  // 날짜 스트링(YYYY-MM-DD) 변환 헬퍼
   const formatYMD = (d: Date) => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
@@ -86,7 +83,6 @@ export default function StatsPage() {
   const prevStartStr = formatYMD(prevStartDate);
   const prevEndStr = formatYMD(prevEndDate);
 
-  // 현재 선택된 기간의 데이터
   const currentConsultations = consultations.filter(c => c.consult_date_str >= startStr && c.consult_date_str <= endStr);
   const currentPatients = patients.filter(p => {
     const d = p.created_at?.split('T')[0];
@@ -97,7 +93,6 @@ export default function StatsPage() {
   const diffDays = Math.max(1, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
   const dailyAverageSales = Math.round(currentSales / diffDays);
 
-  // 이전 기간의 데이터 (증감률 계산용)
   const prevConsultations = consultations.filter(c => c.consult_date_str >= prevStartStr && c.consult_date_str <= prevEndStr);
   const prevPatients = patients.filter(p => {
     const d = p.created_at?.split('T')[0];
@@ -108,7 +103,6 @@ export default function StatsPage() {
   const prevDiffDays = Math.max(1, Math.ceil(prevDiffTime / (1000 * 60 * 60 * 24)));
   const prevDailyAverageSales = Math.round(prevSales / prevDiffDays);
 
-  // 증감률 텍스트 계산
   const calcRateText = (current: number, previous: number) => {
     if (previous === 0) return current > 0 ? "+100%" : "0%";
     const rate = Math.round(((current - previous) / previous) * 100);
@@ -129,7 +123,6 @@ export default function StatsPage() {
   const newPatientRate = calcRateText(currentPatients.length, prevPatients.length);
   const dailyAvgRate = calcRateText(dailyAverageSales, prevDailyAverageSales);
 
-  // 체질별 분류 (DB 컬럼 방어 코드 총동원)
   const constitutionCounts: Record<string, number> = {};
   patients.forEach(p => {
     let cType = p.constitution || p.sasang || p.body_type || p.type || p['체질'] || "";
@@ -140,7 +133,6 @@ export default function StatsPage() {
   const constitutionArray = Object.entries(constitutionCounts).sort((a, b) => b[1] - a[1]);
   const donutColors = ["#14b8a6", "#f59e0b", "#3b82f6", "#8b5cf6", "#94a3b8", "#f43f5e", "#10b981"]; 
 
-  // 🟢 차트 데이터 생성 로직 (선택된 기간 내의 날짜별 배열 생성)
   const chartDates: string[] = [];
   let tempDate = new Date(startDate);
   while (tempDate <= endDate) {
@@ -159,7 +151,6 @@ export default function StatsPage() {
     }
   });
 
-  // 이전 기간 일별 데이터 (꺾은선 증감률 계산용)
   const prevDailySalesMap: Record<number, { sales: number, activeCustomers: number }> = {};
   prevConsultations.forEach(c => {
     const dayIndex = new Date(c.consult_date_str).getDate(); 
@@ -179,20 +170,18 @@ export default function StatsPage() {
     let sRate = calcRateValue(sales, prevSalesDay);
     let cRate = calcRateValue(activeCustomers, prevCustDay);
 
-    // 차트 Y축 벗어나지 않게 -100% ~ 100% 리미트
-    sRate = Math.max(-100, Math.min(100, sRate));
-    cRate = Math.max(-100, Math.min(100, cRate));
+    // 🟢 0% ~ 100% 범위로 리미트 수정
+    sRate = Math.max(0, Math.min(100, sRate));
+    cRate = Math.max(0, Math.min(100, cRate));
 
     return { dateStr, dayLabel: dateStr.slice(5).replace('-', '.'), sales, activeCustomers, sRate, cRate };
   });
 
-  // 🟢 시안(image_421776.png)과 동일한 세련된 막대+점(꺾은선) SVG 차트 렌더링
   const renderSVGChart = (type: "customer" | "sales") => {
     const maxVal = Math.max(...dailyChartData.map(d => type === "customer" ? d.activeCustomers : d.sales), 1);
     
-    // 시안 색상 추출
-    const barColor = type === "customer" ? "#94a3b8" : "#e5e5e5"; // 고객(푸른회색), 매출(연한회색)
-    const lineColor = type === "customer" ? "#334155" : "#78350f"; // 고객선(다크네이비), 매출선(다크브라운)
+    const barColor = type === "customer" ? "#94a3b8" : "#e5e5e5"; 
+    const lineColor = type === "customer" ? "#334155" : "#78350f"; 
 
     return (
       <div className="relative w-full h-[240px] mt-4 select-none">
@@ -203,17 +192,18 @@ export default function StatsPage() {
           <span>{type === "customer" ? Math.round(maxVal/2) : `${Math.round(maxVal / 20000)}만`}</span>
           <span>0</span>
         </div>
+        {/* 🟢 우측 범례 100% ~ 0% 로 수정 */}
         <div className="absolute right-0 top-4 bottom-8 flex flex-col justify-between text-[10px] text-slate-400 w-8 pl-1 z-0">
           <span>100%</span>
+          <span>50%</span>
           <span>0%</span>
-          <span>-100%</span>
         </div>
 
         {/* 차트 영역 */}
         <div className="absolute left-10 right-10 top-4 bottom-8 border-b border-slate-200">
           <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
             
-            {/* 가이드 라인 (0%, 50%, 100%) */}
+            {/* 가이드 라인 (0%, 50%) */}
             <line x1="0" y1="0%" x2="100%" y2="0%" stroke="#f1f5f9" strokeWidth="1" />
             <line x1="0" y1="50%" x2="100%" y2="50%" stroke="#e2e8f0" strokeDasharray="4" strokeWidth="1.5" />
 
@@ -221,12 +211,12 @@ export default function StatsPage() {
             {dailyChartData.map((d, i) => {
               const x = (i / Math.max(1, dailyChartData.length - 1)) * 100;
               const val = type === "customer" ? d.activeCustomers : d.sales;
-              const heightPct = (val / maxVal) * 100; // maxVal 대비 높이
+              const heightPct = (val / maxVal) * 100; 
               
               const rate = type === "customer" ? d.cRate : d.sRate;
-              const y = 50 - (rate / 100) * 50; // -100%~100% 를 100%~0% 높이에 매핑
+              // 🟢 0%~100% 스케일로 매핑 (0%면 y는 100(최하단))
+              const y = 100 - rate; 
 
-              // 막대가 너무 많으면 넓이를 조절
               const barWidth = dailyChartData.length > 31 ? 1 : (dailyChartData.length > 15 ? 2 : 4);
 
               return (
@@ -291,7 +281,6 @@ export default function StatsPage() {
   return (
     <div className="w-full space-y-6 pb-12 max-w-[1400px] mx-auto bg-slate-50/50 min-h-screen">
       
-      {/* 🟢 복구된 상단 타이틀 및 작동하는 날짜 필터 */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white px-6 py-5 rounded-2xl shadow-sm border border-slate-200 gap-4">
         <div>
           <h1 className="text-xl font-extrabold text-slate-900">📊 통계 및 성과 분석</h1>
@@ -306,7 +295,6 @@ export default function StatsPage() {
         </div>
       </div>
 
-      {/* 상단 5개 요약 지표 */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
           <span className="text-xs font-bold text-slate-500 mb-2">총 고객 수</span>
@@ -335,7 +323,6 @@ export default function StatsPage() {
         </div>
       </div>
 
-      {/* 📈 시안 완벽 반영 막대 + 꺾은선(점) 차트 영역 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
         
         <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col h-[340px]">
@@ -343,7 +330,6 @@ export default function StatsPage() {
             <h3 className="text-[15px] font-extrabold text-slate-800 flex items-center gap-2">
               <span className="text-slate-400">👥</span> 고객 수 추이
             </h3>
-            {/* 🟢 시안과 동일한 범례 */}
             <div className="flex items-center gap-3 text-[11px] font-bold text-slate-400">
               <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 bg-[#94a3b8] rounded-sm"></span> 고객 수(명)</span>
               <span className="flex items-center gap-1"><span className="w-4 h-0.5 bg-[#334155]"></span> 전월 대비 증감률(%)</span>
@@ -357,7 +343,6 @@ export default function StatsPage() {
             <h3 className="text-[15px] font-extrabold text-slate-800 flex items-center gap-2">
               <span className="text-slate-400">💰</span> 매출 추이
             </h3>
-            {/* 🟢 시안과 동일한 범례 */}
             <div className="flex items-center gap-3 text-[11px] font-bold text-slate-400">
               <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 bg-[#e5e5e5] rounded-sm"></span> 매출(원)</span>
               <span className="flex items-center gap-1"><span className="w-4 h-0.5 bg-[#78350f]"></span> 전월 대비 증감률(%)</span>
@@ -368,10 +353,8 @@ export default function StatsPage() {
 
       </div>
 
-      {/* 🧬 하단 영역: 체질 도넛 차트 & 최근 매출 테이블 */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
         
-        {/* 도넛 차트 */}
         <div className="lg:col-span-5 bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between h-[340px]">
           <div className="flex justify-between items-center border-b border-slate-50 pb-3 mb-6">
             <h3 className="text-[15px] font-extrabold text-slate-800 flex items-center gap-2">
@@ -433,7 +416,6 @@ export default function StatsPage() {
           </div>
         </div>
 
-        {/* 최근 매출 테이블 */}
         <div className="lg:col-span-7 bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between h-[340px]">
           <div className="flex justify-between items-center border-b border-slate-50 pb-3 mb-2">
             <h3 className="text-[15px] font-extrabold text-slate-800 flex items-center gap-2">
