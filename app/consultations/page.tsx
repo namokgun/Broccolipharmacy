@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { supabase } from "@/app/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function ConsultationsWritePage() {
+// 🟢 내부 폼 컴포넌트 (useSearchParams를 사용하기 위해 분리)
+function ConsultationsForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const editId = searchParams.get("id"); // 🟢 수정 모드인 경우 URL에서 id 파라미터 추출
+  const editId = searchParams.get("id");
 
   const [patients, setPatients] = useState<any[]>([]);
   const [patientHistory, setPatientHistory] = useState<any[]>([]);
@@ -98,7 +99,6 @@ export default function ConsultationsWritePage() {
       
       if (data.image_urls && Array.isArray(data.image_urls)) {
         setExistingImageUrls(data.image_urls);
-        // Signed URL 생성 로직 추가
         const previews = await Promise.all(
           data.image_urls.map(async (path: string) => {
             if (path.startsWith('http')) return { path, url: path };
@@ -169,7 +169,6 @@ export default function ConsultationsWritePage() {
     return uploadedPaths;
   };
 
-  // 🟢 폼 초기화 함수 (저장 후 잔여 기록이 남지 않도록 완벽히 비움)
   const resetForm = () => {
     setSelectedPatient("");
     setSelectedPatientNameDisplay("");
@@ -218,7 +217,6 @@ export default function ConsultationsWritePage() {
       };
 
       if (editId) {
-        // 🟢 수정 모드일 경우 update 실행
         const { error } = await supabase.from("consultations").update(payload).eq("id", editId);
         if (error) alert("수정 실패: " + error.message);
         else { 
@@ -226,12 +224,11 @@ export default function ConsultationsWritePage() {
           router.push("/consultations/history"); 
         }
       } else {
-        // 🟢 신규 등록일 경우 insert 실행
         const { error } = await supabase.from("consultations").insert([payload]);
         if (error) alert("등록 실패: " + error.message);
         else { 
           alert("등록되었습니다."); 
-          resetForm(); // 🟢 잔여 기록 남지 않도록 폼 초기화 실행
+          resetForm();
           router.push("/consultations/history"); 
         }
       }
@@ -301,7 +298,6 @@ export default function ConsultationsWritePage() {
             <input type="text" value={sleepState} onChange={(e) => setSleepState(e.target.value)} className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900" />
           </div>
 
-          {/* 증상 상세와 최근 방문내역 영역 */}
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 flex flex-col">
               <label className="text-xs font-bold text-blue-700 mb-1">증상 상세</label>
@@ -446,6 +442,23 @@ export default function ConsultationsWritePage() {
         </div>
 
       </form>
+
+      {/* 이미지 라이트박스 팝업 등은 폼 내에 유지해도 되고 바깥에 유지해도 됨 */}
+      {previewImageUrl && (
+        <div onClick={() => setPreviewImageUrl(null)} className="fixed inset-0 z-[150] bg-slate-950/80 flex items-center justify-center p-4 cursor-pointer">
+          <img src={previewImageUrl} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
+          <button onClick={() => setPreviewImageUrl(null)} className="absolute top-4 right-4 text-white bg-slate-800 w-10 h-10 rounded-full font-bold">✕</button>
+        </div>
+      )}
     </div>
+  );
+}
+
+// 🟢 최상위 페이지 컴포넌트 (Suspense 적용)
+export default function ConsultationsWritePage() {
+  return (
+    <Suspense fallback={<div className="w-full p-8 text-center text-slate-500 text-sm font-bold">상담 정보를 불러오는 중...</div>}>
+      <ConsultationsForm />
+    </Suspense>
   );
 }
