@@ -37,7 +37,7 @@ export default function PatientsPage() {
   const [photosModalPatient, setPhotosModalPatient] = useState<any | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
-  // 폼 필드
+  // 폼 필드 (알레르기, 이메일 제거 완료)
   const [name, setName] = useState("");
   const [customId, setCustomId] = useState("");
   const [phone, setPhone] = useState("");
@@ -47,9 +47,7 @@ export default function PatientsPage() {
   const [bodyType, setBodyType] = useState("선택 안함");
   const [tagsInput, setTagsInput] = useState("");
   const [memo, setMemo] = useState("");
-  const [email, setEmail] = useState("");
-  const [allergy, setAllergy] = useState("");
-  const [representativeId, setRepresentativeId] = useState<string>(""); // 🟢 대표고객 ID (가족 그룹)
+  const [representativeId, setRepresentativeId] = useState<string>("");
 
   const [activeCount, setActiveCount] = useState(0);
 
@@ -102,7 +100,6 @@ export default function PatientsPage() {
     }
   };
 
-  // 🟢 대표고객 ID 기준으로 가족 구성원들의 결제액 및 상담 내역을 합산하는 로직
   const getPatientStats = (patient: any) => {
     const familyPatientIds = patients
       .filter(p => p.id === patient.id || p.representative_id === patient.id || (patient.representative_id && p.representative_id === patient.representative_id))
@@ -140,7 +137,7 @@ export default function PatientsPage() {
   const handleOpenRegister = () => {
     setEditingPatientId(null);
     setName(""); setCustomId(""); setPhone(""); setAddress(""); setGender("남"); setBirthYear(""); setBodyType("선택 안함");
-    setTagsInput(""); setMemo(""); setEmail(""); setAllergy(""); setRepresentativeId("");
+    setTagsInput(""); setMemo(""); setRepresentativeId("");
     setIsModalOpen(true);
   };
 
@@ -155,8 +152,6 @@ export default function PatientsPage() {
     setBodyType(p.body_type || "선택 안함");
     setTagsInput(p.tags && Array.isArray(p.tags) ? p.tags.join(", ") : "");
     setMemo(p.memo || "");
-    setEmail(p.email || "");
-    setAllergy(p.allergy || "");
     setRepresentativeId(p.representative_id || "");
     setIsModalOpen(true);
   };
@@ -178,7 +173,7 @@ export default function PatientsPage() {
       birth_year: birthYear ? parseInt(birthYear) : null,
       body_type: bodyType === "선택 안함" ? null : bodyType,
       tags: tagsArray, 
-      memo, email, allergy,
+      memo,
       representative_id: representativeId || null,
       user_id: user.id
     };
@@ -381,8 +376,6 @@ export default function PatientsPage() {
                   <div><span className="text-slate-400 mr-2">성별:</span><span className="font-semibold text-slate-800">{selectedPatient.gender || "-"}</span></div>
                 </div>
                 <div><span className="text-slate-400 mr-2">주소:</span><span className="font-semibold text-slate-800">{selectedPatient.address || "-"}</span></div>
-                <div><span className="text-slate-400 mr-2">이메일:</span><span className="font-semibold text-slate-800">{selectedPatient.email || "-"}</span></div>
-                <div><span className="text-slate-400 mr-2">알레르기:</span><span className="font-semibold text-slate-800">{selectedPatient.allergy || "없음"}</span></div>
                 
                 {selectedPatient.tags && selectedPatient.tags.length > 0 && (
                   <div className="flex items-center gap-1.5 flex-wrap pt-1">
@@ -452,7 +445,7 @@ export default function PatientsPage() {
 
       </div>
 
-      {/* 🟢 신규/수정 고객 등록 팝업 모달 (대표고객 ID 선택 기능 추가) */}
+      {/* 🟢 신규/수정 고객 등록 팝업 모달 (알레르기·이메일 제거됨) */}
       {isModalOpen && (
         <div onClick={() => setIsModalOpen(false)} className="fixed inset-0 z-[120] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
@@ -473,13 +466,13 @@ export default function PatientsPage() {
                 </div>
               </div>
 
-              {/* 🟢 대표 고객(가족) 선택 필드 */}
+              {/* 대표 고객(가족) 선택 필드 */}
               <div>
                 <label className="block font-bold text-teal-800 mb-1">대표 고객 (가족 환자 연결 시 선택)</label>
                 <select value={representativeId} onChange={(e) => setRepresentativeId(e.target.value)} className="w-full p-2.5 bg-teal-50/50 border border-teal-100 rounded-xl font-semibold">
                   <option value="">-- 본인이 대표 고객 (또는 독립) --</option>
                   {patients
-                    .filter(p => p.id !== editingPatientId) // 본인 제외
+                    .filter(p => p.id !== editingPatientId)
                     .map(p => (
                       <option key={p.id} value={p.id}>
                         {p.name} {p.phone ? `(${p.phone})` : ""}
@@ -516,17 +509,6 @@ export default function PatientsPage() {
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">주소</label>
                   <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold" placeholder="거주지" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">이메일</label>
-                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold" placeholder="email@naver.com" />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">알레르기</label>
-                  <input type="text" value={allergy} onChange={(e) => setAllergy(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold" placeholder="알레르기 정보" />
                 </div>
               </div>
 
