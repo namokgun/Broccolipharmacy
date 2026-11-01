@@ -37,7 +37,7 @@ export default function PatientsPage() {
   const [photosModalPatient, setPhotosModalPatient] = useState<any | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
-  // 폼 필드 (알레르기, 이메일 제거 완료)
+  // 폼 필드
   const [name, setName] = useState("");
   const [customId, setCustomId] = useState("");
   const [phone, setPhone] = useState("");
@@ -289,9 +289,11 @@ export default function PatientsPage() {
                         : "bg-white border-slate-100 hover:bg-slate-50/80"
                     }`}
                   >
-                    {/* 이름 및 연락처 (1줄 배치) */}
-                    <div className="flex items-center gap-3 flex-shrink-0 w-40 whitespace-nowrap">
-                      <span className="font-extrabold text-slate-900 truncate" title={p.name}>{p.name}</span>
+                    {/* 🟢 이름 및 아이디(차트번호), 연락처 (1줄 배치) */}
+                    <div className="flex items-center gap-3 flex-shrink-0 w-48 whitespace-nowrap">
+                      <span className="font-extrabold text-slate-900 truncate" title={p.custom_id ? `${p.name} (${p.custom_id})` : p.name}>
+                        {p.name} {p.custom_id && <span className="text-[10px] font-semibold text-slate-400 ml-0.5">({p.custom_id})</span>}
+                      </span>
                       <span className="text-slate-500 text-[11px]">{p.phone || "연락처 없음"}</span>
                     </div>
 
@@ -445,7 +447,7 @@ export default function PatientsPage() {
 
       </div>
 
-      {/* 🟢 신규/수정 고객 등록 팝업 모달 (알레르기·이메일 제거됨) */}
+      {/* 🟢 신규/수정 고객 등록 팝업 모달 */}
       {isModalOpen && (
         <div onClick={() => setIsModalOpen(false)} className="fixed inset-0 z-[120] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
