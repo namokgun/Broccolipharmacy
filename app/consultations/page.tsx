@@ -371,7 +371,7 @@ function ConsultationsForm() {
                   <option value="링크">링크</option>
                   <option value="홈피">홈피</option>
                   <option value="매장">매장</option>
-                  <option value="입금">입금</option>
+                  <option value="지역상품권">지역상품권</option>
                   <option value="현금">현금</option>
                   <option value="사업자">사업자</option>
                 </select>
@@ -443,7 +443,6 @@ function ConsultationsForm() {
 
       </form>
 
-      {/* 이미지 라이트박스 팝업 등은 폼 내에 유지해도 되고 바깥에 유지해도 됨 */}
       {previewImageUrl && (
         <div onClick={() => setPreviewImageUrl(null)} className="fixed inset-0 z-[150] bg-slate-950/80 flex items-center justify-center p-4 cursor-pointer">
           <img src={previewImageUrl} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
