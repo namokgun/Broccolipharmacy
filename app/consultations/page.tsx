@@ -2,10 +2,13 @@
 
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/app/lib/supabase";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 export default function ConsultationsWritePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("id"); // 🟢 수정 모드인 경우 URL에서 id 파라미터 추출
+
   const [patients, setPatients] = useState<any[]>([]);
   const [patientHistory, setPatientHistory] = useState<any[]>([]);
   const [historyDetailModal, setHistoryDetailModal] = useState<any | null>(null);
@@ -50,6 +53,13 @@ export default function ConsultationsWritePage() {
     fetchPatients();
   }, []);
 
+  // 🟢 수정 모드일 경우 기존 데이터 불러오기
+  useEffect(() => {
+    if (editId && patients.length > 0) {
+      fetchConsultationForEdit(editId);
+    }
+  }, [editId, patients]);
+
   useEffect(() => {
     if (selectedPatient) {
       fetchPatientHistory(selectedPatient);
@@ -61,6 +71,44 @@ export default function ConsultationsWritePage() {
   const fetchPatients = async () => {
     const { data } = await supabase.from("patients").select("*").order("name");
     if (data) setPatients(data);
+  };
+
+  const fetchConsultationForEdit = async (id: string) => {
+    const { data, error } = await supabase.from("consultations").select("*, patients(name, phone, custom_id)").eq("id", id).single();
+    if (error) {
+      console.error("수정 데이터 로딩 실패:", error.message);
+      return;
+    }
+    if (data) {
+      setSelectedPatient(data.patient_id);
+      if (data.patients) {
+        setSelectedPatientNameDisplay(formatPatientDisplayName(data.patients));
+      }
+      setConsultationDate(data.consultation_date || data.created_at?.split('T')[0] || "");
+      setSymptoms(data.symptoms || "");
+      setDigestionStool(data.digestion_stool || "");
+      setSleepState(data.sleep_state || "");
+      setSymptomDetail(data.symptom_detail || "");
+      setPrescription(data.prescription || "");
+      setConsultMemo(data.consult_memo || "");
+      setFollowUp(data.follow_up || "");
+      setFeedbackDays(data.feedback_days ? data.feedback_days.toString() : "");
+      setAmount(data.amount ? data.amount.toString() : "");
+      setPaymentMethod(data.payment_method || "");
+      
+      if (data.image_urls && Array.isArray(data.image_urls)) {
+        setExistingImageUrls(data.image_urls);
+        // Signed URL 생성 로직 추가
+        const previews = await Promise.all(
+          data.image_urls.map(async (path: string) => {
+            if (path.startsWith('http')) return { path, url: path };
+            const { data: sData } = await supabase.storage.from("consultation-images").createSignedUrl(path, 60 * 60);
+            return { path, url: sData?.signedUrl || '' };
+          })
+        );
+        setExistingImagePreviews(previews.filter(p => p.url));
+      }
+    }
   };
 
   const fetchPatientHistory = async (patientId: string) => {
@@ -121,6 +169,28 @@ export default function ConsultationsWritePage() {
     return uploadedPaths;
   };
 
+  // 🟢 폼 초기화 함수 (저장 후 잔여 기록이 남지 않도록 완벽히 비움)
+  const resetForm = () => {
+    setSelectedPatient("");
+    setSelectedPatientNameDisplay("");
+    setConsultationDate(new Date().toISOString().split('T')[0]);
+    setSymptoms("");
+    setDigestionStool("");
+    setSleepState("");
+    setSymptomDetail("");
+    setPrescription("");
+    setConsultMemo("");
+    setFollowUp("");
+    setFeedbackDays("");
+    setAmount("");
+    setPaymentMethod("");
+    setImageFiles([]);
+    setExistingImageUrls([]);
+    setExistingImagePreviews([]);
+    setCalculatorInput("");
+    setCalculatorResult(null);
+  };
+
   const handleSubmitConsultation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPatient) return alert("환자를 선택해주세요.");
@@ -143,14 +213,27 @@ export default function ConsultationsWritePage() {
         feedback_days: finalFeedbackDays,
         amount: amount ? parseInt(amount) : null,
         payment_method: paymentMethod || null, 
-        image_urls: finalImagePaths, user_id: user.id,
+        image_urls: finalImagePaths, 
+        user_id: user.id,
       };
 
-      const { error } = await supabase.from("consultations").insert([payload]);
-      if (error) alert("등록 실패: " + error.message);
-      else { 
-        alert("등록되었습니다."); 
-        router.push("/consultations/history"); 
+      if (editId) {
+        // 🟢 수정 모드일 경우 update 실행
+        const { error } = await supabase.from("consultations").update(payload).eq("id", editId);
+        if (error) alert("수정 실패: " + error.message);
+        else { 
+          alert("수정되었습니다."); 
+          router.push("/consultations/history"); 
+        }
+      } else {
+        // 🟢 신규 등록일 경우 insert 실행
+        const { error } = await supabase.from("consultations").insert([payload]);
+        if (error) alert("등록 실패: " + error.message);
+        else { 
+          alert("등록되었습니다."); 
+          resetForm(); // 🟢 잔여 기록 남지 않도록 폼 초기화 실행
+          router.push("/consultations/history"); 
+        }
       }
     } finally {
       setUploading(false);
@@ -174,7 +257,7 @@ export default function ConsultationsWritePage() {
       
       {/* 상단 타이틀 및 이동 버튼 */}
       <div className="flex justify-between items-center bg-white px-6 py-4 rounded-2xl shadow-sm border border-slate-200">
-        <h1 className="text-xl font-extrabold text-slate-900">새 상담 작성</h1>
+        <h1 className="text-xl font-extrabold text-slate-900">{editId ? "상담 수정" : "새 상담 작성"}</h1>
         <button onClick={() => router.push("/consultations/history")} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition">
           기록 조회로 가기 →
         </button>
@@ -301,7 +384,7 @@ export default function ConsultationsWritePage() {
 
             <div className="w-full xl:w-auto flex gap-2">
               <button type="submit" disabled={uploading} className="w-full xl:w-auto px-6 py-3 bg-teal-900 hover:bg-teal-800 text-white font-bold rounded-xl transition disabled:opacity-50 shadow-sm text-sm">
-                {uploading ? "저장 중..." : "상담 등록"}
+                {uploading ? "저장 중..." : (editId ? "상담 수정" : "상담 등록")}
               </button>
             </div>
           </div>
@@ -324,6 +407,15 @@ export default function ConsultationsWritePage() {
               )}
               {totalCurrentPhotos > 0 && (
                 <div className={`w-full ${totalCurrentPhotos > 1 ? "grid grid-cols-2 gap-3" : "flex justify-center"}`}>
+                  {existingImagePreviews.map((img, idx) => (
+                    <div key={`ex-${idx}`} className="relative w-full aspect-square flex items-center justify-center group bg-white rounded-xl shadow-xs border border-slate-300 p-1">
+                      <img src={img.url} onClick={() => setPreviewImageUrl(img.url)} className="max-w-full max-h-full object-contain cursor-pointer hover:scale-105 transition rounded-lg" />
+                      <button type="button" onClick={() => {
+                        setExistingImagePreviews(prev => prev.filter((_, i) => i !== idx));
+                        setExistingImageUrls(prev => prev.filter((_, i) => i !== idx));
+                      }} className="absolute top-2 right-2 bg-red-600 text-white w-7 h-7 rounded-full text-xs hidden group-hover:flex items-center justify-center font-bold shadow-md z-10">✕</button>
+                    </div>
+                  ))}
                   {imageFiles.map((file, idx) => (
                     <div key={`nw-${idx}`} className="relative w-full aspect-square flex items-center justify-center group bg-white rounded-xl shadow-xs border border-teal-400 p-1">
                       <img src={URL.createObjectURL(file)} onClick={() => setPreviewImageUrl(URL.createObjectURL(file))} className="max-w-full max-h-full object-contain cursor-pointer hover:scale-105 transition rounded-lg" />
