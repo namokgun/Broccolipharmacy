@@ -257,8 +257,18 @@ export default function ConsultationHistoryPage() {
                 )}
               </div>
 
-              <div className="pt-4 border-t flex justify-end">
-                <button onClick={() => handleDelete(selectedConsultation.id)} className="px-4 py-2 bg-red-50 text-red-600 font-bold rounded-xl text-xs hover:bg-red-100 transition">
+              {/* 🟢 수정 및 삭제 버튼 영역 */}
+              <div className="pt-4 border-t flex justify-end gap-2">
+                <Link 
+                  href={`/consultations?id=${selectedConsultation.id}`} 
+                  className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs hover:bg-slate-200 transition"
+                >
+                  기록 수정
+                </Link>
+                <button 
+                  onClick={() => handleDelete(selectedConsultation.id)} 
+                  className="px-4 py-2 bg-red-50 text-red-600 font-bold rounded-xl text-xs hover:bg-red-100 transition"
+                >
                   기록 삭제
                 </button>
               </div>
