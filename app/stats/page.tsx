@@ -137,12 +137,31 @@ export default function StatsPage() {
 
   // 점과 선으로 이어진 SVG 차트 렌더링
   const renderSVGChart = (type: "consult" | "sales") => {
-    const maxVal = Math.max(...monthlyChartData.map(d => type === "consult" ? d.consultCount : d.sales), 1);
+    let rawMax = Math.max(...monthlyChartData.map(d => type === "consult" ? d.consultCount : d.sales), 1);
+    
+    // 🟢 1000만원 단위 눈금 및 배경 선 계산 로직
+    let displayMax = rawMax;
+    let yTicks: number[] = [];
+
+    if (type === "sales") {
+      const step = 10000000; // 1000만원 단위
+      displayMax = Math.ceil(rawMax / step) * step;
+      if (displayMax === 0) displayMax = step;
+      
+      // 위에서부터 0까지 1000만 원 간격으로 배열 생성
+      for (let i = displayMax; i >= 0; i -= step) {
+        yTicks.push(i);
+      }
+    } else {
+      // 상담 건수의 경우 짝수로 맞춰서 절반 선이 깔끔하게 보이도록 설정
+      displayMax = Math.ceil(rawMax / 2) * 2;
+      yTicks = [displayMax, displayMax / 2, 0];
+    }
     
     const barColor = type === "consult" ? "#94a3b8" : "#e5e5e5"; 
     const lineColor = type === "consult" ? "#334155" : "#78350f"; 
 
-    // 점들의 X, Y 좌표 계산
+    // 증감률 점들의 X, Y 좌표 계산
     const points = monthlyChartData.map((d, i) => {
       const x = (i / Math.max(1, monthlyChartData.length - 1)) * 100;
       const rawRate = type === "consult" ? d.consultRateVal : d.sRate;
@@ -157,12 +176,20 @@ export default function StatsPage() {
     return (
       <div className="relative w-full h-[240px] mt-4 select-none">
         
-        {/* Y축 범례 */}
-        <div className="absolute left-0 top-4 bottom-8 flex flex-col justify-between text-[10px] text-slate-400 w-10 text-right pr-1 z-0">
-          <span>{type === "consult" ? maxVal : `${Math.round(maxVal / 10000)}만`}</span>
-          <span>{type === "consult" ? Math.round(maxVal/2) : `${Math.round(maxVal / 20000)}만`}</span>
-          <span>0</span>
+        {/* 🟢 Y축 데이터 값 범례 (다이내믹 렌더링) */}
+        <div className="absolute left-0 top-4 bottom-8 w-11 z-0">
+          {yTicks.map((val, i) => {
+            const yPct = 100 - (val / displayMax) * 100;
+            const text = type === "sales" ? (val === 0 ? "0" : `${val / 10000}만`) : val;
+            return (
+              <span key={`ytick-${i}`} className="absolute right-1 text-[10px] text-slate-400 font-semibold" style={{ top: `calc(${yPct}% - 7px)` }}>
+                {text}
+              </span>
+            );
+          })}
         </div>
+
+        {/* Y축 증감률 범례 */}
         <div className="absolute right-0 top-4 bottom-8 flex flex-col justify-between text-[10px] text-slate-400 w-8 pl-1 z-0">
           <span>+100%</span>
           <span>0%</span>
@@ -173,22 +200,34 @@ export default function StatsPage() {
         <div className="absolute left-12 right-10 top-4 bottom-8 border-b border-slate-200">
           <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
             
-            {/* 가이드 라인 (+100%, 0%) */}
-            <line x1="0" y1="0%" x2="100%" y2="0%" stroke="#f1f5f9" strokeWidth="1" />
-            <line x1="0" y1="50%" x2="100%" y2="50%" stroke="#e2e8f0" strokeDasharray="4" strokeWidth="1.5" />
+            {/* 🟢 동적 배경 가이드 라인 (데이터 선에 맞게 렌더링) */}
+            {yTicks.map((val, i) => {
+              if (val === 0) return null; // 바닥은 div border-b로 표시되므로 0선은 생략
+              const yPct = 100 - (val / displayMax) * 100;
+              return (
+                <line 
+                  key={`bgline-${i}`}
+                  x1="0" y1={`${yPct}%`} 
+                  x2="100%" y2={`${yPct}%`} 
+                  stroke={yPct === 0 ? "#f1f5f9" : "#e2e8f0"} 
+                  strokeDasharray={yPct === 0 ? "0" : "4"} 
+                  strokeWidth={yPct === 0 ? "1" : "1.5"} 
+                />
+              );
+            })}
 
             {/* 데이터 막대(Bar) */}
             {monthlyChartData.map((d, i) => {
               const x = points[i].x;
               const val = type === "consult" ? d.consultCount : d.sales;
-              const heightPct = (val / maxVal) * 100; 
+              const heightPct = (val / displayMax) * 100; // maxVal 대신 displayMax 적용
               const barWidth = 8;
 
               return (
                 <g key={`bar-${i}`} className="group cursor-pointer">
                   {val > 0 && (
                     <rect 
-                      x={`${x - (barWidth / 2)}%`} 
+                      x={`${x - barWidth / 2}%`} 
                       y={`${100 - heightPct}%`} 
                       width={`${barWidth}%`} 
                       height={`${heightPct}%`} 
