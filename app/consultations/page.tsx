@@ -49,10 +49,38 @@ function ConsultationsForm() {
     return p.custom_id ? `${p.name} (${p.custom_id})` : p.name;
   };
 
-  useEffect(() => {
+  // 🟢 폼 초기화 함수 (새 상담 진입 시 잔여 기록이 남지 않도록 완벽히 비움)
+  const resetForm = () => {
+    setSelectedPatient("");
+    setSelectedPatientNameDisplay("");
     setConsultationDate(new Date().toISOString().split('T')[0]);
+    setSymptoms("");
+    setDigestionStool("");
+    setSleepState("");
+    setSymptomDetail("");
+    setPrescription("");
+    setConsultMemo("");
+    setFollowUp("");
+    setFeedbackDays("");
+    setAmount("");
+    setPaymentMethod("");
+    setImageFiles([]);
+    setExistingImageUrls([]);
+    setExistingImagePreviews([]);
+    setCalculatorInput("");
+    setCalculatorResult(null);
+  };
+
+  useEffect(() => {
     fetchPatients();
   }, []);
+
+  // 🟢 페이지 진입 시 새 상담 작성 모드면 무조건 폼을 비움 (잔여 기록 해결)
+  useEffect(() => {
+    if (!editId) {
+      resetForm();
+    }
+  }, [editId]);
 
   // 🟢 수정 모드일 경우 기존 데이터 불러오기
   useEffect(() => {
@@ -120,7 +148,7 @@ function ConsultationsForm() {
     if (data) setPatientHistory(data);
   };
 
-  // 🟢 실시간 수식 계산 로직
+  // 🟢 실시간 수식 계산 로직 (소수점 입력 시 강제 반올림 되는 현상 해결)
   useEffect(() => {
     if (!calculatorInput.trim()) {
       setCalculatorResult(null);
@@ -132,7 +160,8 @@ function ConsultationsForm() {
         // eslint-disable-next-line no-new-func
         const result = new Function(`return ${sanitized}`)();
         if (Number.isFinite(result)) {
-          setCalculatorResult(Math.round(result));
+          // 실수 입력 시 올림(Math.round)되는 문제 해결 (부동소수점 에러만 방지)
+          setCalculatorResult(Number(result.toFixed(2))); 
         } else {
           setCalculatorResult(null);
         }
@@ -169,27 +198,6 @@ function ConsultationsForm() {
     return uploadedPaths;
   };
 
-  const resetForm = () => {
-    setSelectedPatient("");
-    setSelectedPatientNameDisplay("");
-    setConsultationDate(new Date().toISOString().split('T')[0]);
-    setSymptoms("");
-    setDigestionStool("");
-    setSleepState("");
-    setSymptomDetail("");
-    setPrescription("");
-    setConsultMemo("");
-    setFollowUp("");
-    setFeedbackDays("");
-    setAmount("");
-    setPaymentMethod("");
-    setImageFiles([]);
-    setExistingImageUrls([]);
-    setExistingImagePreviews([]);
-    setCalculatorInput("");
-    setCalculatorResult(null);
-  };
-
   const handleSubmitConsultation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPatient) return alert("환자를 선택해주세요.");
@@ -210,7 +218,8 @@ function ConsultationsForm() {
         symptoms, digestion_stool: digestionStool, sleep_state: sleepState,
         symptom_detail: symptomDetail, prescription, consult_memo: consultMemo, follow_up: followUp,
         feedback_days: finalFeedbackDays,
-        amount: amount ? parseInt(amount) : null,
+        // 소수점 금액도 정상적으로 DB에 들어갈 수 있도록 parseFloat 적용
+        amount: amount ? parseFloat(amount) : null,
         payment_method: paymentMethod || null, 
         image_urls: finalImagePaths, 
         user_id: user.id,
@@ -361,7 +370,8 @@ function ConsultationsForm() {
 
               <div className="flex items-center gap-2">
                 <label className="text-xs font-bold text-slate-700 pl-1">최종 금액</label>
-                <input type="text" inputMode="numeric" pattern="[0-9]*" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9]/g, ''))} className="w-24 p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900" />
+                {/* 🟢 최종 금액도 소수점(.) 입력을 허용하도록 정규식 변경 */}
+                <input type="text" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} className="w-24 p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900" />
               </div>
               
               <div className="flex items-center gap-2">
