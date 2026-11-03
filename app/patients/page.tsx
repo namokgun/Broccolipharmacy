@@ -50,7 +50,6 @@ export default function PatientsPage() {
   const [representativeId, setRepresentativeId] = useState<string>("");
 
   const [activeCount, setActiveCount] = useState(0);
-  const [monthlyRevenue, setMonthlyRevenue] = useState<{month: string, total: number}[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -66,23 +65,8 @@ export default function PatientsPage() {
           .map(c => c.patient_id)
       );
       setActiveCount(activePatientIds.size);
-
-      const revMap: Record<string, number> = {};
-      consultations.forEach(c => {
-        if (c.amount) {
-          const dateStr = c.consultation_date || c.created_at?.split('T')[0];
-          if (dateStr) {
-            const month = dateStr.substring(0, 7);
-            revMap[month] = (revMap[month] || 0) + c.amount;
-          }
-        }
-      });
-      const sortedMonths = Object.keys(revMap).sort().slice(-6);
-      setMonthlyRevenue(sortedMonths.map(m => ({ month: m, total: revMap[m] })));
-
     } else {
       setActiveCount(0);
-      setMonthlyRevenue([]);
     }
   }, [consultations]);
 
@@ -230,7 +214,6 @@ export default function PatientsPage() {
 
   const selectedPatientStats = selectedPatient ? getPatientStats(selectedPatient) : { count: 0, totalAmount: 0, lastDate: "-", lastPrescription: "-", pConsults: [] };
   
-  // 🟢 사진 모아보기: 최신순 정렬 및 처방 내용 포함
   const selectedPatientAllPhotos = selectedPatient 
     ? consultations
         .filter(c => c.patient_id === selectedPatient.id)
@@ -243,12 +226,11 @@ export default function PatientsPage() {
     : [];
 
   const representativePatientName = patients.find(p => p.id === selectedPatient?.representative_id)?.name;
-  const maxMonthlyRev = Math.max(...monthlyRevenue.map(d => d.total), 1);
 
   return (
     <div className="w-full h-[calc(100vh-80px)] flex flex-col space-y-4 overflow-hidden max-w-[1700px] mx-auto pb-4">
       
-      {/* 상단 헤더 영역 */}
+      {/* 상단 헤더 */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white px-6 py-4 rounded-2xl shadow-sm border border-slate-200 gap-3 flex-shrink-0">
         <div>
           <h1 className="text-xl font-extrabold text-slate-900">고객 관리</h1>
@@ -279,52 +261,6 @@ export default function PatientsPage() {
             </div>
           </div>
 
-          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex-shrink-0">
-            <div className="flex justify-between items-center mb-6">
-              <span className="text-[11px] font-bold text-slate-600">📈 최근 6개월 매출 추이</span>
-              <span className="text-[10px] font-bold text-teal-800 bg-teal-100 px-2 py-0.5 rounded">단위: 1,000만원</span>
-            </div>
-            {monthlyRevenue.length > 0 ? (
-              <div className="h-16 w-full relative mb-4 px-2">
-                <svg className="absolute inset-0 w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 100 100">
-                  <polyline
-                    points={monthlyRevenue.map((d, i) => {
-                      const x = monthlyRevenue.length > 1 ? (i / (monthlyRevenue.length - 1)) * 100 : 50;
-                      const y = 100 - ((d.total / maxMonthlyRev) * 70 + 10);
-                      return `${x},${y}`;
-                    }).join(" ")}
-                    fill="none" stroke="#0d9488" strokeWidth="2.5" vectorEffect="non-scaling-stroke"
-                  />
-                  {monthlyRevenue.map((d, i) => {
-                    const x = monthlyRevenue.length > 1 ? (i / (monthlyRevenue.length - 1)) * 100 : 50;
-                    const y = 100 - ((d.total / maxMonthlyRev) * 70 + 10);
-                    return <circle key={`c-${i}`} cx={x} cy={y} r="4" fill="white" stroke="#0d9488" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
-                  })}
-                </svg>
-                {monthlyRevenue.map((d, i) => {
-                  const x = monthlyRevenue.length > 1 ? (i / (monthlyRevenue.length - 1)) * 100 : 50;
-                  const y = 100 - ((d.total / maxMonthlyRev) * 70 + 10);
-                  const valIn10M = (d.total / 10000000).toFixed(1); 
-                  return (
-                    <div key={`l-${i}`} className="absolute w-10 -ml-5 flex flex-col items-center" style={{ left: `${x}%`, top: `calc(${y}% - 22px)` }}>
-                      <span className="text-[10px] font-extrabold text-teal-900 drop-shadow-sm">{valIn10M}</span>
-                    </div>
-                  )
-                })}
-                {monthlyRevenue.map((d, i) => {
-                  const x = monthlyRevenue.length > 1 ? (i / (monthlyRevenue.length - 1)) * 100 : 50;
-                  return (
-                    <div key={`ml-${i}`} className="absolute w-10 -ml-5 flex flex-col items-center" style={{ left: `${x}%`, bottom: '-24px' }}>
-                      <span className="text-[9px] font-semibold text-slate-500">{d.month.split('-')[1]}월</span>
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <div className="text-center text-xs text-slate-400 py-4">매출 데이터가 없습니다.</div>
-            )}
-          </div>
-
           <div className="flex-shrink-0 pt-1">
             <input 
               type="text" 
@@ -339,7 +275,6 @@ export default function PatientsPage() {
             고객 목록 <span className="text-slate-900 font-extrabold">총 {sortedPatients.length}명</span>
           </div>
 
-          {/* 🟢 목록 열 맞춤 정렬 (Grid 적용) */}
           <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
             {sortedPatients.length === 0 ? (
               <div className="py-16 text-center text-slate-400 text-xs">등록된 고객이 없습니다.</div>
@@ -357,7 +292,6 @@ export default function PatientsPage() {
                     }`}
                   >
                     <div className="grid grid-cols-12 items-center w-full gap-2 text-center text-[11px]">
-                      {/* 1. 이름 및 폰번호 (좌측 정렬) */}
                       <div className="col-span-3 text-left flex flex-col sm:flex-row sm:justify-between items-start sm:items-center truncate pr-1">
                         <span className="font-extrabold text-slate-900 truncate" title={p.custom_id ? `${p.name} (${p.custom_id})` : p.name}>
                           {p.name} {p.custom_id && <span className="text-[10px] font-semibold text-slate-400 ml-0.5">({p.custom_id})</span>}
@@ -365,25 +299,20 @@ export default function PatientsPage() {
                         <span className="text-slate-500 whitespace-nowrap hidden sm:block">{p.phone || "연락처 없음"}</span>
                       </div>
                       
-                      {/* 2. 연령 / 성별 */}
                       <div className="col-span-2 text-slate-600 font-semibold truncate">
                         {ageText} / {p.gender || "-"}
                       </div>
                       
-                      {/* 3. 체질 */}
                       <div className="col-span-2">
                         {p.body_type && p.body_type !== "선택 안함" ? (
                           <span className="bg-teal-50 text-teal-800 px-1.5 py-0.5 rounded-md font-bold whitespace-nowrap">{p.body_type}</span>
                         ) : <span className="text-slate-300">-</span>}
                       </div>
 
-                      {/* 4. 최근 방문일 */}
                       <div className="col-span-2 text-slate-500 font-medium truncate">{p.lastDate}</div>
 
-                      {/* 5. 방문 횟수 */}
                       <div className="col-span-1 text-slate-700 font-bold">{p.count}회</div>
 
-                      {/* 6. 태그 (좌측 정렬) */}
                       <div className="col-span-2 flex flex-wrap justify-end sm:justify-start gap-1 truncate">
                         {p.tags && p.tags.slice(0, 2).map((tag: string, idx: number) => (
                           <span key={idx} className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md border whitespace-nowrap ${getTagColor(tag)}`}>{tag}</span>
@@ -518,7 +447,6 @@ export default function PatientsPage() {
               <h3 className="text-base font-bold text-slate-900">{editingPatientId ? "👥 고객 정보 수정" : "➕ 신규 고객 등록"}</h3>
               <button onClick={() => setIsModalOpen(false)} className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
             </div>
-            {/* 폼 코드 생략 없이 유지 */}
             <form onSubmit={handleSubmit} className="space-y-3 text-xs">
               <div className="grid grid-cols-2 gap-3">
                 <div><label className="block font-bold text-slate-700 mb-1">이름 *</label><input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold" required /></div>
@@ -553,7 +481,6 @@ export default function PatientsPage() {
 
       {historyModalPatient && (
         <div onClick={() => setHistoryModalPatient(null)} className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
-          {/* 히스토리 모달 (동일 유지) */}
           <div className="bg-white w-full max-w-3xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center border-b pb-3">
               <div>
@@ -600,7 +527,6 @@ export default function PatientsPage() {
         </div>
       )}
 
-      {/* 🟢 개선된 사진 모아보기 팝업 (이미지 아래에 날짜+처방 배치) */}
       {photosModalPatient && (
         <div onClick={() => setPhotosModalPatient(null)} className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-2xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
@@ -617,7 +543,6 @@ export default function PatientsPage() {
                     <div className="relative aspect-square border border-slate-200 rounded-2xl overflow-hidden bg-slate-50 cursor-pointer shadow-sm group" onClick={() => setPreviewImageUrl(photo.url)}>
                       <img src={photo.url} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
                     </div>
-                    {/* 이미지 하단 텍스트 정보 */}
                     <div className="text-center text-[11px] leading-tight flex flex-col">
                       <span className="font-extrabold text-slate-800">{photo.date}</span>
                       <span className="font-semibold text-teal-700 truncate px-1" title={photo.prescription}>{photo.prescription || "-"}</span>
@@ -631,7 +556,6 @@ export default function PatientsPage() {
         </div>
       )}
 
-      {/* 이미지 라이트박스 */}
       {previewImageUrl && (
         <div onClick={() => setPreviewImageUrl(null)} className="fixed inset-0 z-[150] bg-slate-950/80 flex items-center justify-center p-4 cursor-pointer">
           <img src={previewImageUrl} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
