@@ -97,7 +97,17 @@ export default function Sidebar() {
             <span>📅</span> 상담 캘린더
           </Link>
 
-          {/* 6. 통계 분석 */}
+          {/* 🟢 6. 제품 관리 (추가됨) */}
+          <Link 
+            href="/products" 
+            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
+              pathname === "/products" ? "bg-teal-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
+          >
+            <span>📦</span> 제품 관리
+          </Link>
+
+          {/* 7. 통계 분석 */}
           <Link 
             href="/stats" 
             className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
@@ -127,64 +137,75 @@ export default function Sidebar() {
       </div>
 
       {/* 📱 모바일 전용 하단 고정 탭 바 */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 z-50 flex justify-around items-center px-1 shadow-lg">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 z-50 flex justify-around items-center px-0.5 shadow-lg">
         <Link 
           href="/" 
-          className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
+          className={`flex flex-col items-center flex-1 py-1 text-[9px] font-medium transition ${
             pathname === "/" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
           }`}
         >
-          <span className="text-lg mb-0.5">📊</span>
+          <span className="text-base mb-0.5">📊</span>
           <span>대시보드</span>
         </Link>
 
         <Link 
           href="/patients" 
-          className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
+          className={`flex flex-col items-center flex-1 py-1 text-[9px] font-medium transition ${
             pathname === "/patients" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
           }`}
         >
-          <span className="text-lg mb-0.5">👥</span>
+          <span className="text-base mb-0.5">👥</span>
           <span>환자</span>
         </Link>
 
         <Link 
           href="/consultations" 
-          className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
+          className={`flex flex-col items-center flex-1 py-1 text-[9px] font-medium transition ${
             isWriteActive ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
           }`}
         >
-          <span className="text-lg mb-0.5">📝</span>
+          <span className="text-base mb-0.5">📝</span>
           <span>상담등록</span>
         </Link>
 
         <Link 
           href="/consultations/history" 
-          className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
+          className={`flex flex-col items-center flex-1 py-1 text-[9px] font-medium transition ${
             isHistoryActive ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
           }`}
         >
-          <span className="text-lg mb-0.5">📂</span>
+          <span className="text-base mb-0.5">📂</span>
           <span>기록조회</span>
         </Link>
 
         <Link 
           href="/schedules" 
-          className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
+          className={`flex flex-col items-center flex-1 py-1 text-[9px] font-medium transition ${
             pathname === "/schedules" || pathname === "/calendar" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
           }`}
         >
-          <span className="text-lg mb-0.5">📅</span>
+          <span className="text-base mb-0.5">📅</span>
           <span>캘린더</span>
+        </Link>
+
+        {/* 🟢 모바일 하단 제품관리 탭 추가됨 */}
+        <Link 
+          href="/products" 
+          className={`flex flex-col items-center flex-1 py-1 text-[9px] font-medium transition ${
+            pathname === "/products" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <span className="text-base mb-0.5">📦</span>
+          <span>제품관리</span>
         </Link>
 
         <Link 
           href="/stats" 
-          className={`flex flex-col items-center flex-1 py-1 text-[10px] font-medium transition ${
+          className={`flex flex-col items-center flex-1 py-1 text-[9px] font-medium transition ${
             pathname === "/stats" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
           }`}
         >
-          <span className="text-lg mb-0.5">📈</span>
+          <span className="text-base mb-0.5">📈</span>
           <span>통계</span>
         </Link>
       </nav>
