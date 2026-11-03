@@ -4,7 +4,6 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { supabase } from "@/app/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 
-// 🟢 내부 폼 컴포넌트 (useSearchParams를 사용하기 위해 분리)
 function ConsultationsForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -18,14 +17,13 @@ function ConsultationsForm() {
   const [isPatientDropdownOpen, setIsPatientDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // 📝 폼 상태값
+  // 📝 폼 상태값 (수면상태 제거, 소화배변은 설진 라벨로 사용됨)
   const [selectedPatient, setSelectedPatient] = useState("");
   const [selectedPatientNameDisplay, setSelectedPatientNameDisplay] = useState("");
   const [consultationDate, setConsultationDate] = useState(""); 
   
   const [symptoms, setSymptoms] = useState(""); 
-  const [digestionStool, setDigestionStool] = useState(""); 
-  const [sleepState, setSleepState] = useState(""); 
+  const [digestionStool, setDigestionStool] = useState(""); // 설진 데이터로 사용
   const [symptomDetail, setSymptomDetail] = useState(""); 
   const [prescription, setPrescription] = useState(""); 
   const [consultMemo, setConsultMemo] = useState(""); 
@@ -34,7 +32,6 @@ function ConsultationsForm() {
   const [amount, setAmount] = useState(""); 
   const [paymentMethod, setPaymentMethod] = useState("");
 
-  // 🟢 수식 계산기 상태
   const [calculatorInput, setCalculatorInput] = useState("");
   const [calculatorResult, setCalculatorResult] = useState<number | null>(null);
 
@@ -49,14 +46,12 @@ function ConsultationsForm() {
     return p.custom_id ? `${p.name} (${p.custom_id})` : p.name;
   };
 
-  // 🟢 폼 초기화 함수 (새 상담 진입 시 잔여 기록이 남지 않도록 완벽히 비움)
   const resetForm = () => {
     setSelectedPatient("");
     setSelectedPatientNameDisplay("");
     setConsultationDate(new Date().toISOString().split('T')[0]);
     setSymptoms("");
-    setDigestionStool("");
-    setSleepState("");
+    setDigestionStool(""); // 설진 초기화
     setSymptomDetail("");
     setPrescription("");
     setConsultMemo("");
@@ -75,14 +70,12 @@ function ConsultationsForm() {
     fetchPatients();
   }, []);
 
-  // 🟢 페이지 진입 시 새 상담 작성 모드면 무조건 폼을 비움 (잔여 기록 해결)
   useEffect(() => {
     if (!editId) {
       resetForm();
     }
   }, [editId]);
 
-  // 🟢 수정 모드일 경우 기존 데이터 불러오기
   useEffect(() => {
     if (editId && patients.length > 0) {
       fetchConsultationForEdit(editId);
@@ -110,13 +103,10 @@ function ConsultationsForm() {
     }
     if (data) {
       setSelectedPatient(data.patient_id);
-      if (data.patients) {
-        setSelectedPatientNameDisplay(formatPatientDisplayName(data.patients));
-      }
+      if (data.patients) setSelectedPatientNameDisplay(formatPatientDisplayName(data.patients));
       setConsultationDate(data.consultation_date || data.created_at?.split('T')[0] || "");
       setSymptoms(data.symptoms || "");
-      setDigestionStool(data.digestion_stool || "");
-      setSleepState(data.sleep_state || "");
+      setDigestionStool(data.digestion_stool || ""); // 설진 데이터 바인딩
       setSymptomDetail(data.symptom_detail || "");
       setPrescription(data.prescription || "");
       setConsultMemo(data.consult_memo || "");
@@ -139,16 +129,32 @@ function ConsultationsForm() {
     }
   };
 
+  // 🟢 이전 사진 안 보임 버그 해결: 히스토리 데이터에도 Signed URL 발급 로직 추가
   const fetchPatientHistory = async (patientId: string) => {
     const { data } = await supabase
       .from("consultations")
       .select("*")
       .eq("patient_id", patientId)
       .order("consultation_date", { ascending: false });
-    if (data) setPatientHistory(data);
+    
+    if (data) {
+      const processedHistory = await Promise.all(data.map(async (c) => {
+        if (c.image_urls && c.image_urls.length > 0) {
+          const signedImages = await Promise.all(
+            c.image_urls.map(async (path: string) => {
+              if (path.startsWith('http')) return { url: path };
+              const { data: sData } = await supabase.storage.from("consultation-images").createSignedUrl(path, 60 * 60);
+              return { url: sData?.signedUrl || '' };
+            })
+          );
+          return { ...c, display_images: signedImages.filter(img => img.url) };
+        }
+        return { ...c, display_images: [] };
+      }));
+      setPatientHistory(processedHistory);
+    }
   };
 
-  // 🟢 실시간 수식 계산 로직 (소수점 입력 시 강제 반올림 되는 현상 해결)
   useEffect(() => {
     if (!calculatorInput.trim()) {
       setCalculatorResult(null);
@@ -157,10 +163,8 @@ function ConsultationsForm() {
     try {
       const sanitized = calculatorInput.replace(/[^0-9+\-*/().]/g, "");
       if (sanitized) {
-        // eslint-disable-next-line no-new-func
         const result = new Function(`return ${sanitized}`)();
         if (Number.isFinite(result)) {
-          // 실수 입력 시 올림(Math.round)되는 문제 해결 (부동소수점 에러만 방지)
           setCalculatorResult(Number(result.toFixed(2))); 
         } else {
           setCalculatorResult(null);
@@ -208,17 +212,17 @@ function ConsultationsForm() {
     setUploading(true);
     try {
       const finalImagePaths = await uploadImages();
-      
       const parsedFeedbackDays = parseInt(feedbackDays);
       const finalFeedbackDays = (!isNaN(parsedFeedbackDays) && parsedFeedbackDays > 0) ? parsedFeedbackDays : null;
 
       const payload = {
         patient_id: selectedPatient,
         consultation_date: consultationDate,
-        symptoms, digestion_stool: digestionStool, sleep_state: sleepState,
+        symptoms, 
+        digestion_stool: digestionStool, // 설진 데이터를 해당 DB 컬럼에 저장
+        sleep_state: null, // 수면상태 사용 안 하므로 null 전송
         symptom_detail: symptomDetail, prescription, consult_memo: consultMemo, follow_up: followUp,
         feedback_days: finalFeedbackDays,
-        // 소수점 금액도 정상적으로 DB에 들어갈 수 있도록 parseFloat 적용
         amount: amount ? parseFloat(amount) : null,
         payment_method: paymentMethod || null, 
         image_urls: finalImagePaths, 
@@ -228,26 +232,24 @@ function ConsultationsForm() {
       if (editId) {
         const { error } = await supabase.from("consultations").update(payload).eq("id", editId);
         if (error) alert("수정 실패: " + error.message);
-        else { 
-          alert("수정되었습니다."); 
-          router.push("/consultations/history"); 
-        }
+        else { alert("수정되었습니다."); router.push("/consultations/history"); }
       } else {
         const { error } = await supabase.from("consultations").insert([payload]);
         if (error) alert("등록 실패: " + error.message);
-        else { 
-          alert("등록되었습니다."); 
-          resetForm();
-          router.push("/consultations/history"); 
-        }
+        else { alert("등록되었습니다."); resetForm(); router.push("/consultations/history"); }
       }
     } finally {
       setUploading(false);
     }
   };
 
+  // 🟢 과거 사진 모아보기 배열 정리 (Signed URL 반영 + 날짜 + 처방)
   const patientPastPhotos = patientHistory.flatMap(c => 
-    (Array.isArray(c.image_urls) ? c.image_urls : []).map((path: string) => ({ path, date: c.consultation_date || c.created_at?.split('T')[0] || "" }))
+    (c.display_images || []).map((img: any) => ({ 
+      url: img.url, 
+      date: c.consultation_date || c.created_at?.split('T')[0] || "",
+      prescription: c.prescription
+    }))
   );
 
   const filteredPatients = patients.filter(p => {
@@ -261,7 +263,6 @@ function ConsultationsForm() {
   return (
     <div className="w-full flex flex-col space-y-4 pb-12 max-w-[1600px] mx-auto" onPaste={handlePaste}>
       
-      {/* 상단 타이틀 및 이동 버튼 */}
       <div className="flex justify-between items-center bg-white px-6 py-4 rounded-2xl shadow-sm border border-slate-200">
         <h1 className="text-xl font-extrabold text-slate-900">{editId ? "상담 수정" : "새 상담 작성"}</h1>
         <button onClick={() => router.push("/consultations/history")} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition">
@@ -294,17 +295,16 @@ function ConsultationsForm() {
             <input type="date" value={consultationDate} onChange={(e) => setConsultationDate(e.target.value)} className="w-full sm:w-44 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900" required />
           </div>
 
-          <div className="flex items-center gap-2">
-            <label className="w-16 text-xs font-bold text-slate-700 shrink-0">주호소</label>
-            <input type="text" value={symptoms} onChange={(e) => setSymptoms(e.target.value)} className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900" />
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="w-16 text-xs font-bold text-slate-700 shrink-0">소화배변</label>
-            <input type="text" value={digestionStool} onChange={(e) => setDigestionStool(e.target.value)} className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900" />
-          </div>
-          <div className="flex items-center gap-2">
-            <label className="w-16 text-xs font-bold text-slate-700 shrink-0">수면상태</label>
-            <input type="text" value={sleepState} onChange={(e) => setSleepState(e.target.value)} className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900" />
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1 flex items-center gap-2">
+              <label className="w-12 text-xs font-bold text-slate-700 shrink-0">주호소</label>
+              <input type="text" value={symptoms} onChange={(e) => setSymptoms(e.target.value)} className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900" />
+            </div>
+            {/* 🟢 기존 소화배변 라벨 -> 설진으로 변경, 수면상태 제거됨 */}
+            <div className="flex-1 flex items-center gap-2">
+              <label className="w-12 text-xs font-bold text-slate-700 shrink-0">설진</label>
+              <input type="text" value={digestionStool} onChange={(e) => setDigestionStool(e.target.value)} className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900" placeholder="설진 결과 입력..." />
+            </div>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4">
@@ -363,14 +363,11 @@ function ConsultationsForm() {
                 <div className="text-xs font-bold text-teal-800 min-w-[50px]">
                   {calculatorResult !== null ? `= ${calculatorResult.toLocaleString()}` : "="}
                 </div>
-                <button type="button" onClick={() => { if (calculatorResult !== null) setAmount(calculatorResult.toString()); }} disabled={calculatorResult === null} className="px-2 py-1.5 bg-teal-600 text-white text-[10px] font-bold rounded-lg hover:bg-teal-700 disabled:opacity-50 transition">
-                  적용
-                </button>
+                <button type="button" onClick={() => { if (calculatorResult !== null) setAmount(calculatorResult.toString()); }} disabled={calculatorResult === null} className="px-2 py-1.5 bg-teal-600 text-white text-[10px] font-bold rounded-lg hover:bg-teal-700 disabled:opacity-50 transition">적용</button>
               </div>
 
               <div className="flex items-center gap-2">
                 <label className="text-xs font-bold text-slate-700 pl-1">최종 금액</label>
-                {/* 🟢 최종 금액도 소수점(.) 입력을 허용하도록 정규식 변경 */}
                 <input type="text" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} className="w-24 p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900" />
               </div>
               
@@ -435,14 +432,20 @@ function ConsultationsForm() {
 
           <div className="flex flex-col bg-slate-100 border border-slate-200 rounded-3xl p-4 shadow-sm">
             <label className="text-xs font-bold text-slate-800 mb-3 flex-shrink-0">🎞️ 과거 사진 데이터 모아보기</label>
-            <div className="max-h-[320px] overflow-y-auto pr-1">
+            <div className="max-h-[400px] overflow-y-auto pr-1">
               {patientPastPhotos.length === 0 ? (
                 <div className="w-full text-center text-xs text-slate-500 font-semibold py-6">선택된 환자의 과거 사진이 없습니다.</div>
               ) : (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-x-2 gap-y-4">
                   {patientPastPhotos.map((photo, idx) => (
-                    <div key={idx} className="relative w-full aspect-square flex items-center justify-center group bg-white rounded-xl shadow-2xs border border-slate-300 p-1 cursor-pointer" onClick={() => setPreviewImageUrl(photo.url)}>
-                      <div className="absolute bottom-1 left-1 right-1 bg-black/70 text-white text-[10px] font-semibold px-2 py-1 truncate rounded">{photo.date}</div>
+                    <div key={idx} className="flex flex-col gap-1 cursor-pointer group" onClick={() => setPreviewImageUrl(photo.url)}>
+                      <div className="relative w-full aspect-square flex items-center justify-center bg-white rounded-xl shadow-2xs border border-slate-300 p-1 overflow-hidden">
+                        <img src={photo.url} className="w-full h-full object-cover group-hover:scale-105 transition duration-300 rounded-lg" />
+                      </div>
+                      <div className="text-center text-[10px] leading-tight">
+                        <div className="font-bold text-slate-800">{photo.date}</div>
+                        <div className="text-teal-700 truncate px-1" title={photo.prescription}>{photo.prescription || "-"}</div>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -463,7 +466,6 @@ function ConsultationsForm() {
   );
 }
 
-// 🟢 최상위 페이지 컴포넌트 (Suspense 적용)
 export default function ConsultationsWritePage() {
   return (
     <Suspense fallback={<div className="w-full p-8 text-center text-slate-500 text-sm font-bold">상담 정보를 불러오는 중...</div>}>
