@@ -16,11 +16,11 @@ export default function ProductsPage() {
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   
   const [name, setName] = useState("");
-  const [category, setCategory] = useState("건강기능식품");
+  const [category, setCategory] = useState(""); // 🟢 분류칸 기본 비우기
   
-  // 제조사 선택 및 직접 입력 상태
-  const [manufacturer, setManufacturer] = useState("");
-  const [isCustomManufacturer, setIsCustomManufacturer] = useState(false);
+  // 🟢 제조사 항상 직접 입력으로 기본 설정
+  const [manufacturer, setManufacturer] = useState("직접입력");
+  const [isCustomManufacturer, setIsCustomManufacturer] = useState(true);
   const [customManufacturerInput, setCustomManufacturerInput] = useState("");
 
   const [price, setPrice] = useState("");
@@ -50,7 +50,6 @@ export default function ProductsPage() {
     }
   };
 
-  // 🟢 오직 DB에 등록된 제품들의 제조사만 추출하여 상단 탭 및 드롭다운 생성
   const allManufacturers = useMemo(() => {
     const dbManufacturers = products.map(p => p.manufacturer).filter(Boolean);
     return Array.from(new Set(dbManufacturers));
@@ -58,7 +57,6 @@ export default function ProductsPage() {
 
   const manufacturerTabs = ["전체", ...allManufacturers];
 
-  // 필터링 적용
   const filteredProducts = products.filter(p => {
     const matchSearch = (p.name || "").includes(searchQuery) || (p.manufacturer || "").includes(searchQuery);
     const matchManufacturer = selectedManufacturer === "전체" || p.manufacturer === selectedManufacturer;
@@ -68,9 +66,9 @@ export default function ProductsPage() {
   const handleOpenRegister = () => {
     setEditingProductId(null);
     setName(""); 
-    setCategory("건강기능식품"); 
-    setManufacturer(allManufacturers[0] || "");
-    setIsCustomManufacturer(allManufacturers.length === 0); // 등록된 제조사가 없으면 기본으로 직접 입력 활성화
+    setCategory(""); // 🟢 등록 창 열 때 분류 비우기
+    setManufacturer("직접입력");
+    setIsCustomManufacturer(true); // 🟢 항상 직접 입력 활성화
     setCustomManufacturerInput("");
     setPrice(""); 
     setStock(""); 
@@ -84,7 +82,7 @@ export default function ProductsPage() {
   const handleOpenEdit = (p: any) => {
     setEditingProductId(p.id);
     setName(p.name || "");
-    setCategory(p.category || "건강기능식품");
+    setCategory(p.category || "");
     
     if (p.manufacturer && allManufacturers.includes(p.manufacturer)) {
       setManufacturer(p.manufacturer);
@@ -201,7 +199,6 @@ export default function ProductsPage() {
         {/* 좌측: 리스트 영역 */}
         <div className="lg:col-span-8 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
           
-          {/* 제조사 탭 (DB 등록된 항목만 노출) */}
           <div className="px-5 pt-4 pb-2 flex items-center gap-2 overflow-x-auto hide-scrollbar border-b border-slate-100 flex-shrink-0">
             {manufacturerTabs.map(m => {
               const count = m === "전체" ? products.length : products.filter(p => p.manufacturer === m).length;
@@ -358,13 +355,15 @@ export default function ProductsPage() {
 
                 <div className="flex-1 space-y-3">
                   <div>
-                    <label className="block font-bold text-slate-700 mb-1">제품명 *</label>
+                    {/* 🟢 제품명 * 표시 제거 */}
+                    <label className="block font-bold text-slate-700 mb-1">제품명</label>
                     <input type="text" value={name} onChange={e => setName(e.target.value)} required className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" />
                   </div>
                   
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block font-bold text-slate-700 mb-1">제조사 *</label>
+                      {/* 🟢 제조사 * 표시 제거 */}
+                      <label className="block font-bold text-slate-700 mb-1">제조사</label>
                       <select 
                         value={isCustomManufacturer ? "직접입력" : manufacturer} 
                         onChange={e => {
@@ -383,7 +382,7 @@ export default function ProductsPage() {
                         ) : (
                           <>
                             {allManufacturers.map(m => <option key={m} value={m}>{m}</option>)}
-                            <option value="직접입력">+ 직접 입력</option>
+                            <option value="직접입력">직접 입력</option>
                           </>
                         )}
                       </select>
@@ -401,6 +400,7 @@ export default function ProductsPage() {
                     </div>
                     
                     <div>
+                      {/* 🟢 분류칸 기본 비워두기 적용 */}
                       <label className="block font-bold text-slate-700 mb-1">분류</label>
                       <input type="text" value={category} onChange={e => setCategory(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" placeholder="예: 건강기능식품" />
                     </div>
