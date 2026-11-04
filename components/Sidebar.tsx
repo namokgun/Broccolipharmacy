@@ -46,7 +46,7 @@ export default function Sidebar() {
           </div>
         </div>
 
-        <nav className="flex-1 p-3 space-y-1 overflow-y-auto text-xs">
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto text-xs hide-scrollbar">
           {/* 1. 대시보드 */}
           <Link 
             href="/" 
@@ -67,7 +67,7 @@ export default function Sidebar() {
             <span>👥</span> 환자 목록
           </Link>
 
-          {/* 3. 새 상담 기록 (작성 페이지) */}
+          {/* 3. 새 상담 기록 */}
           <Link 
             href="/consultations" 
             className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
@@ -77,7 +77,7 @@ export default function Sidebar() {
             <span>📝</span> 새 상담 기록
           </Link>
           
-          {/* 4. 기록 조회 (조회 페이지) */}
+          {/* 4. 기록 조회 */}
           <Link 
             href="/consultations/history" 
             className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
@@ -97,7 +97,7 @@ export default function Sidebar() {
             <span>📅</span> 상담 캘린더
           </Link>
 
-          {/* 🟢 6. 제품 관리 (추가됨) */}
+          {/* 6. 제품 관리 */}
           <Link 
             href="/products" 
             className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
@@ -107,7 +107,27 @@ export default function Sidebar() {
             <span>📦</span> 제품 관리
           </Link>
 
-          {/* 7. 통계 분석 */}
+          {/* 🟢 7. 사입 관리 (추가됨) */}
+          <Link 
+            href="/purchases" 
+            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
+              pathname === "/purchases" ? "bg-teal-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
+          >
+            <span>🛒</span> 사입 관리
+          </Link>
+
+          {/* 🟢 8. 판매 관리 (추가됨) */}
+          <Link 
+            href="/sales" 
+            className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
+              pathname === "/sales" ? "bg-teal-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
+          >
+            <span>💳</span> 판매 관리
+          </Link>
+
+          {/* 9. 통계 분석 */}
           <Link 
             href="/stats" 
             className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl transition font-semibold ${
@@ -136,11 +156,11 @@ export default function Sidebar() {
         </button>
       </div>
 
-      {/* 📱 모바일 전용 하단 고정 탭 바 */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 z-50 flex justify-around items-center px-0.5 shadow-lg">
+      {/* 📱 모바일 전용 하단 고정 탭 바 (가로 스크롤 허용) */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 z-50 flex overflow-x-auto hide-scrollbar px-1 shadow-lg">
         <Link 
           href="/" 
-          className={`flex flex-col items-center flex-1 py-1 text-[9px] font-medium transition ${
+          className={`flex flex-col items-center justify-center min-w-[56px] flex-1 py-1 text-[9px] font-medium transition ${
             pathname === "/" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
           }`}
         >
@@ -150,7 +170,7 @@ export default function Sidebar() {
 
         <Link 
           href="/patients" 
-          className={`flex flex-col items-center flex-1 py-1 text-[9px] font-medium transition ${
+          className={`flex flex-col items-center justify-center min-w-[56px] flex-1 py-1 text-[9px] font-medium transition ${
             pathname === "/patients" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
           }`}
         >
@@ -160,7 +180,7 @@ export default function Sidebar() {
 
         <Link 
           href="/consultations" 
-          className={`flex flex-col items-center flex-1 py-1 text-[9px] font-medium transition ${
+          className={`flex flex-col items-center justify-center min-w-[56px] flex-1 py-1 text-[9px] font-medium transition ${
             isWriteActive ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
           }`}
         >
@@ -170,7 +190,7 @@ export default function Sidebar() {
 
         <Link 
           href="/consultations/history" 
-          className={`flex flex-col items-center flex-1 py-1 text-[9px] font-medium transition ${
+          className={`flex flex-col items-center justify-center min-w-[56px] flex-1 py-1 text-[9px] font-medium transition ${
             isHistoryActive ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
           }`}
         >
@@ -180,7 +200,7 @@ export default function Sidebar() {
 
         <Link 
           href="/schedules" 
-          className={`flex flex-col items-center flex-1 py-1 text-[9px] font-medium transition ${
+          className={`flex flex-col items-center justify-center min-w-[56px] flex-1 py-1 text-[9px] font-medium transition ${
             pathname === "/schedules" || pathname === "/calendar" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
           }`}
         >
@@ -188,10 +208,9 @@ export default function Sidebar() {
           <span>캘린더</span>
         </Link>
 
-        {/* 🟢 모바일 하단 제품관리 탭 추가됨 */}
         <Link 
           href="/products" 
-          className={`flex flex-col items-center flex-1 py-1 text-[9px] font-medium transition ${
+          className={`flex flex-col items-center justify-center min-w-[56px] flex-1 py-1 text-[9px] font-medium transition ${
             pathname === "/products" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
           }`}
         >
@@ -199,9 +218,31 @@ export default function Sidebar() {
           <span>제품관리</span>
         </Link>
 
+        {/* 🟢 모바일 하단 사입관리 탭 추가됨 */}
+        <Link 
+          href="/purchases" 
+          className={`flex flex-col items-center justify-center min-w-[56px] flex-1 py-1 text-[9px] font-medium transition ${
+            pathname === "/purchases" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <span className="text-base mb-0.5">🛒</span>
+          <span>사입관리</span>
+        </Link>
+
+        {/* 🟢 모바일 하단 판매관리 탭 추가됨 */}
+        <Link 
+          href="/sales" 
+          className={`flex flex-col items-center justify-center min-w-[56px] flex-1 py-1 text-[9px] font-medium transition ${
+            pathname === "/sales" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
+          }`}
+        >
+          <span className="text-base mb-0.5">💳</span>
+          <span>판매관리</span>
+        </Link>
+
         <Link 
           href="/stats" 
-          className={`flex flex-col items-center flex-1 py-1 text-[9px] font-medium transition ${
+          className={`flex flex-col items-center justify-center min-w-[56px] flex-1 py-1 text-[9px] font-medium transition ${
             pathname === "/stats" ? "text-teal-900 font-bold" : "text-slate-500 hover:text-slate-800"
           }`}
         >
