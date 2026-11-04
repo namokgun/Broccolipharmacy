@@ -7,8 +7,8 @@ export default function PurchasesPage() {
   const [purchases, setPurchases] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   
-  // 폼 상태
-  const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
+  // 폼 상태 (🟢 빌드 에러 해결: Date 초기값을 비워둠)
+  const [purchaseDate, setPurchaseDate] = useState("");
   const [manufacturer, setManufacturer] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("완료");
   const [memo, setMemo] = useState("");
@@ -16,6 +16,8 @@ export default function PurchasesPage() {
   const [productSearch, setProductSearch] = useState("");
 
   useEffect(() => {
+    // 🟢 빌드 에러 해결: 클라이언트 렌더링 완료 후 오늘 날짜 세팅
+    setPurchaseDate(new Date().toISOString().split('T')[0]);
     fetchData();
   }, []);
 
@@ -71,7 +73,7 @@ export default function PurchasesPage() {
   const totalStock = products.reduce((sum, p) => sum + (p.stock || 0), 0);
   const avgPrice = totalCount > 0 ? Math.round(totalSum / totalCount) : 0;
 
-  // 🟢 제조사별 매입액 (요청 기능)
+  // 제조사별 매입액 (TOP 5 용)
   const manufacturerStats = useMemo(() => {
     const stats: Record<string, number> = {};
     purchases.forEach(p => {
