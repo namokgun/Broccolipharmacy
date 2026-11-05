@@ -228,22 +228,18 @@ export default function PatientsPage() {
   const representativePatientName = patients.find(p => p.id === selectedPatient?.representative_id)?.name;
 
   return (
-    <div className="w-full h-[calc(100vh-80px)] flex flex-col space-y-4 overflow-hidden max-w-[1700px] mx-auto pb-4">
+    <div className="w-full h-[calc(100vh-20px)] flex flex-col space-y-3 overflow-hidden max-w-[1700px] mx-auto pb-2">
       
-      {/* 상단 헤더 영역 */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white px-6 py-4 rounded-2xl shadow-sm border border-slate-200 gap-3 flex-shrink-0">
-        <div>
-          <h1 className="text-xl font-extrabold text-slate-900">고객 관리</h1>
-          <p className="text-xs font-semibold text-slate-500 mt-0.5">고객 정보를 한눈에 확인하고, 상담 이력을 관리할 수 있습니다.</p>
-        </div>
+      {/* 🟢 상단 타이틀과 설명 영역을 완전히 제거하고, 신규 등록 버튼만 우측 상단에 깔끔하게 배치하여 공간 확보 */}
+      <div className="flex justify-end items-center flex-shrink-0 px-1">
         <button onClick={handleOpenRegister} className="px-4 py-2 bg-teal-900 hover:bg-teal-800 text-white rounded-xl font-semibold text-xs transition shadow-sm whitespace-nowrap">
           + 신규 고객 등록
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 flex-1 min-h-0">
         
-        {/* 좌측: 고객 목록 (매출 추이 영역 제거됨) */}
+        {/* 좌측: 고객 목록 */}
         <div className="lg:col-span-7 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-4 space-y-3">
           
           <div className="grid grid-cols-3 gap-2 flex-shrink-0">
