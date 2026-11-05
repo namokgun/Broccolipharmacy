@@ -4,6 +4,9 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { supabase } from "@/app/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 
+// 🟢 추천 설진 태그 목록 (필요에 따라 추가/수정 가능합니다)
+const PRESET_TONGUE_TAGS = ["백태", "황태", "후태", "박태", "위축태", "니태", "조태", "열문설", "거치설", "어혈반", "홍설", "자색설"];
+
 function ConsultationsForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -17,13 +20,15 @@ function ConsultationsForm() {
   const [isPatientDropdownOpen, setIsPatientDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // 📝 폼 상태값 (수면상태 제거, 소화배변은 설진 라벨로 사용됨)
+  // 📝 폼 상태값
   const [selectedPatient, setSelectedPatient] = useState("");
   const [selectedPatientNameDisplay, setSelectedPatientNameDisplay] = useState("");
   const [consultationDate, setConsultationDate] = useState(""); 
   
   const [symptoms, setSymptoms] = useState(""); 
-  const [digestionStool, setDigestionStool] = useState(""); // 설진 데이터로 사용
+  const [digestionStool, setDigestionStool] = useState(""); // 설진 텍스트 데이터
+  const [tongueTags, setTongueTags] = useState<string[]>([]); // 🟢 설진 태그 상태 배열
+  
   const [symptomDetail, setSymptomDetail] = useState(""); 
   const [prescription, setPrescription] = useState(""); 
   const [consultMemo, setConsultMemo] = useState(""); 
@@ -51,7 +56,8 @@ function ConsultationsForm() {
     setSelectedPatientNameDisplay("");
     setConsultationDate(new Date().toISOString().split('T')[0]);
     setSymptoms("");
-    setDigestionStool(""); // 설진 초기화
+    setDigestionStool(""); 
+    setTongueTags([]); // 🟢 태그 초기화
     setSymptomDetail("");
     setPrescription("");
     setConsultMemo("");
@@ -106,7 +112,8 @@ function ConsultationsForm() {
       if (data.patients) setSelectedPatientNameDisplay(formatPatientDisplayName(data.patients));
       setConsultationDate(data.consultation_date || data.created_at?.split('T')[0] || "");
       setSymptoms(data.symptoms || "");
-      setDigestionStool(data.digestion_stool || ""); // 설진 데이터 바인딩
+      setDigestionStool(data.digestion_stool || ""); 
+      setTongueTags(Array.isArray(data.tongue_tags) ? data.tongue_tags : []); // 🟢 저장된 설진 태그 불러오기
       setSymptomDetail(data.symptom_detail || "");
       setPrescription(data.prescription || "");
       setConsultMemo(data.consult_memo || "");
@@ -129,7 +136,6 @@ function ConsultationsForm() {
     }
   };
 
-  // 🟢 이전 사진 안 보임 버그 해결: 히스토리 데이터에도 Signed URL 발급 로직 추가
   const fetchPatientHistory = async (patientId: string) => {
     const { data } = await supabase
       .from("consultations")
@@ -202,6 +208,15 @@ function ConsultationsForm() {
     return uploadedPaths;
   };
 
+  // 🟢 설진 태그 클릭 시 추가/제거 토글 함수
+  const toggleTongueTag = (tag: string) => {
+    if (tongueTags.includes(tag)) {
+      setTongueTags(tongueTags.filter(t => t !== tag));
+    } else {
+      setTongueTags([...tongueTags, tag]);
+    }
+  };
+
   const handleSubmitConsultation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPatient) return alert("환자를 선택해주세요.");
@@ -219,8 +234,9 @@ function ConsultationsForm() {
         patient_id: selectedPatient,
         consultation_date: consultationDate,
         symptoms, 
-        digestion_stool: digestionStool, // 설진 데이터를 해당 DB 컬럼에 저장
-        sleep_state: null, // 수면상태 사용 안 하므로 null 전송
+        digestion_stool: digestionStool, 
+        tongue_tags: tongueTags, // 🟢 데이터베이스에 설진 태그 배열 저장
+        sleep_state: null, 
         symptom_detail: symptomDetail, prescription, consult_memo: consultMemo, follow_up: followUp,
         feedback_days: finalFeedbackDays,
         amount: amount ? parseFloat(amount) : null,
@@ -243,7 +259,6 @@ function ConsultationsForm() {
     }
   };
 
-  // 🟢 과거 사진 모아보기 배열 정리 (Signed URL 반영 + 날짜 + 처방)
   const patientPastPhotos = patientHistory.flatMap(c => 
     (c.display_images || []).map((img: any) => ({ 
       url: img.url, 
@@ -300,21 +315,44 @@ function ConsultationsForm() {
               <label className="w-12 text-xs font-bold text-slate-700 shrink-0">주호소</label>
               <input type="text" value={symptoms} onChange={(e) => setSymptoms(e.target.value)} className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900" />
             </div>
-            {/* 🟢 기존 소화배변 라벨 -> 설진으로 변경, 수면상태 제거됨 */}
             <div className="flex-1 flex items-center gap-2">
               <label className="w-12 text-xs font-bold text-slate-700 shrink-0">설진</label>
               <input type="text" value={digestionStool} onChange={(e) => setDigestionStool(e.target.value)} className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900" placeholder="설진 결과 입력..." />
             </div>
           </div>
 
+          {/* 🟢 설진 태그 선택 UI 추가 */}
+          <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 flex flex-col gap-1.5">
+            <span className="text-[11px] font-bold text-slate-600">🏷️ 설진 태그 선택 (클릭하여 추가/제거)</span>
+            <div className="flex flex-wrap gap-1.5">
+              {PRESET_TONGUE_TAGS.map(tag => {
+                const isSelected = tongueTags.includes(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => toggleTongueTag(tag)}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${
+                      isSelected 
+                        ? "bg-amber-600 text-white border-amber-600 shadow-2xs" 
+                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    #{tag}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1 flex flex-col">
               <label className="text-xs font-bold text-blue-700 mb-1">증상 상세</label>
-              <textarea value={symptomDetail} onChange={(e) => setSymptomDetail(e.target.value)} className="w-full h-64 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900 resize-none" />
+              <textarea value={symptomDetail} onChange={(e) => setSymptomDetail(e.target.value)} className="w-full h-52 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900 resize-none" />
             </div>
             <div className="flex-1 flex flex-col">
               <label className="text-xs font-bold text-slate-900 mb-1">최근 방문내역</label>
-              <div className="w-full h-64 border border-slate-200 rounded-xl overflow-y-auto bg-white p-1 text-xs">
+              <div className="w-full h-52 border border-slate-200 rounded-xl overflow-y-auto bg-white p-1 text-xs">
                 <table className="w-full text-left">
                   <thead className="bg-slate-100 sticky top-0 text-slate-900 font-bold">
                     <tr><th className="p-1.5">날짜</th><th className="p-1.5 text-slate-900 font-bold">주호소</th><th className="p-1.5 text-slate-900 font-bold">처방</th></tr>
@@ -455,6 +493,35 @@ function ConsultationsForm() {
         </div>
 
       </form>
+
+      {/* 과거 방문내역 상세 모달 */}
+      {historyDetailModal && (
+        <div onClick={() => setHistoryDetailModal(null)} className="fixed inset-0 z-[150] bg-slate-950/70 flex items-center justify-center p-4 cursor-pointer">
+          <div onClick={(e) => e.stopPropagation()} className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col gap-4">
+            <div className="flex justify-between items-center border-b pb-3">
+              <h3 className="text-base font-extrabold text-slate-900">과거 상담 기록 상세 ({historyDetailModal.consultation_date || historyDetailModal.created_at?.split('T')[0]})</h3>
+              <button onClick={() => setHistoryDetailModal(null)} className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
+            </div>
+            <div className="space-y-3 text-xs overflow-y-auto max-h-[60vh] pr-1">
+              <div><span className="font-bold text-slate-500">주호소:</span> <p className="font-semibold text-slate-900 mt-0.5">{historyDetailModal.symptoms || "-"}</p></div>
+              <div><span className="font-bold text-slate-500">설진:</span> <p className="font-semibold text-slate-900 mt-0.5">{historyDetailModal.digestion_stool || "-"}</p></div>
+              {historyDetailModal.tongue_tags && historyDetailModal.tongue_tags.length > 0 && (
+                <div>
+                  <span className="font-bold text-slate-500">설진 태그:</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {historyDetailModal.tongue_tags.map((t: string, i: number) => (
+                      <span key={i} className="bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded text-[10px] font-extrabold">#{t}</span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <div><span className="font-bold text-slate-500">증상 상세:</span> <p className="font-medium text-slate-800 mt-0.5 whitespace-pre-line">{historyDetailModal.symptom_detail || "-"}</p></div>
+              <div><span className="font-bold text-teal-700">처방:</span> <p className="font-extrabold text-teal-950 mt-0.5">{historyDetailModal.prescription || "-"}</p></div>
+              <div><span className="font-bold text-slate-500">코멘트:</span> <p className="font-medium text-slate-800 mt-0.5 whitespace-pre-line">{historyDetailModal.consult_memo || "-"}</p></div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {previewImageUrl && (
         <div onClick={() => setPreviewImageUrl(null)} className="fixed inset-0 z-[150] bg-slate-950/80 flex items-center justify-center p-4 cursor-pointer">
