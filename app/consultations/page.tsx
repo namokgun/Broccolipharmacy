@@ -4,9 +4,6 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { supabase } from "@/app/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 
-// 🟢 추천 설진 태그 목록 (필요에 따라 추가/수정 가능합니다)
-const PRESET_TONGUE_TAGS = ["백태", "황태", "후태", "박태", "위축태", "니태", "조태", "열문설", "거치설", "어혈반", "홍설", "자색설"];
-
 function ConsultationsForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -26,8 +23,7 @@ function ConsultationsForm() {
   const [consultationDate, setConsultationDate] = useState(""); 
   
   const [symptoms, setSymptoms] = useState(""); 
-  const [digestionStool, setDigestionStool] = useState(""); // 설진 텍스트 데이터
-  const [tongueTags, setTongueTags] = useState<string[]>([]); // 🟢 설진 태그 상태 배열
+  const [digestionStool, setDigestionStool] = useState(""); // 설진 입력란 (쉼표로 자유롭게 작성)
   
   const [symptomDetail, setSymptomDetail] = useState(""); 
   const [prescription, setPrescription] = useState(""); 
@@ -57,7 +53,6 @@ function ConsultationsForm() {
     setConsultationDate(new Date().toISOString().split('T')[0]);
     setSymptoms("");
     setDigestionStool(""); 
-    setTongueTags([]); // 🟢 태그 초기화
     setSymptomDetail("");
     setPrescription("");
     setConsultMemo("");
@@ -113,7 +108,6 @@ function ConsultationsForm() {
       setConsultationDate(data.consultation_date || data.created_at?.split('T')[0] || "");
       setSymptoms(data.symptoms || "");
       setDigestionStool(data.digestion_stool || ""); 
-      setTongueTags(Array.isArray(data.tongue_tags) ? data.tongue_tags : []); // 🟢 저장된 설진 태그 불러오기
       setSymptomDetail(data.symptom_detail || "");
       setPrescription(data.prescription || "");
       setConsultMemo(data.consult_memo || "");
@@ -208,15 +202,6 @@ function ConsultationsForm() {
     return uploadedPaths;
   };
 
-  // 🟢 설진 태그 클릭 시 추가/제거 토글 함수
-  const toggleTongueTag = (tag: string) => {
-    if (tongueTags.includes(tag)) {
-      setTongueTags(tongueTags.filter(t => t !== tag));
-    } else {
-      setTongueTags([...tongueTags, tag]);
-    }
-  };
-
   const handleSubmitConsultation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedPatient) return alert("환자를 선택해주세요.");
@@ -230,12 +215,17 @@ function ConsultationsForm() {
       const parsedFeedbackDays = parseInt(feedbackDays);
       const finalFeedbackDays = (!isNaN(parsedFeedbackDays) && parsedFeedbackDays > 0) ? parsedFeedbackDays : null;
 
+      // 🟢 설진 입력칸(digestion_stool)에 적은 텍스트를 쉼표(,) 기준으로 쪼개서 배열로 만듦 (조회 화면 태그 연동용)
+      const tagsFromInput = digestionStool
+        ? digestionStool.split(",").map(t => t.trim()).filter(Boolean)
+        : [];
+
       const payload = {
         patient_id: selectedPatient,
         consultation_date: consultationDate,
         symptoms, 
-        digestion_stool: digestionStool, 
-        tongue_tags: tongueTags, // 🟢 데이터베이스에 설진 태그 배열 저장
+        digestion_stool: digestionStool, // 텍스트 그대로 저장
+        tongue_tags: tagsFromInput,      // 쉼표로 나눈 배열을 태그 데이터로 저장
         sleep_state: null, 
         symptom_detail: symptomDetail, prescription, consult_memo: consultMemo, follow_up: followUp,
         feedback_days: finalFeedbackDays,
@@ -317,31 +307,7 @@ function ConsultationsForm() {
             </div>
             <div className="flex-1 flex items-center gap-2">
               <label className="w-12 text-xs font-bold text-slate-700 shrink-0">설진</label>
-              <input type="text" value={digestionStool} onChange={(e) => setDigestionStool(e.target.value)} className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900" placeholder="설진 결과 입력..." />
-            </div>
-          </div>
-
-          {/* 🟢 설진 태그 선택 UI 추가 */}
-          <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 flex flex-col gap-1.5">
-            <span className="text-[11px] font-bold text-slate-600">🏷️ 설진 태그 선택 (클릭하여 추가/제거)</span>
-            <div className="flex flex-wrap gap-1.5">
-              {PRESET_TONGUE_TAGS.map(tag => {
-                const isSelected = tongueTags.includes(tag);
-                return (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => toggleTongueTag(tag)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all border ${
-                      isSelected 
-                        ? "bg-amber-600 text-white border-amber-600 shadow-2xs" 
-                        : "bg-white text-slate-700 border-slate-200 hover:bg-slate-100"
-                    }`}
-                  >
-                    #{tag}
-                  </button>
-                );
-              })}
+              <input type="text" value={digestionStool} onChange={(e) => setDigestionStool(e.target.value)} className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900" placeholder="예: 백태, 위축, 어혈반" />
             </div>
           </div>
 
