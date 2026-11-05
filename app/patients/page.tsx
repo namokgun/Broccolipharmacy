@@ -228,11 +228,15 @@ export default function PatientsPage() {
   const representativePatientName = patients.find(p => p.id === selectedPatient?.representative_id)?.name;
 
   return (
-    <div className="w-full h-[calc(100vh-20px)] flex flex-col space-y-3 overflow-hidden max-w-[1700px] mx-auto pb-2">
+    <div className="w-full h-[calc(100vh-32px)] flex flex-col space-y-3 overflow-hidden max-w-[1700px] mx-auto pb-2">
       
-      {/* 🟢 상단 타이틀과 설명 영역을 완전히 제거하고, 신규 등록 버튼만 우측 상단에 깔끔하게 배치하여 공간 확보 */}
-      <div className="flex justify-end items-center flex-shrink-0 px-1">
-        <button onClick={handleOpenRegister} className="px-4 py-2 bg-teal-900 hover:bg-teal-800 text-white rounded-xl font-semibold text-xs transition shadow-sm whitespace-nowrap">
+      {/* 🟢 다른 페이지(판매관리, 사입관리 등)와 동일한 깔끔한 상단 헤더 스타일 */}
+      <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center flex-shrink-0">
+        <div>
+          <h1 className="text-lg font-extrabold text-slate-900">고객 관리</h1>
+          <p className="text-[11px] font-semibold text-slate-500 mt-0.5">고객 정보를 확인하고 관리할 수 있습니다.</p>
+        </div>
+        <button onClick={handleOpenRegister} className="px-4 py-1.5 bg-teal-900 hover:bg-teal-800 text-white rounded-xl font-semibold text-xs transition shadow-sm whitespace-nowrap">
           + 신규 고객 등록
         </button>
       </div>
