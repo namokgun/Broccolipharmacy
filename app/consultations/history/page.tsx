@@ -25,15 +25,12 @@ export default function ConsultationHistoryPage() {
     }
 
     if (data) {
-      // 🟢 JavaScript 단에서 확실한 최신순(내림차순) 정렬 보장
-      // 1순위: consultation_date 최신순, 2순위: created_at 최신순
       const sortedData = data.sort((a: any, b: any) => {
         const dateA = new Date(a.consultation_date || a.created_at).getTime();
         const dateB = new Date(b.consultation_date || b.created_at).getTime();
         if (dateB !== dateA) {
-          return dateB - dateA; // 날짜가 다르면 최신 날짜가 위로
+          return dateB - dateA;
         }
-        // 날짜가 같으면 생성된 시간(created_at) 최신순
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
 
@@ -83,34 +80,35 @@ export default function ConsultationHistoryPage() {
     const phone = c.patients?.phone?.toLowerCase() || "";
     const symptoms = c.symptoms?.toLowerCase() || "";
     const prescription = c.prescription?.toLowerCase() || "";
-    return name.includes(q) || phone.includes(q) || symptoms.includes(q) || prescription.includes(q);
+    const tongueTags = Array.isArray(c.tongue_tags) ? c.tongue_tags.join(" ").toLowerCase() : "";
+    return name.includes(q) || phone.includes(q) || symptoms.includes(q) || prescription.includes(q) || tongueTags.includes(q);
   });
 
   return (
-    <div className="w-full h-[calc(100vh-80px)] flex flex-col space-y-4 overflow-hidden max-w-[1700px] mx-auto pb-4">
+    <div className="w-full h-[calc(100vh-32px)] flex flex-col space-y-3 overflow-hidden max-w-[1700px] mx-auto pb-2">
       
       {/* 상단 헤더 */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center bg-white px-6 py-4 rounded-2xl shadow-sm border border-slate-200 gap-3 flex-shrink-0">
-        <h1 className="text-xl font-extrabold text-slate-900">상담 기록 조회</h1>
+      <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center flex-shrink-0">
+        <h1 className="text-lg font-extrabold text-slate-900">상담 기록 조회</h1>
         <div className="flex items-center gap-2">
-          <Link href="/consultations" className="px-4 py-2 bg-teal-900 hover:bg-teal-800 text-white rounded-xl font-semibold text-xs transition shadow-sm">
+          <Link href="/consultations" className="px-4 py-1.5 bg-[#528771] hover:bg-[#3d6856] text-white rounded-xl font-bold text-xs transition shadow-sm whitespace-nowrap">
             + 새 상담 작성
           </Link>
         </div>
       </div>
 
       {/* 좌우 분할 레이아웃 */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 min-h-0">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 flex-1 min-h-0">
         
-        {/* 좌측: 1줄 리스트 창 */}
+        {/* 좌측: 리스트 창 */}
         <div className="lg:col-span-7 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-4">
           <div className="mb-3 flex-shrink-0">
             <input 
               type="text" 
-              placeholder="고객명, 전화번호, 주호소, 처방내용 검색..." 
+              placeholder="고객명, 전화번호, 주호소, 처방내용, 설진태그 검색..." 
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-teal-700 transition"
+              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#528771] transition"
             />
           </div>
 
@@ -120,7 +118,7 @@ export default function ConsultationHistoryPage() {
 
           <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
             {filteredConsultations.length === 0 ? (
-              <div className="py-16 text-center text-slate-400 text-xs">검색 결과가 없습니다.</div>
+              <div className="py-16 text-center text-slate-400 text-xs font-bold">검색 결과가 없습니다.</div>
             ) : (
               filteredConsultations.map((c) => {
                 const isSelected = selectedConsultation?.id === c.id;
@@ -136,7 +134,7 @@ export default function ConsultationHistoryPage() {
                         : "bg-white border-slate-100 hover:bg-slate-50/80"
                     }`}
                   >
-                    <div className="flex items-center gap-3 flex-shrink-0 w-44 whitespace-nowrap">
+                    <div className="flex items-center gap-3 flex-shrink-0 w-40 whitespace-nowrap">
                       <span className="text-[11px] font-bold text-slate-500">{dateStr}</span>
                       <span className="font-extrabold text-slate-900 truncate" title={formatPatientName(c.patients)}>
                         {formatPatientName(c.patients)}
@@ -145,14 +143,27 @@ export default function ConsultationHistoryPage() {
 
                     <div className="flex-1 flex items-center gap-2 truncate text-[11px]">
                       {c.symptoms && (
-                        <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-semibold truncate max-w-[180px]" title={c.symptoms}>
+                        <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-semibold truncate max-w-[140px]" title={c.symptoms}>
                           {c.symptoms}
                         </span>
                       )}
                       {c.prescription && (
-                        <span className="bg-teal-50 text-teal-800 px-2 py-0.5 rounded-md font-bold truncate flex-1" title={c.prescription}>
+                        <span className="bg-teal-50 text-teal-800 px-2 py-0.5 rounded-md font-bold truncate max-w-[140px]" title={c.prescription}>
                           {c.prescription}
                         </span>
+                      )}
+                    </div>
+
+                    {/* 설진태그 표시 */}
+                    <div className="flex items-center gap-1 flex-shrink-0 max-w-[150px] overflow-hidden">
+                      {Array.isArray(c.tongue_tags) && c.tongue_tags.length > 0 ? (
+                        c.tongue_tags.map((tag: string, idx: number) => (
+                          <span key={idx} className="bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded text-[10px] font-extrabold truncate">
+                            #{tag}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-slate-300 text-[10px] font-bold">-</span>
                       )}
                     </div>
 
@@ -197,11 +208,27 @@ export default function ConsultationHistoryPage() {
                       {selectedConsultation.payment_method ? ` (${selectedConsultation.payment_method})` : ""}
                     </span>
                   </div>
+
+                  {/* 🟢 기존 소화배변/수면상태 칸을 '설진' 내용 표시로 변경 */}
                   <div className="p-3.5 bg-slate-50/60 rounded-2xl border border-slate-100">
-                    <span className="text-[10px] font-bold text-slate-400 block mb-1">소화배변 / 수면상태</span>
-                    <span className="font-bold text-slate-800">{selectedConsultation.digestion_stool || "-"} / {selectedConsultation.sleep_state || "-"}</span>
+                    <span className="text-[10px] font-bold text-slate-400 block mb-1">설진</span>
+                    <span className="font-bold text-slate-800">{selectedConsultation.tongue_diagnosis || selectedConsultation.digestion_stool || "-"}</span>
                   </div>
                 </div>
+
+                {/* 설진태그 상세 영역 */}
+                {selectedConsultation.tongue_tags && selectedConsultation.tongue_tags.length > 0 && (
+                  <div className="p-3.5 bg-amber-50/50 rounded-2xl border border-amber-200">
+                    <span className="text-[10px] font-bold text-amber-800 block mb-1.5">설진 태그</span>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedConsultation.tongue_tags.map((t: string, i: number) => (
+                        <span key={i} className="bg-white text-amber-900 border border-amber-300 px-2 py-0.5 rounded-lg text-[11px] font-extrabold shadow-2xs">
+                          #{t}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {selectedConsultation.symptoms && (
                   <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
@@ -257,7 +284,7 @@ export default function ConsultationHistoryPage() {
                 )}
               </div>
 
-              {/* 🟢 수정 및 삭제 버튼 영역 */}
+              {/* 수정 및 삭제 버튼 영역 */}
               <div className="pt-4 border-t flex justify-end gap-2">
                 <Link 
                   href={`/consultations?id=${selectedConsultation.id}`} 
@@ -275,7 +302,7 @@ export default function ConsultationHistoryPage() {
 
             </div>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-slate-400 text-xs">
+            <div className="flex-1 flex items-center justify-center text-slate-400 text-xs font-bold">
               좌측 목록에서 상담 기록을 선택해주세요.
             </div>
           )}
