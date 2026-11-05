@@ -52,7 +52,6 @@ export default function PatientsPage() {
       if (data.length > 0 && !selectedPatient) {
         setSelectedPatient(data[0]);
       } else if (selectedPatient) {
-        // 갱신 시 선택된 환자 정보 업데이트
         const updated = data.find(p => p.id === selectedPatient.id);
         if (updated) setSelectedPatient(updated);
       }
@@ -188,7 +187,6 @@ export default function PatientsPage() {
     }
   };
 
-  // 나이 계산 함수
   const calculateAge = (birthYearVal: any) => {
     if (!birthYearVal) return "-";
     const yearNum = parseInt(birthYearVal);
@@ -197,7 +195,6 @@ export default function PatientsPage() {
     return `${currentYear - yearNum + 1}세 (${birthYearVal}년생)`;
   };
 
-  // 환자별 요약 통계 계산
   const patientStats = useMemo(() => {
     const count = patientConsultations.length;
     const lastDate = count > 0 ? (patientConsultations[0].consultation_date || patientConsultations[0].created_at?.split('T')[0]) : "-";
@@ -219,7 +216,7 @@ export default function PatientsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 flex-1 min-h-0">
         
-        {/* 좌측: 환자 목록 리스트 */}
+        {/* 🟢 좌측: 원래 형태 그대로 유지된 환자 목록 리스트 */}
         <div className="lg:col-span-7 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-4">
           <div className="mb-3 flex-shrink-0">
             <input 
@@ -271,7 +268,7 @@ export default function PatientsPage() {
           </div>
         </div>
 
-        {/* 우측: 선택된 환자 상세 정보 패널 */}
+        {/* 우측: 선택된 환자 상세 정보 패널 (나이, 성별, 태그만 표시되도록 수정된 부분) */}
         <div className="lg:col-span-5 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col p-5 overflow-hidden">
           {selectedPatient ? (
             <div className="flex-1 overflow-y-auto space-y-4 pr-1">
@@ -312,7 +309,7 @@ export default function PatientsPage() {
                 </div>
               </div>
 
-              {/* 🟢 요청하신 환자 정보 카드: 나이, 성별, 태그 3개만 표시 (대표/주소 등 삭제) */}
+              {/* 🟢 환자 정보 카드: 나이, 성별, 태그 3개만 표시 (출생연도, 주소 등 삭제 완료) */}
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2.5 text-xs">
                 <div className="flex items-center gap-6">
                   <div>
