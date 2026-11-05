@@ -1,471 +1,600 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { supabase } from "@/app/lib/supabase";
+import { useRouter, useSearchParams } from "next/navigation";
 
-const PRESET_TAGS = ["비만", "통증", "소화기", "피부", "갱년기", "보약", "허약", "불면", "비염"];
+// 추천 설진 태그 목록
+const PRESET_TONGUE_TAGS = ["백태", "황태", "후태", "박태", "위축태", "니태", "조태", "열문설", "거치설", "어혈반", "홍설", "자색설"];
 
-export default function PatientsPage() {
+function ConsultationsForm() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get("id");
+
   const [patients, setPatients] = useState<any[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
+  const [patientHistory, setPatientHistory] = useState<any[]>([]);
+  const [historyDetailModal, setHistoryDetailModal] = useState<any | null>(null);
+
+  const [patientSearchQuery, setPatientSearchQuery] = useState("");
+  const [isPatientDropdownOpen, setIsPatientDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // 📝 폼 상태값
+  const [selectedPatient, setSelectedPatient] = useState("");
+  const [selectedPatientNameDisplay, setSelectedPatientNameDisplay] = useState("");
+  const [consultationDate, setConsultationDate] = useState(""); 
   
-  // 환자별 상담 내역 및 사진 상태
-  const [patientConsultations, setPatientConsultations] = useState<any[]>([]);
+  const [symptoms, setSymptoms] = useState(""); 
+  const [digestionStool, setDigestionStool] = useState(""); // 설진 텍스트 입력값
+  const [tongueTags, setTongueTags] = useState<string[]>([]); // 설진 태그 배열
+  const [tagInputValue, setTagInputValue] = useState(""); // 🟢 쉼표 입력용 임시 인풋 상태
 
-  // 모달 상태
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingPatientId, setEditingPatientId] = useState<string | null>(null);
+  const [symptomDetail, setSymptomDetail] = useState(""); 
+  const [prescription, setPrescription] = useState(""); 
+  const [consultMemo, setConsultMemo] = useState(""); 
+  const [followUp, setFollowUp] = useState(""); 
+  const [feedbackDays, setFeedbackDays] = useState(""); 
+  const [amount, setAmount] = useState(""); 
+  const [paymentMethod, setPaymentMethod] = useState("");
 
-  // 폼 입력 상태
-  const [name, setName] = useState("");
-  const [customId, setCustomId] = useState("");
-  const [phone, setPhone] = useState("");
-  const [gender, setGender] = useState("남");
-  const [birthYear, setBirthYear] = useState("");
-  const [bodyType, setBodyType] = useState("태음인");
-  const [patientTags, setPatientTags] = useState<string[]>([]);
-  const [customTagInput, setCustomTagInput] = useState("");
-  const [address, setAddress] = useState("");
-  const [memo, setMemo] = useState("");
+  const [calculatorInput, setCalculatorInput] = useState("");
+  const [calculatorResult, setCalculatorResult] = useState<number | null>(null);
+
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [existingImageUrls, setExistingImageUrls] = useState<string[]>([]);
+  const [existingImagePreviews, setExistingImagePreviews] = useState<{ path: string; url: string }[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
+
+  const formatPatientDisplayName = (p: any) => {
+    if (!p) return "";
+    return p.custom_id ? `${p.name} (${p.custom_id})` : p.name;
+  };
+
+  const resetForm = () => {
+    setSelectedPatient("");
+    setSelectedPatientNameDisplay("");
+    setConsultationDate(new Date().toISOString().split('T')[0]);
+    setSymptoms("");
+    setDigestionStool(""); 
+    setTongueTags([]); 
+    setTagInputValue("");
+    setSymptomDetail("");
+    setPrescription("");
+    setConsultMemo("");
+    setFollowUp("");
+    setFeedbackDays("");
+    setAmount("");
+    setPaymentMethod("");
+    setImageFiles([]);
+    setExistingImageUrls([]);
+    setExistingImagePreviews([]);
+    setCalculatorInput("");
+    setCalculatorResult(null);
+  };
 
   useEffect(() => {
     fetchPatients();
   }, []);
 
   useEffect(() => {
+    if (!editId) {
+      resetForm();
+    }
+  }, [editId]);
+
+  useEffect(() => {
+    if (editId && patients.length > 0) {
+      fetchConsultationForEdit(editId);
+    }
+  }, [editId, patients]);
+
+  useEffect(() => {
     if (selectedPatient) {
-      fetchPatientConsultations(selectedPatient.id);
+      fetchPatientHistory(selectedPatient);
     } else {
-      setPatientConsultations([]);
+      setPatientHistory([]);
     }
   }, [selectedPatient]);
 
   const fetchPatients = async () => {
-    const { data, error } = await supabase.from("patients").select("*").order("name");
+    const { data } = await supabase.from("patients").select("*").order("name");
+    if (data) setPatients(data);
+  };
+
+  const fetchConsultationForEdit = async (id: string) => {
+    const { data, error } = await supabase.from("consultations").select("*, patients(name, phone, custom_id)").eq("id", id).single();
     if (error) {
-      console.error("환자 목록 로딩 에러:", error.message);
+      console.error("수정 데이터 로딩 실패:", error.message);
       return;
     }
     if (data) {
-      setPatients(data);
-      if (data.length > 0 && !selectedPatient) {
-        setSelectedPatient(data[0]);
-      } else if (selectedPatient) {
-        // 갱신 시 선택된 환자 정보 업데이트
-        const updated = data.find(p => p.id === selectedPatient.id);
-        if (updated) setSelectedPatient(updated);
+      setSelectedPatient(data.patient_id);
+      if (data.patients) setSelectedPatientNameDisplay(formatPatientDisplayName(data.patients));
+      setConsultationDate(data.consultation_date || data.created_at?.split('T')[0] || "");
+      setSymptoms(data.symptoms || "");
+      setDigestionStool(data.digestion_stool || ""); 
+      setTongueTags(Array.isArray(data.tongue_tags) ? data.tongue_tags : []); 
+      setSymptomDetail(data.symptom_detail || "");
+      setPrescription(data.prescription || "");
+      setConsultMemo(data.consult_memo || "");
+      setFollowUp(data.follow_up || "");
+      setFeedbackDays(data.feedback_days ? data.feedback_days.toString() : "");
+      setAmount(data.amount ? data.amount.toString() : "");
+      setPaymentMethod(data.payment_method || "");
+      
+      if (data.image_urls && Array.isArray(data.image_urls)) {
+        setExistingImageUrls(data.image_urls);
+        const previews = await Promise.all(
+          data.image_urls.map(async (path: string) => {
+            if (path.startsWith('http')) return { path, url: path };
+            const { data: sData } = await supabase.storage.from("consultation-images").createSignedUrl(path, 60 * 60);
+            return { path, url: sData?.signedUrl || '' };
+          })
+        );
+        setExistingImagePreviews(previews.filter(p => p.url));
       }
     }
   };
 
-  const fetchPatientConsultations = async (patientId: string) => {
-    const { data, error } = await supabase
+  const fetchPatientHistory = async (patientId: string) => {
+    const { data } = await supabase
       .from("consultations")
       .select("*")
       .eq("patient_id", patientId)
       .order("consultation_date", { ascending: false });
+    
+    if (data) {
+      const processedHistory = await Promise.all(data.map(async (c) => {
+        if (c.image_urls && c.image_urls.length > 0) {
+          const signedImages = await Promise.all(
+            c.image_urls.map(async (path: string) => {
+              if (path.startsWith('http')) return { url: path };
+              const { data: sData } = await supabase.storage.from("consultation-images").createSignedUrl(path, 60 * 60);
+              return { url: sData?.signedUrl || '' };
+            })
+          );
+          return { ...c, display_images: signedImages.filter(img => img.url) };
+        }
+        return { ...c, display_images: [] };
+      }));
+      setPatientHistory(processedHistory);
+    }
+  };
 
-    if (error) {
-      console.error("상담 내역 로딩 에러:", error.message);
+  useEffect(() => {
+    if (!calculatorInput.trim()) {
+      setCalculatorResult(null);
       return;
     }
-
-    if (data) {
-      const processed = await Promise.all(
-        data.map(async (c: any) => {
-          if (c.image_urls && Array.isArray(c.image_urls) && c.image_urls.length > 0) {
-            const signedUrls = await Promise.all(
-              c.image_urls.map(async (path: string) => {
-                if (path.startsWith('http')) return path;
-                const { data: signedData } = await supabase.storage.from('consultation-images').createSignedUrl(path, 60 * 60);
-                return signedData?.signedUrl || '';
-              })
-            );
-            return { ...c, display_image_urls: signedUrls.filter(Boolean) };
-          }
-          return { ...c, display_image_urls: [] };
-        })
-      );
-      setPatientConsultations(processed);
+    try {
+      const sanitized = calculatorInput.replace(/[^0-9+\-*/().]/g, "");
+      if (sanitized) {
+        const result = new Function(`return ${sanitized}`)();
+        if (Number.isFinite(result)) {
+          setCalculatorResult(Number(result.toFixed(2))); 
+        } else {
+          setCalculatorResult(null);
+        }
+      } else {
+        setCalculatorResult(null);
+      }
+    } catch {
+      setCalculatorResult(null);
     }
+  }, [calculatorInput]);
+
+  const handlePaste = (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const files: File[] = [];
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.indexOf("image") !== -1) {
+        const file = items[i].getAsFile();
+        if (file) files.push(file);
+      }
+    }
+    if (files.length > 0) setImageFiles(prev => [...prev, ...files]);
   };
 
-  const filteredPatients = patients.filter(p => {
-    const q = searchQuery.toLowerCase();
-    return (
-      (p.name || "").toLowerCase().includes(q) ||
-      (p.custom_id || "").toLowerCase().includes(q) ||
-      (p.phone || "").includes(q)
-    );
-  });
-
-  const handleOpenRegister = () => {
-    setEditingPatientId(null);
-    setName("");
-    setCustomId("");
-    setPhone("");
-    setGender("남");
-    setBirthYear("");
-    setBodyType("태음인");
-    setPatientTags([]);
-    setCustomTagInput("");
-    setAddress("");
-    setMemo("");
-    setIsModalOpen(true);
+  const uploadImages = async () => {
+    if (imageFiles.length === 0) return existingImageUrls;
+    const uploadedPaths: string[] = [...existingImageUrls];
+    for (const file of imageFiles) {
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage.from("consultation-images").upload(fileName, file);
+      if (!uploadError) uploadedPaths.push(fileName);
+    }
+    return uploadedPaths;
   };
 
-  const handleOpenEdit = (p: any) => {
-    setEditingPatientId(p.id);
-    setName(p.name || "");
-    setCustomId(p.custom_id || "");
-    setPhone(p.phone || "");
-    setGender(p.gender || "남");
-    setBirthYear(p.birth_year ? p.birth_year.toString() : "");
-    setBodyType(p.body_type || "태음인");
-    setPatientTags(Array.isArray(p.tags) ? p.tags : []);
-    setCustomTagInput("");
-    setAddress(p.address || "");
-    setMemo(p.memo || "");
-    setIsModalOpen(true);
-  };
-
-  const togglePatientTag = (tag: string) => {
-    if (patientTags.includes(tag)) {
-      setPatientTags(patientTags.filter(t => t !== tag));
+  // 🟢 쉼표(,) 입력 시 태그 자동 분리 시스템
+  const handleTagInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (val.includes(",")) {
+      const parts = val.split(",");
+      const newTag = parts[0].trim();
+      if (newTag && !tongueTags.includes(newTag)) {
+        setTongueTags([...tongueTags, newTag]);
+      }
+      setTagInputValue(parts.slice(1).join(",")); // 남은 텍스트 유지
     } else {
-      setPatientTags([...patientTags, tag]);
+      setTagInputValue(val);
     }
   };
 
-  const handleAddCustomTag = () => {
-    if (!customTagInput.trim()) return;
-    if (!patientTags.includes(customTagInput.trim())) {
-      setPatientTags([...patientTags, customTagInput.trim()]);
+  const handleTagInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      const tagText = tagInputValue.trim();
+      if (tagText && !tongueTags.includes(tagText)) {
+        setTongueTags([...tongueTags, tagText]);
+      }
+      setTagInputValue("");
+    } else if (e.key === "Backspace" && !tagInputValue && tongueTags.length > 0) {
+      // 인풋이 비어있을 때 백스페이스 누르면 마지막 태그 삭제
+      setTongueTags(tongueTags.slice(0, -1));
     }
-    setCustomTagInput("");
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const toggleTongueTag = (tag: string) => {
+    if (tongueTags.includes(tag)) {
+      setTongueTags(tongueTags.filter(t => t !== tag));
+    } else {
+      setTongueTags([...tongueTags, tag]);
+    }
+  };
+
+  const removeTongueTag = (tagToRemove: string) => {
+    setTongueTags(tongueTags.filter(t => t !== tagToRemove));
+  };
+
+  const handleSubmitConsultation = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return alert("환자 이름을 입력해주세요.");
-
+    if (!selectedPatient) return alert("환자를 선택해주세요.");
+    
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return alert("로그인 정보가 없습니다.");
 
-    const payload = {
-      name: name.trim(),
-      custom_id: customId.trim() || null,
-      phone: phone.trim() || null,
-      gender,
-      birth_year: birthYear ? parseInt(birthYear) : null,
-      body_type: bodyType,
-      tags: patientTags,
-      address: address.trim() || null,
-      memo: memo.trim() || null,
-      user_id: user.id
-    };
+    setUploading(true);
+    try {
+      const finalImagePaths = await uploadImages();
+      const parsedFeedbackDays = parseInt(feedbackDays);
+      const finalFeedbackDays = (!isNaN(parsedFeedbackDays) && parsedFeedbackDays > 0) ? parsedFeedbackDays : null;
 
-    if (editingPatientId) {
-      const { error } = await supabase.from("patients").update(payload).eq("id", editingPatientId);
-      if (error) alert("수정 실패: " + error.message);
-      else { alert("수정되었습니다."); setIsModalOpen(false); fetchPatients(); }
-    } else {
-      const { error } = await supabase.from("patients").insert([payload]);
-      if (error) alert("등록 실패: " + error.message);
-      else { alert("등록되었습니다."); setIsModalOpen(false); fetchPatients(); }
+      // 만약 입력창에 남은 텍스트가 있다면 등록 시 태그로 마저 포함
+      let finalTags = [...tongueTags];
+      if (tagInputValue.trim() && !finalTags.includes(tagInputValue.trim())) {
+        finalTags.push(tagInputValue.trim());
+      }
+
+      const payload = {
+        patient_id: selectedPatient,
+        consultation_date: consultationDate,
+        symptoms, 
+        digestion_stool: digestionStool, 
+        tongue_tags: finalTags, 
+        sleep_state: null, 
+        symptom_detail: symptomDetail, prescription, consult_memo: consultMemo, follow_up: followUp,
+        feedback_days: finalFeedbackDays,
+        amount: amount ? parseFloat(amount) : null,
+        payment_method: paymentMethod || null, 
+        image_urls: finalImagePaths, 
+        user_id: user.id,
+      };
+
+      if (editId) {
+        const { error } = await supabase.from("consultations").update(payload).eq("id", editId);
+        if (error) alert("수정 실패: " + error.message);
+        else { alert("수정되었습니다."); router.push("/consultations/history"); }
+      } else {
+        const { error } = await supabase.from("consultations").insert([payload]);
+        if (error) alert("등록 실패: " + error.message);
+        else { alert("등록되었습니다."); resetForm(); router.push("/consultations/history"); }
+      }
+    } finally {
+      setUploading(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("정말 이 환자를 삭제하시겠습니까? 관련된 상담 내역도 영향을 받을 수 있습니다.")) return;
-    const { error } = await supabase.from("patients").delete().eq("id", id);
-    if (error) alert("삭제 실패: " + error.message);
-    else {
-      alert("삭제되었습니다.");
-      setSelectedPatient(null);
-      fetchPatients();
-    }
-  };
+  const patientPastPhotos = patientHistory.flatMap(c => 
+    (c.display_images || []).map((img: any) => ({ 
+      url: img.url, 
+      date: c.consultation_date || c.created_at?.split('T')[0] || "",
+      prescription: c.prescription
+    }))
+  );
 
-  // 나이 계산 함수
-  const calculateAge = (birthYearVal: any) => {
-    if (!birthYearVal) return "-";
-    const yearNum = parseInt(birthYearVal);
-    if (isNaN(yearNum)) return "-";
-    const currentYear = new Date().getFullYear();
-    return `${currentYear - yearNum + 1}세 (${birthYearVal}년생)`;
-  };
+  const filteredPatients = patients.filter(p => {
+    if (!patientSearchQuery) return true;
+    const term = patientSearchQuery.toLowerCase();
+    return p.name?.toLowerCase().includes(term) || p.custom_id?.toLowerCase().includes(term) || p.phone?.includes(term);
+  });
 
-  // 환자별 요약 통계 계산
-  const patientStats = useMemo(() => {
-    const count = patientConsultations.length;
-    const lastDate = count > 0 ? (patientConsultations[0].consultation_date || patientConsultations[0].created_at?.split('T')[0]) : "-";
-    const totalAmount = patientConsultations.reduce((sum, c) => sum + (c.amount || 0), 0);
-    const bodyTypeVal = selectedPatient?.body_type || "-";
-    return { count, lastDate, totalAmount, bodyTypeVal };
-  }, [patientConsultations, selectedPatient]);
+  const totalCurrentPhotos = existingImagePreviews.length + imageFiles.length;
 
   return (
-    <div className="w-full h-[calc(100vh-32px)] flex flex-col space-y-3 overflow-hidden max-w-[1700px] mx-auto pb-2">
+    <div className="w-full flex flex-col space-y-4 pb-12 max-w-[1600px] mx-auto" onPaste={handlePaste}>
       
-      {/* 상단 헤더 */}
-      <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center flex-shrink-0">
-        <h1 className="text-lg font-extrabold text-slate-900">환자 목록</h1>
-        <button onClick={handleOpenRegister} className="px-4 py-1.5 bg-[#528771] hover:bg-[#3d6856] text-white rounded-xl font-bold text-xs transition shadow-sm whitespace-nowrap">
-          + 환자 등록
+      <div className="flex justify-between items-center bg-white px-6 py-4 rounded-2xl shadow-sm border border-slate-200">
+        <h1 className="text-xl font-extrabold text-slate-900">{editId ? "상담 수정" : "새 상담 작성"}</h1>
+        <button onClick={() => router.push("/consultations/history")} className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition">
+          기록 조회로 가기 →
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 flex-1 min-h-0">
+      <form onSubmit={handleSubmitConsultation} className="flex flex-col lg:flex-row gap-6 w-full">
         
-        {/* 좌측: 환자 목록 리스트 */}
-        <div className="lg:col-span-7 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-4">
-          <div className="mb-3 flex-shrink-0">
-            <input 
-              type="text" 
-              placeholder="환자 이름, 아이디, 전화번호 검색..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#528771] transition"
-            />
-          </div>
-
-          <div className="text-[11px] font-bold text-slate-400 mb-2 px-1 flex-shrink-0">
-            총 <span className="text-slate-900 font-extrabold">{filteredPatients.length}명</span>의 환자
-          </div>
-
-          <div className="flex-1 overflow-y-auto space-y-1.5 pr-1">
-            {filteredPatients.length === 0 ? (
-              <div className="py-16 text-center text-slate-400 text-xs font-bold">검색된 환자가 없습니다.</div>
-            ) : (
-              filteredPatients.map((p) => {
-                const isSelected = selectedPatient?.id === p.id;
-                const displayName = p.custom_id ? `${p.name} (${p.custom_id})` : p.name;
-                return (
-                  <div 
-                    key={p.id} 
-                    onClick={() => setSelectedPatient(p)}
-                    className={`p-3 rounded-2xl border transition cursor-pointer flex items-center justify-between gap-3 text-xs ${
-                      isSelected ? "bg-teal-50/70 border-teal-600 shadow-2xs" : "bg-white border-slate-100 hover:bg-slate-50/80"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3 flex-shrink-0 w-44 whitespace-nowrap">
-                      <span className="font-extrabold text-slate-900 truncate" title={displayName}>{displayName}</span>
-                      <span className="text-[10px] font-bold text-slate-500">{p.gender || "-"} / {calculateAge(p.birth_year).split(' ')[0]}</span>
-                    </div>
-
-                    <div className="flex-1 flex items-center gap-1.5 truncate text-[11px]">
-                      {Array.isArray(p.tags) && p.tags.map((t: string, idx: number) => (
-                        <span key={idx} className="bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded text-[10px] font-extrabold truncate">
-                          #{t}
-                        </span>
-                      ))}
-                    </div>
-
-                    <div className="text-slate-300 font-bold flex-shrink-0">›</div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* 우측: 선택된 환자 상세 정보 패널 */}
-        <div className="lg:col-span-5 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col p-5 overflow-hidden">
-          {selectedPatient ? (
-            <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-              
-              {/* 상단 이름 및 수정/삭제 버튼 */}
-              <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                <div>
-                  <h2 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
-                    <span>👤</span> {selectedPatient.custom_id ? `${selectedPatient.name} (${selectedPatient.custom_id})` : selectedPatient.name}
-                  </h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    연락처: <span className="font-semibold text-slate-700">{selectedPatient.phone || "정보 없음"}</span>
-                  </p>
-                </div>
-                <div className="flex gap-1.5">
-                  <button onClick={() => handleOpenEdit(selectedPatient)} className="px-3 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition">수정</button>
-                  <button onClick={() => handleDelete(selectedPatient.id)} className="px-3 py-1 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl text-xs font-bold transition">삭제</button>
-                </div>
+        {/* 왼쪽: 텍스트 입력 폼 영역 */}
+        <div className="flex-[2] flex flex-col gap-3 bg-white p-4 sm:p-6 rounded-3xl border border-slate-200 shadow-sm">
+          <div className="flex flex-col sm:flex-row gap-2 relative z-25" ref={dropdownRef}>
+            <div className="flex-1">
+              <div onClick={() => setIsPatientDropdownOpen(true)} className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer flex justify-between items-center text-sm font-bold text-slate-900">
+                <span>{selectedPatientNameDisplay || "환자 선택 (이름 검색)..."}</span>
+                <span className="text-xs">▼</span>
               </div>
-
-              {/* 통계 요약 카드 */}
-              <div className="grid grid-cols-4 gap-2 text-center text-xs">
-                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col justify-center">
-                  <span className="text-[10px] font-bold text-slate-400 mb-0.5">체질</span>
-                  <span className="font-extrabold text-teal-900">{patientStats.bodyTypeVal}</span>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col justify-center">
-                  <span className="text-[10px] font-bold text-slate-400 mb-0.5">최근 상담일</span>
-                  <span className="font-extrabold text-slate-800 text-[11px]">{patientStats.lastDate}</span>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col justify-center">
-                  <span className="text-[10px] font-bold text-slate-400 mb-0.5">상담 횟수</span>
-                  <span className="font-extrabold text-slate-800">{patientStats.count}회</span>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-2xl border border-slate-100 flex flex-col justify-center">
-                  <span className="text-[10px] font-bold text-slate-400 mb-0.5">누적 결제</span>
-                  <span className="font-extrabold text-purple-900 text-[11px]">{patientStats.totalAmount.toLocaleString()}원</span>
-                </div>
-              </div>
-
-              {/* 🟢 요청하신 환자 정보 카드: 나이, 성별, 태그 3개만 표시 (대표/주소 등 삭제) */}
-              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-2.5 text-xs">
-                <div className="flex items-center gap-6">
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 block">나이</span>
-                    <span className="font-bold text-slate-800">{calculateAge(selectedPatient.birth_year)}</span>
-                  </div>
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 block">성별</span>
-                    <span className="font-bold text-slate-800">{selectedPatient.gender || "-"}</span>
-                  </div>
-                </div>
-
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 block mb-1">태그</span>
-                  <div className="flex flex-wrap gap-1">
-                    {Array.isArray(selectedPatient.tags) && selectedPatient.tags.length > 0 ? (
-                      selectedPatient.tags.map((t: string, i: number) => (
-                        <span key={i} className="bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded text-[10px] font-extrabold">
-                          #{t}
-                        </span>
-                      ))
-                    ) : (
-                      <span className="text-slate-400 text-xs">등록된 태그가 없습니다.</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* 최근 상담 내역 요약 */}
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <h3 className="text-xs font-extrabold text-slate-900">최근 상담 내역 ({patientConsultations.length}건)</h3>
-                </div>
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                  {patientConsultations.map(c => (
-                    <div key={c.id} className="p-3 bg-slate-50 border border-slate-100 rounded-2xl text-xs space-y-1">
-                      <div className="flex justify-between font-bold text-slate-500 text-[10px]">
-                        <span>{c.consultation_date || c.created_at?.split('T')[0]}</span>
-                        {c.amount ? <span className="text-purple-900 font-extrabold">{c.amount.toLocaleString()}원</span> : null}
-                      </div>
-                      {c.symptoms && <div className="font-extrabold text-slate-900">{c.symptoms}</div>}
-                      {c.prescription && <div className="font-bold text-teal-800">{c.prescription}</div>}
+              {isPatientDropdownOpen && (
+                <div className="absolute top-full left-0 w-full sm:w-[60%] mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto p-2 z-30">
+                  <input type="text" placeholder="이름 또는 아이디 검색..." value={patientSearchQuery} onChange={(e) => setPatientSearchQuery(e.target.value)} className="w-full p-2.5 mb-1 bg-slate-50 border rounded-lg text-sm font-bold text-slate-900 focus:outline-none" autoFocus />
+                  {filteredPatients.map(p => (
+                    <div key={p.id} onClick={() => { setSelectedPatient(p.id); setSelectedPatientNameDisplay(formatPatientDisplayName(p)); setIsPatientDropdownOpen(false); }} className="p-2.5 hover:bg-teal-50 rounded-lg cursor-pointer text-sm font-bold text-slate-900 flex justify-between items-center">
+                      <span>{formatPatientDisplayName(p)}</span>
+                      <span className="text-xs font-normal text-slate-600">({p.gender}/{p.birth_year || "-"})</span>
                     </div>
                   ))}
-                  {patientConsultations.length === 0 && (
-                    <div className="text-center text-xs text-slate-400 py-6 font-bold">상담 기록이 없습니다.</div>
-                  )}
                 </div>
+              )}
+            </div>
+            <input type="date" value={consultationDate} onChange={(e) => setConsultationDate(e.target.value)} className="w-full sm:w-44 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900" required />
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1 flex items-center gap-2">
+              <label className="w-12 text-xs font-bold text-slate-700 shrink-0">주호소</label>
+              <input type="text" value={symptoms} onChange={(e) => setSymptoms(e.target.value)} className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900" />
+            </div>
+            <div className="flex-1 flex items-center gap-2">
+              <label className="w-12 text-xs font-bold text-slate-700 shrink-0">설진</label>
+              <input type="text" value={digestionStool} onChange={(e) => setDigestionStool(e.target.value)} className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900" placeholder="설진 결과 입력..." />
+            </div>
+          </div>
+
+          {/* 🟢 쉼표(,) 구분 입력 및 프리셋 선택이 결합된 설진 태그 UI */}
+          <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 flex flex-col gap-2">
+            <span className="text-[11px] font-bold text-slate-600">🏷️ 설진 태그 (쉼표나 엔터로 구분하여 입력, 또는 프리셋 클릭)</span>
+            
+            {/* 선택된 태그 목록 및 입력창 통합 박스 */}
+            <div className="flex flex-wrap items-center gap-1.5 p-2 bg-white border border-slate-200 rounded-xl min-h-[42px]">
+              {tongueTags.map((tag, idx) => (
+                <span key={idx} className="bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-1 rounded-lg text-xs font-extrabold flex items-center gap-1.5 shadow-2xs">
+                  #{tag}
+                  <button type="button" onClick={() => removeTongueTag(tag)} className="text-amber-700 hover:text-red-600 font-bold">×</button>
+                </span>
+              ))}
+              <input 
+                type="text" 
+                value={tagInputValue} 
+                onChange={handleTagInputChange} 
+                onKeyDown={handleTagInputKeyDown} 
+                placeholder={tongueTags.length === 0 ? "태그 입력 후 쉼표(,) 또는 엔터..." : "추가 입력..."} 
+                className="flex-1 min-w-[140px] text-xs font-semibold focus:outline-none bg-transparent px-1 py-1"
+              />
+            </div>
+
+            {/* 추천 프리셋 태그 목록 */}
+            <div className="flex flex-wrap gap-1 mt-0.5">
+              {PRESET_TONGUE_TAGS.map(tag => {
+                const isSelected = tongueTags.includes(tag);
+                return (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => toggleTongueTag(tag)}
+                    className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition-all border ${
+                      isSelected ? "bg-amber-600 text-white border-amber-600 shadow-2xs" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
+                    }`}
+                  >
+                    +# {tag}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 flex flex-col">
+              <label className="text-xs font-bold text-blue-700 mb-1">증상 상세</label>
+              <textarea value={symptomDetail} onChange={(e) => setSymptomDetail(e.target.value)} className="w-full h-52 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900 resize-none" />
+            </div>
+            <div className="flex-1 flex flex-col">
+              <label className="text-xs font-bold text-slate-900 mb-1">최근 방문내역</label>
+              <div className="w-full h-52 border border-slate-200 rounded-xl overflow-y-auto bg-white p-1 text-xs">
+                <table className="w-full text-left">
+                  <thead className="bg-slate-100 sticky top-0 text-slate-900 font-bold">
+                    <tr><th className="p-1.5">날짜</th><th className="p-1.5 text-slate-900 font-bold">주호소</th><th className="p-1.5 text-slate-900 font-bold">처방</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {patientHistory.length === 0 ? <tr><td colSpan={3} className="text-center p-4 text-slate-400">내역 없음</td></tr> : 
+                      patientHistory.map(h => (
+                        <tr key={h.id} className="hover:bg-teal-50 cursor-pointer" onClick={() => setHistoryDetailModal(h)}>
+                          <td className="p-1 font-semibold text-slate-800">{h.consultation_date?.slice(2) || h.created_at.slice(2,10)}</td>
+                          <td className="p-1 truncate max-w-[80px] font-bold text-slate-900">{h.symptoms}</td>
+                          <td className="p-1 truncate max-w-[80px] text-teal-900 font-bold">{h.prescription}</td>
+                        </tr>
+                      ))
+                    }
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1 flex flex-col">
+              <label className="text-xs font-bold text-teal-900 mb-1">처방</label>
+              <textarea value={prescription} onChange={(e) => setPrescription(e.target.value)} className="w-full h-28 p-3 bg-teal-50/80 border-2 border-teal-500 rounded-xl text-sm font-bold text-teal-950 resize-none shadow-xs" placeholder="처방 내용 입력..." />
+            </div>
+            <div className="flex-1 flex flex-col">
+              <label className="text-xs font-bold text-slate-700 mb-1">코멘트</label>
+              <textarea value={consultMemo} onChange={(e) => setConsultMemo(e.target.value)} className="w-full h-28 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900 resize-none" />
+            </div>
+            <div className="flex-1 flex flex-col">
+              <label className="text-xs font-bold text-purple-800 mb-1">추후관리</label>
+              <textarea value={followUp} onChange={(e) => setFollowUp(e.target.value)} className="w-full h-28 p-3 bg-purple-50/50 border border-purple-200 rounded-xl text-sm font-semibold text-slate-900 resize-none" placeholder="추후관리 내용..." />
+            </div>
+          </div>
+
+          <div className="flex flex-col xl:flex-row gap-3 pt-2 items-start xl:items-center justify-between">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-bold text-slate-700">피드백(일)</label>
+                <input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0입력시 제외" value={feedbackDays} onChange={(e) => setFeedbackDays(e.target.value.replace(/[^0-9]/g, ''))} className="w-24 p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900" />
               </div>
 
+              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200">
+                <span className="text-[10px] font-bold text-slate-500 pl-2">계산기</span>
+                <input type="text" placeholder="ex) 4000+6000" value={calculatorInput} onChange={(e) => setCalculatorInput(e.target.value)} className="w-28 p-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-700 focus:outline-none focus:border-teal-500" />
+                <div className="text-xs font-bold text-teal-800 min-w-[50px]">
+                  {calculatorResult !== null ? `= ${calculatorResult.toLocaleString()}` : "="}
+                </div>
+                <button type="button" onClick={() => { if (calculatorResult !== null) setAmount(calculatorResult.toString()); }} disabled={calculatorResult === null} className="px-2 py-1.5 bg-teal-600 text-white text-[10px] font-bold rounded-lg hover:bg-teal-700 disabled:opacity-50 transition">적용</button>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-bold text-slate-700 pl-1">최종 금액</label>
+                <input type="text" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} className="w-24 p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900" />
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-bold text-slate-700">결제방식</label>
+                <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="p-2 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none cursor-pointer">
+                  <option value="">선택</option>
+                  <option value="링크">링크</option>
+                  <option value="홈피">홈피</option>
+                  <option value="매장">매장</option>
+                  <option value="지역상품권">지역상품권</option>
+                  <option value="현금">현금</option>
+                  <option value="사업자">사업자</option>
+                </select>
+              </div>
             </div>
-          ) : (
-            <div className="flex-1 flex items-center justify-center text-xs font-bold text-slate-400">
-              좌측 목록에서 환자를 선택해주세요.
+
+            <div className="w-full xl:w-auto flex gap-2">
+              <button type="submit" disabled={uploading} className="w-full xl:w-auto px-6 py-3 bg-teal-900 hover:bg-teal-800 text-white font-bold rounded-xl transition disabled:opacity-50 shadow-sm text-sm">
+                {uploading ? "저장 중..." : (editId ? "상담 수정" : "상담 등록")}
+              </button>
             </div>
-          )}
+          </div>
         </div>
 
-      </div>
-
-      {/* 환자 등록 / 수정 모달 */}
-      {isModalOpen && (
-        <div onClick={() => setIsModalOpen(false)} className="fixed inset-0 z-[120] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
-          <div className="bg-white w-full max-w-lg max-h-[90vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col cursor-default" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center border-b pb-3 mb-4 shrink-0">
-              <h3 className="text-base font-bold text-slate-900">{editingPatientId ? "환자 정보 수정" : "새 환자 등록"}</h3>
-              <button onClick={() => setIsModalOpen(false)} className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
+        {/* 오른쪽: 사진 뷰어 영역 */}
+        <div className="flex-1 flex flex-col gap-4 min-w-[280px]">
+          <div className="flex flex-col bg-white border border-slate-200 rounded-3xl p-4 shadow-sm">
+            <div className="flex justify-between items-center mb-3">
+              <label className="text-xs font-bold text-slate-900">📸 현재 상담 사진 첨부</label>
+              <label className="cursor-pointer px-3 py-2 bg-teal-800 text-white rounded-xl text-xs font-bold hover:bg-teal-700 transition shadow-xs flex items-center gap-1">
+                <span>📁 사진 선택</span>
+                <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { if(e.target.files) setImageFiles(prev => [...prev, ...Array.from(e.target.files!)]) }} />
+              </label>
             </div>
+            
+            <div className="border-2 border-dashed border-slate-300 bg-slate-50 rounded-2xl p-3 flex flex-col gap-3 min-h-[200px] justify-center items-center">
+              {totalCurrentPhotos === 0 && (
+                <div className="text-center text-xs font-bold text-slate-500 py-6">버튼을 눌러 사진을 선택하거나<br/>화면에 [Ctrl+V]를 누르세요.</div>
+              )}
+              {totalCurrentPhotos > 0 && (
+                <div className={`w-full ${totalCurrentPhotos > 1 ? "grid grid-cols-2 gap-3" : "flex justify-center"}`}>
+                  {existingImagePreviews.map((img, idx) => (
+                    <div key={`ex-${idx}`} className="relative w-full aspect-square flex items-center justify-center group bg-white rounded-xl shadow-xs border border-slate-300 p-1">
+                      <img src={img.url} onClick={() => setPreviewImageUrl(img.url)} className="max-w-full max-h-full object-contain cursor-pointer hover:scale-105 transition rounded-lg" />
+                      <button type="button" onClick={() => {
+                        setExistingImagePreviews(prev => prev.filter((_, i) => i !== idx));
+                        setExistingImageUrls(prev => prev.filter((_, i) => i !== idx));
+                      }} className="absolute top-2 right-2 bg-red-600 text-white w-7 h-7 rounded-full text-xs hidden group-hover:flex items-center justify-center font-bold shadow-md z-10">✕</button>
+                    </div>
+                  ))}
+                  {imageFiles.map((file, idx) => (
+                    <div key={`nw-${idx}`} className="relative w-full aspect-square flex items-center justify-center group bg-white rounded-xl shadow-xs border border-teal-400 p-1">
+                      <img src={URL.createObjectURL(file)} onClick={() => setPreviewImageUrl(URL.createObjectURL(file))} className="max-w-full max-h-full object-contain cursor-pointer hover:scale-105 transition rounded-lg" />
+                      <button type="button" onClick={() => setImageFiles(prev => prev.filter((_, i) => i !== idx))} className="absolute top-2 right-2 bg-red-600 text-white w-7 h-7 rounded-full text-xs hidden group-hover:flex items-center justify-center font-bold shadow-md z-10">✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
 
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto pr-2 space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col bg-slate-100 border border-slate-200 rounded-3xl p-4 shadow-sm">
+            <label className="text-xs font-bold text-slate-800 mb-3 flex-shrink-0">🎞️ 과거 사진 데이터 모아보기</label>
+            <div className="max-h-[400px] overflow-y-auto pr-1">
+              {patientPastPhotos.length === 0 ? (
+                <div className="w-full text-center text-xs text-slate-500 font-semibold py-6">선택된 환자의 과거 사진이 없습니다.</div>
+              ) : (
+                <div className="grid grid-cols-2 gap-x-2 gap-y-4">
+                  {patientPastPhotos.map((photo, idx) => (
+                    <div key={idx} className="flex flex-col gap-1 cursor-pointer group" onClick={() => setPreviewImageUrl(photo.url)}>
+                      <div className="relative w-full aspect-square flex items-center justify-center bg-white rounded-xl shadow-2xs border border-slate-300 p-1 overflow-hidden">
+                        <img src={photo.url} className="w-full h-full object-cover group-hover:scale-105 transition duration-300 rounded-lg" />
+                      </div>
+                      <div className="text-center text-[10px] leading-tight">
+                        <div className="font-bold text-slate-800">{photo.date}</div>
+                        <div className="text-teal-700 truncate px-1" title={photo.prescription}>{photo.prescription || "-"}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+      </form>
+
+      {/* 과거 방문내역 상세 모달 */}
+      {historyDetailModal && (
+        <div onClick={() => setHistoryDetailModal(null)} className="fixed inset-0 z-[150] bg-slate-950/70 flex items-center justify-center p-4 cursor-pointer">
+          <div onClick={(e) => e.stopPropagation()} className="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col gap-4">
+            <div className="flex justify-between items-center border-b pb-3">
+              <h3 className="text-base font-extrabold text-slate-900">과거 상담 기록 상세 ({historyDetailModal.consultation_date || historyDetailModal.created_at?.split('T')[0]})</h3>
+              <button onClick={() => setHistoryDetailModal(null)} className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
+            </div>
+            <div className="space-y-3 text-xs overflow-y-auto max-h-[60vh] pr-1">
+              <div><span className="font-bold text-slate-500">주호소:</span> <p className="font-semibold text-slate-900 mt-0.5">{historyDetailModal.symptoms || "-"}</p></div>
+              <div><span className="font-bold text-slate-500">설진:</span> <p className="font-semibold text-slate-900 mt-0.5">{historyDetailModal.digestion_stool || "-"}</p></div>
+              {historyDetailModal.tongue_tags && historyDetailModal.tongue_tags.length > 0 && (
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">환자 이름 *</label>
-                  <input type="text" value={name} onChange={e => setName(e.target.value)} required className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" />
+                  <span className="font-bold text-slate-500">설진 태그:</span>
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {historyDetailModal.tongue_tags.map((t: string, i: number) => (
+                      <span key={i} className="bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded text-[10px] font-extrabold">#{t}</span>
+                    ))}
+                  </div>
                 </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">차트 번호 / 아이디</label>
-                  <input type="text" value={customId} onChange={e => setCustomId(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" placeholder="예: 001" />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">연락처</label>
-                  <input type="text" value={phone} onChange={e => setPhone(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" placeholder="010-0000-0000" />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">체질</label>
-                  <select value={bodyType} onChange={e => setBodyType(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold">
-                    <option value="태음인">태음인</option>
-                    <option value="소음인">소음인</option>
-                    <option value="소양인">소양인</option>
-                    <option value="태양인">태양인</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">성별</label>
-                  <select value={gender} onChange={e => setGender(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold">
-                    <option value="남">남</option>
-                    <option value="여">여</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">출생연도 (4자리)</label>
-                  <input type="number" value={birthYear} onChange={e => setBirthYear(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold" placeholder="예: 1995" />
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1.5">태그 선택</label>
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {PRESET_TAGS.map(tag => {
-                    const isSelected = patientTags.includes(tag);
-                    return (
-                      <button
-                        key={tag}
-                        type="button"
-                        onClick={() => togglePatientTag(tag)}
-                        className={`px-3 py-1 rounded-lg text-xs font-bold transition-all border ${
-                          isSelected ? "bg-amber-600 text-white border-amber-600 shadow-2xs" : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
-                        }`}
-                      >
-                        #{tag}
-                      </button>
-                    );
-                  })}
-                </div>
-                <div className="flex gap-2">
-                  <input type="text" placeholder="직접 태그 입력 후 추가..." value={customTagInput} onChange={e => setCustomTagInput(e.target.value)} className="flex-1 p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold" />
-                  <button type="button" onClick={handleAddCustomTag} className="px-4 py-2 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-900 transition">추가</button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">메모</label>
-                <textarea value={memo} onChange={e => setMemo(e.target.value)} rows={3} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold resize-none focus:outline-none focus:border-[#528771]" placeholder="특이사항 입력..." />
-              </div>
-
-              <div className="flex justify-end gap-2 pt-4 border-t border-slate-100 shrink-0">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition">취소</button>
-                <button type="submit" className="px-6 py-2.5 bg-[#528771] text-white font-bold rounded-xl hover:bg-[#3d6856] transition shadow-sm">
-                  저장하기
-                </button>
-              </div>
-            </form>
-
+              )}
+              <div><span className="font-bold text-slate-500">증상 상세:</span> <p className="font-medium text-slate-800 mt-0.5 whitespace-pre-line">{historyDetailModal.symptom_detail || "-"}</p></div>
+              <div><span className="font-bold text-teal-700">처방:</span> <p className="font-extrabold text-teal-950 mt-0.5">{historyDetailModal.prescription || "-"}</p></div>
+              <div><span className="font-bold text-slate-500">코멘트:</span> <p className="font-medium text-slate-800 mt-0.5 whitespace-pre-line">{historyDetailModal.consult_memo || "-"}</p></div>
+            </div>
           </div>
         </div>
       )}
 
+      {previewImageUrl && (
+        <div onClick={() => setPreviewImageUrl(null)} className="fixed inset-0 z-[150] bg-slate-950/80 flex items-center justify-center p-4 cursor-pointer">
+          <img src={previewImageUrl} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
+          <button onClick={() => setPreviewImageUrl(null)} className="absolute top-4 right-4 text-white bg-slate-800 w-10 h-10 rounded-full font-bold">✕</button>
+        </div>
+      )}
     </div>
+  );
+}
+
+export default function ConsultationsWritePage() {
+  return (
+    <Suspense fallback={<div className="w-full p-8 text-center text-slate-500 text-sm font-bold">상담 정보를 불러오는 중...</div>}>
+      <ConsultationsForm />
+    </Suspense>
   );
 }
