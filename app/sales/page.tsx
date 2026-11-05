@@ -10,12 +10,14 @@ export default function SalesPage() {
   const [patients, setPatients] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   
-  // 🟢 탭 및 수정 상태 관리
+  // 탭 및 수정 상태 관리
   const [activeTab, setActiveTab] = useState<"register" | "history">("register");
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
 
-  // 🟢 폼 상태
+  // 폼 및 날짜 상태 (🟢 빌드 에러 해결)
   const [saleDate, setSaleDate] = useState("");
+  const [currentMonth, setCurrentMonth] = useState("");
+
   const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS[0]);
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
   const [patientSearch, setPatientSearch] = useState("");
@@ -24,7 +26,10 @@ export default function SalesPage() {
   const [memo, setMemo] = useState("");
 
   useEffect(() => { 
-    setSaleDate(new Date().toISOString().split('T')[0]);
+    // 🟢 빌드 에러 해결: 클라이언트 로드 시 날짜 세팅
+    const now = new Date();
+    setSaleDate(now.toISOString().split('T')[0]);
+    setCurrentMonth(now.toISOString().slice(0, 7));
     fetchData(); 
   }, []);
 
@@ -53,7 +58,6 @@ export default function SalesPage() {
     setSaleDate(sale.sale_date || new Date().toISOString().split('T')[0]);
     setPaymentMethod(sale.payment_method);
     
-    // 고객 매칭
     const pt = patients.find(p => p.id === sale.patient_id);
     setSelectedPatient(pt || { id: sale.patient_id, name: sale.patient_name });
     
@@ -112,9 +116,8 @@ export default function SalesPage() {
     }
   };
 
-  // 통계 계산
-  const currentMonth = new Date().toISOString().slice(0, 7);
-  const thisMonthSales = sales.filter(s => s.sale_date?.startsWith(currentMonth));
+  // 🟢 빌드 에러 해결: 상태(currentMonth) 기반 통계 계산
+  const thisMonthSales = sales.filter(s => currentMonth && s.sale_date?.startsWith(currentMonth));
   const totalCount = thisMonthSales.length;
   const totalSum = thisMonthSales.reduce((sum, s) => sum + (s.total_amount || 0), 0);
   const avgPrice = totalCount > 0 ? Math.round(totalSum / totalCount) : 0;
@@ -135,7 +138,6 @@ export default function SalesPage() {
   return (
     <div className="w-full h-[calc(100vh-32px)] flex flex-col space-y-3 overflow-hidden max-w-[1700px] mx-auto pb-2">
       
-      {/* 🟢 헤더 축소 및 탭 네비게이션 추가 */}
       <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center flex-shrink-0">
         <h1 className="text-lg font-extrabold text-slate-900">판매 관리</h1>
         <div className="flex bg-slate-100 p-1 rounded-xl">
@@ -151,9 +153,6 @@ export default function SalesPage() {
       {activeTab === "register" && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 flex-1 min-h-0">
           
-          {/* =========================================================================
-              1열(좌측): 판매 등록 폼 
-          ========================================================================= */}
           <div className="lg:col-span-5 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col p-5 overflow-y-auto space-y-4">
             <div className="flex justify-between items-center">
               <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
@@ -167,7 +166,6 @@ export default function SalesPage() {
             
             <form onSubmit={handleSubmit} className="flex flex-col h-full space-y-4">
               
-              {/* 결제 수단 */}
               <div>
                 <label className="block font-bold text-slate-700 text-xs mb-1.5">결제 수단</label>
                 <div className="flex flex-wrap gap-1">
@@ -183,7 +181,6 @@ export default function SalesPage() {
                 </div>
               </div>
 
-              {/* 🟢 판매일자 & 고객 선택 (가로 배치로 공간 절약) */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 text-xs mb-1">판매일자 *</label>
@@ -211,7 +208,6 @@ export default function SalesPage() {
                 </div>
               </div>
               
-              {/* 고객 선택 표시기 */}
               {selectedPatient && (
                 <div className="p-2 bg-teal-50/80 border border-teal-200 rounded-lg flex justify-between items-center -mt-2">
                   <span className="font-extrabold text-teal-900 text-xs">선택됨: {selectedPatient.name}</span>
@@ -219,7 +215,6 @@ export default function SalesPage() {
                 </div>
               )}
 
-              {/* 제품 선택 */}
               <div className="relative">
                 <label className="block font-bold text-slate-700 text-xs mb-1">제품 선택 *</label>
                 <input type="text" placeholder="+ 제품명 검색하여 추가..." value={productSearch} onChange={e => setProductSearch(e.target.value)} 
@@ -280,12 +275,8 @@ export default function SalesPage() {
             </form>
           </div>
 
-          {/* =========================================================================
-              2열(중앙): 인기 제품 TOP & 요약 통계 (위아래 위치 변경)
-          ========================================================================= */}
           <div className="lg:col-span-3 flex flex-col gap-3 overflow-hidden">
             
-            {/* 🟢 인기 제품 TOP (위로 배치, 한줄 압축 얇은 리스트) */}
             <div className="bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col flex-1 p-5 overflow-hidden">
               <h3 className="text-xs font-extrabold text-slate-900 mb-3 flex items-center gap-1.5">
                 🔥 인기 제품 TOP
@@ -311,7 +302,6 @@ export default function SalesPage() {
               </div>
             </div>
 
-            {/* 🟢 요약 통계 (아래로 배치) */}
             <div className="grid grid-cols-1 gap-2 bg-white p-4 rounded-3xl shadow-sm border border-slate-200 flex-shrink-0">
               <div className="flex justify-between items-center p-2.5 bg-slate-50 rounded-xl border border-slate-100">
                 <span className="text-[11px] font-bold text-slate-500">이번 달 건수</span>
@@ -329,9 +319,6 @@ export default function SalesPage() {
 
           </div>
 
-          {/* =========================================================================
-              3열(우측): 최근 판매 내역 (수정 기능 추가)
-          ========================================================================= */}
           <div className="lg:col-span-4 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col p-5 overflow-hidden">
             <h3 className="text-xs font-extrabold text-slate-900 mb-3 flex items-center justify-between">
               <span>최근 판매 내역</span>
@@ -352,7 +339,6 @@ export default function SalesPage() {
                     {s.items?.map((i:any) => `${i.name}(${i.quantity})`).join(', ')}
                   </div>
                   
-                  {/* 🟢 수정 버튼 (호버 시 등장) */}
                   <button onClick={() => handleEdit(s)} className="absolute top-3 right-24 text-[10px] font-bold text-white bg-slate-800 px-2 py-1 rounded shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
                     수정
                   </button>
@@ -367,9 +353,6 @@ export default function SalesPage() {
         </div>
       )}
 
-      {/* =========================================================================
-          탭 2: 전체 내역 조회 
-      ========================================================================= */}
       {activeTab === "history" && (
         <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
           <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
@@ -409,7 +392,6 @@ export default function SalesPage() {
                       <td className="py-3 px-4 font-black text-[#528771] text-right">{s.total_amount?.toLocaleString()}원</td>
                       <td className="py-3 px-4 text-center">
                         <div className="flex justify-center gap-1.5">
-                          {/* 🟢 전체 내역에서도 수정 가능 */}
                           <button onClick={() => handleEdit(s)} className="text-[11px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-md transition">수정</button>
                           <button onClick={() => handleDelete(s.id)} className="text-[11px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-md transition">삭제</button>
                         </div>
