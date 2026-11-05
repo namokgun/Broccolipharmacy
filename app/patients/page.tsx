@@ -50,7 +50,6 @@ export default function PatientsPage() {
   const [representativeId, setRepresentativeId] = useState<string>("");
 
   const [activeCount, setActiveCount] = useState(0);
-  const [monthlyRevenue, setMonthlyRevenue] = useState<{month: string, total: number}[]>([]);
 
   useEffect(() => {
     fetchData();
@@ -66,23 +65,8 @@ export default function PatientsPage() {
           .map(c => c.patient_id)
       );
       setActiveCount(activePatientIds.size);
-
-      const revMap: Record<string, number> = {};
-      consultations.forEach(c => {
-        if (c.amount) {
-          const dateStr = c.consultation_date || c.created_at?.split('T')[0];
-          if (dateStr) {
-            const month = dateStr.substring(0, 7);
-            revMap[month] = (revMap[month] || 0) + c.amount;
-          }
-        }
-      });
-      const sortedMonths = Object.keys(revMap).sort().slice(-6);
-      setMonthlyRevenue(sortedMonths.map(m => ({ month: m, total: revMap[m] })));
-
     } else {
       setActiveCount(0);
-      setMonthlyRevenue([]);
     }
   }, [consultations]);
 
@@ -242,7 +226,6 @@ export default function PatientsPage() {
     : [];
 
   const representativePatientName = patients.find(p => p.id === selectedPatient?.representative_id)?.name;
-  const maxMonthlyRev = Math.max(...monthlyRevenue.map(d => d.total), 1);
 
   return (
     <div className="w-full h-[calc(100vh-80px)] flex flex-col space-y-4 overflow-hidden max-w-[1700px] mx-auto pb-4">
@@ -260,7 +243,7 @@ export default function PatientsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 min-h-0">
         
-        {/* 좌측: 고객 목록 (원본 그대로 유지) */}
+        {/* 좌측: 고객 목록 (매출 추이 영역 제거됨) */}
         <div className="lg:col-span-7 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-4 space-y-3">
           
           <div className="grid grid-cols-3 gap-2 flex-shrink-0">
@@ -276,52 +259,6 @@ export default function PatientsPage() {
               <span className="text-[10px] font-bold text-slate-400">재방문 고객</span>
               <div className="text-lg font-extrabold text-slate-900 mt-1">{returningCount}<span className="text-[10px] font-semibold text-slate-500 ml-0.5">명</span></div>
             </div>
-          </div>
-
-          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex-shrink-0">
-            <div className="flex justify-between items-center mb-6">
-              <span className="text-[11px] font-bold text-slate-600">📈 최근 6개월 매출 추이</span>
-              <span className="text-[10px] font-bold text-teal-800 bg-teal-100 px-2 py-0.5 rounded">단위: 1,000만원</span>
-            </div>
-            {monthlyRevenue.length > 0 ? (
-              <div className="h-16 w-full relative mb-4 px-2">
-                <svg className="absolute inset-0 w-full h-full overflow-visible" preserveAspectRatio="none" viewBox="0 0 100 100">
-                  <polyline
-                    points={monthlyRevenue.map((d, i) => {
-                      const x = monthlyRevenue.length > 1 ? (i / (monthlyRevenue.length - 1)) * 100 : 50;
-                      const y = 100 - ((d.total / maxMonthlyRev) * 70 + 10);
-                      return `${x},${y}`;
-                    }).join(" ")}
-                    fill="none" stroke="#0d9488" strokeWidth="2.5" vectorEffect="non-scaling-stroke"
-                  />
-                  {monthlyRevenue.map((d, i) => {
-                    const x = monthlyRevenue.length > 1 ? (i / (monthlyRevenue.length - 1)) * 100 : 50;
-                    const y = 100 - ((d.total / maxMonthlyRev) * 70 + 10);
-                    return <circle key={`c-${i}`} cx={x} cy={y} r="4" fill="white" stroke="#0d9488" strokeWidth="2.5" vectorEffect="non-scaling-stroke" />
-                  })}
-                </svg>
-                {monthlyRevenue.map((d, i) => {
-                  const x = monthlyRevenue.length > 1 ? (i / (monthlyRevenue.length - 1)) * 100 : 50;
-                  const y = 100 - ((d.total / maxMonthlyRev) * 70 + 10);
-                  const valIn10M = (d.total / 10000000).toFixed(1); 
-                  return (
-                    <div key={`l-${i}`} className="absolute w-10 -ml-5 flex flex-col items-center" style={{ left: `${x}%`, top: `calc(${y}% - 22px)` }}>
-                      <span className="text-[10px] font-extrabold text-teal-900 drop-shadow-sm">{valIn10M}</span>
-                    </div>
-                  )
-                })}
-                {monthlyRevenue.map((d, i) => {
-                  const x = monthlyRevenue.length > 1 ? (i / (monthlyRevenue.length - 1)) * 100 : 50;
-                  return (
-                    <div key={`ml-${i}`} className="absolute w-10 -ml-5 flex flex-col items-center" style={{ left: `${x}%`, bottom: '-24px' }}>
-                      <span className="text-[9px] font-semibold text-slate-500">{d.month.split('-')[1]}월</span>
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <div className="text-center text-xs text-slate-400 py-4">매출 데이터가 없습니다.</div>
-            )}
           </div>
 
           <div className="flex-shrink-0 pt-1">
@@ -389,7 +326,7 @@ export default function PatientsPage() {
           </div>
         </div>
 
-        {/* 우측: 선택된 고객 상세 정보 창 (나이, 성별, 태그 3개만 표시되도록 수정) */}
+        {/* 우측: 선택된 고객 상세 정보 창 (나이, 성별, 태그 표시) */}
         <div className="lg:col-span-5 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-5">
           {selectedPatient ? (
             <div className="flex-1 overflow-y-auto space-y-4 pr-1">
@@ -428,7 +365,7 @@ export default function PatientsPage() {
                 </div>
               </div>
 
-              {/* 🟢 우측 상세 패널: 나이, 성별, 태그만 표시 (출생연도, 주소, 메모 등 제외) */}
+              {/* 우측 상세 패널: 나이, 성별, 태그 */}
               <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 space-y-3 text-xs">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
