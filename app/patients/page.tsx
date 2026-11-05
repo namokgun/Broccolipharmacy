@@ -4,9 +4,6 @@ import { useState, useEffect, useRef, Suspense } from "react";
 import { supabase } from "@/app/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 
-// 추천 설진 태그 목록
-const PRESET_TONGUE_TAGS = ["백태", "황태", "후태", "박태", "위축태", "니태", "조태", "열문설", "거치설", "어혈반", "홍설", "자색설"];
-
 function ConsultationsForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -28,7 +25,7 @@ function ConsultationsForm() {
   const [symptoms, setSymptoms] = useState(""); 
   const [digestionStool, setDigestionStool] = useState(""); // 설진 텍스트 입력값
   const [tongueTags, setTongueTags] = useState<string[]>([]); // 설진 태그 배열
-  const [tagInputValue, setTagInputValue] = useState(""); // 🟢 쉼표 입력용 임시 인풋 상태
+  const [tagInputValue, setTagInputValue] = useState(""); // 쉼표 입력용 임시 인풋 상태
 
   const [symptomDetail, setSymptomDetail] = useState(""); 
   const [prescription, setPrescription] = useState(""); 
@@ -210,7 +207,7 @@ function ConsultationsForm() {
     return uploadedPaths;
   };
 
-  // 🟢 쉼표(,) 입력 시 태그 자동 분리 시스템
+  // 🟢 쉼표(,) 또는 엔터 입력 시 태그 자동 분리 시스템
   const handleTagInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
     if (val.includes(",")) {
@@ -219,7 +216,7 @@ function ConsultationsForm() {
       if (newTag && !tongueTags.includes(newTag)) {
         setTongueTags([...tongueTags, newTag]);
       }
-      setTagInputValue(parts.slice(1).join(",")); // 남은 텍스트 유지
+      setTagInputValue(parts.slice(1).join(",")); 
     } else {
       setTagInputValue(val);
     }
@@ -234,16 +231,7 @@ function ConsultationsForm() {
       }
       setTagInputValue("");
     } else if (e.key === "Backspace" && !tagInputValue && tongueTags.length > 0) {
-      // 인풋이 비어있을 때 백스페이스 누르면 마지막 태그 삭제
       setTongueTags(tongueTags.slice(0, -1));
-    }
-  };
-
-  const toggleTongueTag = (tag: string) => {
-    if (tongueTags.includes(tag)) {
-      setTongueTags(tongueTags.filter(t => t !== tag));
-    } else {
-      setTongueTags([...tongueTags, tag]);
     }
   };
 
@@ -264,7 +252,6 @@ function ConsultationsForm() {
       const parsedFeedbackDays = parseInt(feedbackDays);
       const finalFeedbackDays = (!isNaN(parsedFeedbackDays) && parsedFeedbackDays > 0) ? parsedFeedbackDays : null;
 
-      // 만약 입력창에 남은 텍스트가 있다면 등록 시 태그로 마저 포함
       let finalTags = [...tongueTags];
       if (tagInputValue.trim() && !finalTags.includes(tagInputValue.trim())) {
         finalTags.push(tagInputValue.trim());
@@ -275,7 +262,7 @@ function ConsultationsForm() {
         consultation_date: consultationDate,
         symptoms, 
         digestion_stool: digestionStool, 
-        tongue_tags: finalTags, 
+        tongue_tags: finalTags, // 데이터베이스에 태그 배열 저장
         sleep_state: null, 
         symptom_detail: symptomDetail, prescription, consult_memo: consultMemo, follow_up: followUp,
         feedback_days: finalFeedbackDays,
@@ -361,11 +348,10 @@ function ConsultationsForm() {
             </div>
           </div>
 
-          {/* 🟢 쉼표(,) 구분 입력 및 프리셋 선택이 결합된 설진 태그 UI */}
+          {/* 🟢 쉼표(,) 및 엔터 기반 설진 태그 입력 시스템 (프리셋 박스 제거됨) */}
           <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 flex flex-col gap-2">
-            <span className="text-[11px] font-bold text-slate-600">🏷️ 설진 태그 (쉼표나 엔터로 구분하여 입력, 또는 프리셋 클릭)</span>
+            <span className="text-[11px] font-bold text-slate-600">🏷️ 설진 태그 (입력 후 쉼표(,)나 엔터를 치면 태그가 생성됩니다)</span>
             
-            {/* 선택된 태그 목록 및 입력창 통합 박스 */}
             <div className="flex flex-wrap items-center gap-1.5 p-2 bg-white border border-slate-200 rounded-xl min-h-[42px]">
               {tongueTags.map((tag, idx) => (
                 <span key={idx} className="bg-amber-100 text-amber-900 border border-amber-300 px-2.5 py-1 rounded-lg text-xs font-extrabold flex items-center gap-1.5 shadow-2xs">
@@ -378,28 +364,9 @@ function ConsultationsForm() {
                 value={tagInputValue} 
                 onChange={handleTagInputChange} 
                 onKeyDown={handleTagInputKeyDown} 
-                placeholder={tongueTags.length === 0 ? "태그 입력 후 쉼표(,) 또는 엔터..." : "추가 입력..."} 
-                className="flex-1 min-w-[140px] text-xs font-semibold focus:outline-none bg-transparent px-1 py-1"
+                placeholder={tongueTags.length === 0 ? "예: 백태, 위축, 어혈반..." : "태그 추가 입력..."} 
+                className="flex-1 min-w-[140px] text-xs font-semibold focus:outline-none bg-transparent px-1 py-1 text-slate-900"
               />
-            </div>
-
-            {/* 추천 프리셋 태그 목록 */}
-            <div className="flex flex-wrap gap-1 mt-0.5">
-              {PRESET_TONGUE_TAGS.map(tag => {
-                const isSelected = tongueTags.includes(tag);
-                return (
-                  <button
-                    key={tag}
-                    type="button"
-                    onClick={() => toggleTongueTag(tag)}
-                    className={`px-2 py-0.5 rounded-md text-[11px] font-bold transition-all border ${
-                      isSelected ? "bg-amber-600 text-white border-amber-600 shadow-2xs" : "bg-white text-slate-600 border-slate-200 hover:bg-slate-100"
-                    }`}
-                  >
-                    +# {tag}
-                  </button>
-                );
-              })}
             </div>
           </div>
 
