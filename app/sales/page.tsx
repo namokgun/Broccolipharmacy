@@ -91,20 +91,18 @@ export default function SalesPage() {
   }, [sales]);
 
   return (
-    <div className="w-full h-[calc(100vh-80px)] flex flex-col space-y-3 overflow-hidden max-w-[1700px] mx-auto pb-4">
+    // 🟢 상단 여백(h-calc) 조정을 통해 화면을 살짝 더 밑으로 길게 씁니다.
+    <div className="w-full h-[calc(100vh-32px)] flex flex-col space-y-3 overflow-hidden max-w-[1700px] mx-auto pb-2">
       
-      {/* 🟢 헤더 영역 패딩 축소 */}
-      <div className="bg-white px-5 py-3.5 rounded-2xl shadow-sm border border-slate-200 flex-shrink-0">
-        <h1 className="text-lg font-extrabold text-slate-900">판매 관리</h1>
-        <p className="text-[11px] font-semibold text-slate-500 mt-0.5">제품 판매 내역을 등록하고, 매출 현황을 확인할 수 있습니다.</p>
-      </div>
+      {/* 🟢 기존에 있던 '판매 관리' 상단 타이틀 박스는 공간 확보를 위해 완전히 삭제했습니다. */}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 flex-1 min-h-0">
+      {/* 🟢 12칸 그리드 적용 (좌측 5칸 : 중앙 3칸 : 우측 4칸 비율) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 flex-1 min-h-0">
         
         {/* =========================================================================
-            1열(좌측): 판매 등록 폼 
+            1열(좌측): 판매 등록 폼 (넓게 배치, col-span-5)
         ========================================================================= */}
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col p-5 overflow-y-auto space-y-4">
+        <div className="lg:col-span-5 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col p-5 overflow-y-auto space-y-4">
           <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full bg-[#528771]"></span> 판매 등록
           </h2>
@@ -199,14 +197,14 @@ export default function SalesPage() {
 
             <div className="flex-1"></div>
 
-            {/* 🟢 폰트 사이즈 조정하되 대비는 유지 */}
             <div className="flex justify-between items-center p-3.5 bg-teal-50/50 border border-teal-100 rounded-2xl">
               <span className="font-black text-slate-900 text-sm">총 결제금액</span>
               <span className="font-black text-[#2e5e49] text-xl">{totalAmount.toLocaleString()}원</span>
             </div>
 
+            {/* 🟢 특이사항 입력칸 대폭 확대 (rows={5}로 변경) */}
             <div>
-              <textarea value={memo} onChange={e => setMemo(e.target.value)} rows={3} 
+              <textarea value={memo} onChange={e => setMemo(e.target.value)} rows={5} 
                 className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold resize-none focus:outline-none focus:border-[#528771]" 
                 placeholder="특이사항 입력..." 
               />
@@ -222,9 +220,9 @@ export default function SalesPage() {
         </div>
 
         {/* =========================================================================
-            2열(중앙): 요약 통계 & 인기 제품 TOP 5
+            2열(중앙): 요약 통계 & 인기 제품 TOP 5 (좁게 배치, col-span-3)
         ========================================================================= */}
-        <div className="flex flex-col gap-3 overflow-hidden">
+        <div className="lg:col-span-3 flex flex-col gap-3 overflow-hidden">
           <div className="grid grid-cols-1 gap-2 bg-white p-4 rounded-3xl shadow-sm border border-slate-200 flex-shrink-0">
             <div className="flex justify-between items-center p-2.5 bg-slate-50 rounded-xl border border-slate-100">
               <span className="text-[11px] font-bold text-slate-500">판매 건수</span>
@@ -250,7 +248,10 @@ export default function SalesPage() {
                 return (
                   <div key={p.name} className="flex flex-col gap-1.5 text-[11px]">
                     <div className="flex justify-between items-end">
-                      <span className="font-extrabold text-slate-800 text-xs">{idx + 1}. {p.name} <span className="text-slate-400 text-[10px] font-bold ml-1">({p.qty}개)</span></span>
+                      <span className="font-extrabold text-slate-800 text-xs truncate max-w-[120px]" title={p.name}>{idx + 1}. {p.name}</span>
+                    </div>
+                    <div className="flex justify-between items-end mb-0.5">
+                      <span className="text-slate-400 text-[10px] font-bold">({p.qty}개)</span>
                       <span className="font-black text-slate-900">{p.amt.toLocaleString()}원 <span className="text-teal-700 ml-0.5">({percent}%)</span></span>
                     </div>
                     <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
@@ -267,9 +268,9 @@ export default function SalesPage() {
         </div>
 
         {/* =========================================================================
-            3열(우측): 최근 판매 내역 
+            3열(우측): 최근 판매 내역 (col-span-4)
         ========================================================================= */}
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col p-5 overflow-hidden">
+        <div className="lg:col-span-4 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col p-5 overflow-hidden">
           <h3 className="text-xs font-extrabold text-slate-900 mb-3 flex items-center justify-between">
             <span>최근 판매 내역</span>
             <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-md">총 {sales.length}건</span>
