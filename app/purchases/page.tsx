@@ -7,11 +7,13 @@ export default function PurchasesPage() {
   const [purchases, setPurchases] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   
-  // 🟢 탭 상태 관리 (register: 사입 등록, history: 전체 내역 조회)
+  // 탭 상태 관리
   const [activeTab, setActiveTab] = useState<"register" | "history">("register");
   
-  // 폼 상태
+  // 폼 및 날짜 상태
   const [purchaseDate, setPurchaseDate] = useState("");
+  const [currentMonth, setCurrentMonth] = useState(""); // 🟢 빌드 에러 해결: 현재 월 상태 추가
+  
   const [manufacturer, setManufacturer] = useState("직접입력");
   const [isCustomManufacturer, setIsCustomManufacturer] = useState(true);
   const [customManufacturerInput, setCustomManufacturerInput] = useState("");
@@ -21,7 +23,10 @@ export default function PurchasesPage() {
   const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
 
   useEffect(() => {
-    setPurchaseDate(new Date().toISOString().split('T')[0]);
+    // 🟢 빌드 에러 해결: 클라이언트 로드 시 날짜 데이터 한 번에 세팅
+    const now = new Date();
+    setPurchaseDate(now.toISOString().split('T')[0]);
+    setCurrentMonth(now.toISOString().slice(0, 7)); 
     fetchData();
   }, []);
 
@@ -33,7 +38,6 @@ export default function PurchasesPage() {
     if (prData) setProducts(prData);
   };
 
-  // 🟢 제품 및 기존 사입 내역에서 제조사(거래처) 목록 추출
   const allManufacturers = useMemo(() => {
     const fromProducts = products.map(p => p.manufacturer);
     const fromPurchases = purchases.map(p => p.manufacturer);
@@ -98,13 +102,11 @@ export default function PurchasesPage() {
     }
   };
 
-  // 상단 요약 통계 계산
-  const currentMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
-  const thisMonthPurchases = purchases.filter(p => p.purchase_date?.startsWith(currentMonth));
+  // 🟢 빌드 에러 해결: 상태(currentMonth) 기반으로 통계 계산
+  const thisMonthPurchases = purchases.filter(p => currentMonth && p.purchase_date?.startsWith(currentMonth));
   const thisMonthCount = thisMonthPurchases.length;
   const thisMonthSum = thisMonthPurchases.reduce((sum, p) => sum + (p.total_amount || 0), 0);
 
-  // 제조사별 매입액 (TOP 5 용)
   const manufacturerStats = useMemo(() => {
     const stats: Record<string, number> = {};
     purchases.forEach(p => {
@@ -116,7 +118,6 @@ export default function PurchasesPage() {
   return (
     <div className="w-full h-[calc(100vh-80px)] flex flex-col space-y-4 overflow-hidden max-w-[1700px] mx-auto pb-4">
       
-      {/* 🟢 최상단: 헤더 및 탭 네비게이션 */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end bg-white px-6 py-4 rounded-2xl shadow-sm border border-slate-200 gap-4 flex-shrink-0">
         <div>
           <h1 className="text-xl font-extrabold text-slate-900">사입 관리</h1>
@@ -138,12 +139,8 @@ export default function PurchasesPage() {
         </div>
       </div>
 
-      {/* =========================================================================
-          탭 1: 사입 등록 및 현황 
-      ========================================================================= */}
       {activeTab === "register" && (
         <>
-          {/* 상단 요약 카드 (불필요한 항목 제거, 2분할) */}
           <div className="grid grid-cols-2 gap-4 bg-white p-5 rounded-3xl shadow-sm border border-slate-200 flex-shrink-0">
             <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center justify-between">
               <div><span className="text-xs font-bold text-slate-400 block mb-1">이번 달 사입 건수</span><span className="text-2xl font-extrabold text-slate-900">{thisMonthCount}건</span></div>
@@ -156,7 +153,6 @@ export default function PurchasesPage() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 min-h-0">
-            {/* 좌측: 사입 등록 폼 */}
             <div className="lg:col-span-8 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col p-6 overflow-y-auto space-y-5">
               <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[#528771]"></span> 새 사입 등록</h2>
               
@@ -167,7 +163,6 @@ export default function PurchasesPage() {
                     <input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} required className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" />
                   </div>
                   
-                  {/* 🟢 거래처(제조사) 드롭다운 선택 기능 추가 */}
                   <div>
                     <label className="block font-bold text-slate-700 mb-1">거래처(제조사) *</label>
                     <select 
@@ -199,7 +194,6 @@ export default function PurchasesPage() {
                   <table className="w-full text-left">
                     <thead className="bg-slate-100/50 border-b border-slate-200 text-slate-500">
                       <tr>
-                        {/* 🟢 공간 부족 및 줄바꿈 해결: width 조정 및 whitespace-nowrap 적용 */}
                         <th className="py-2.5 px-3 font-bold whitespace-nowrap">제품명</th>
                         <th className="py-2.5 px-3 font-bold w-28 whitespace-nowrap">매입 단가</th>
                         <th className="py-2.5 px-3 font-bold w-20 whitespace-nowrap">수량</th>
@@ -219,7 +213,6 @@ export default function PurchasesPage() {
                       ))}
                       <tr>
                         <td colSpan={5} className="py-3 px-4 bg-slate-50/50">
-                          {/* 🟢 검색창 대신 드롭다운으로 제품명 선택 */}
                           <select 
                             className="w-full p-2 bg-white border border-slate-200 rounded-xl font-semibold text-slate-700 focus:outline-none focus:border-[#528771]"
                             value=""
@@ -255,7 +248,6 @@ export default function PurchasesPage() {
               </form>
             </div>
 
-            {/* 우측: 제조사별 매입액 & 최근 내역 */}
             <div className="lg:col-span-4 flex flex-col gap-4 overflow-hidden">
               <div className="bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col p-5">
                 <h3 className="text-xs font-extrabold text-slate-900 mb-3 flex items-center gap-1.5">🏢 제조사별 매입액 비중 (전체 기간 누적)</h3>
@@ -290,9 +282,6 @@ export default function PurchasesPage() {
         </>
       )}
 
-      {/* =========================================================================
-          탭 2: 전체 내역 조회 
-      ========================================================================= */}
       {activeTab === "history" && (
         <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
           <div className="p-5 border-b border-slate-100 flex justify-between items-center">
