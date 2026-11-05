@@ -230,12 +230,9 @@ export default function PatientsPage() {
   return (
     <div className="w-full h-[calc(100vh-32px)] flex flex-col space-y-3 overflow-hidden max-w-[1700px] mx-auto pb-2">
       
-      {/* 🟢 다른 페이지(판매관리, 사입관리 등)와 동일한 깔끔한 상단 헤더 스타일 */}
+      {/* 🟢 상단 헤더: 설명 문구 없이 타이틀과 등록 버튼만 깔끔하게 배치 */}
       <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center flex-shrink-0">
-        <div>
-          <h1 className="text-lg font-extrabold text-slate-900">고객 관리</h1>
-          <p className="text-[11px] font-semibold text-slate-500 mt-0.5">고객 정보를 확인하고 관리할 수 있습니다.</p>
-        </div>
+        <h1 className="text-lg font-extrabold text-slate-900">고객 관리</h1>
         <button onClick={handleOpenRegister} className="px-4 py-1.5 bg-teal-900 hover:bg-teal-800 text-white rounded-xl font-semibold text-xs transition shadow-sm whitespace-nowrap">
           + 신규 고객 등록
         </button>
