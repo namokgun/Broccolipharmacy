@@ -7,6 +7,7 @@ import Link from "next/link";
 export default function DashboardPage() {
   const [patients, setPatients] = useState<any[]>([]);
   const [consultations, setConsultations] = useState<any[]>([]);
+  const [sales, setSales] = useState<any[]>([]);
   const [schedules, setSchedules] = useState<any[]>([]);
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
 
@@ -25,6 +26,10 @@ export default function DashboardPage() {
 
     const { data: sData } = await supabase.from("schedules").select("*");
     if (sData) setSchedules(sData);
+
+    // 🟢 판매 관리(sales) 데이터 불러오기 추가
+    const { data: saleData } = await supabase.from("sales").select("*").order("sale_date", { ascending: false });
+    if (saleData) setSales(saleData);
 
     const { data: cData } = await supabase
       .from("consultations")
@@ -92,7 +97,7 @@ export default function DashboardPage() {
     return y === currentYear && m === (currentMonth + 1);
   });
 
-  // 이번 달 신규 환자 집계 (환자 생성일 기준)
+  // 이번 달 신규 환자 집계
   const thisMonthNewPatients = patients.filter(p => {
     const dateStr = p.created_at?.split('T')[0];
     if (!dateStr) return false;
@@ -100,7 +105,14 @@ export default function DashboardPage() {
     return y === currentYear && m === (currentMonth + 1);
   });
 
-  const thisMonthSales = thisMonthConsultations.reduce((sum, c) => sum + (c.amount || 0), 0);
+  // 🟢 sales 데이터를 기반으로 이번 달 총 매출 산출
+  const thisMonthSales = sales
+    .filter(s => {
+      if (!s.sale_date) return false;
+      const [y, m] = s.sale_date.split('-').map(Number);
+      return y === currentYear && m === (currentMonth + 1);
+    })
+    .reduce((sum, s) => sum + (s.total_amount || 0), 0);
   
   const isCurrentMonthView = year === currentYear && month === currentMonth;
   const daysInMonth = new Date(year, month + 1, 0).getDate();
@@ -119,7 +131,7 @@ export default function DashboardPage() {
   const formatName = (p: any) => p?.custom_id ? `${p.name} (${p.custom_id})` : p?.name;
 
   return (
-    <div className="w-full space-y-4 pb-8 max-w-[1400px] mx-auto">
+    <div className="w-full space-y-4 pb-8 max-w-[1400px] mx-auto text-xs">
       <div className="flex justify-between items-center bg-white px-5 py-2.5 rounded-2xl shadow-xs border border-slate-100">
         <h1 className="text-base font-extrabold text-slate-900">📊 대시보드</h1>
         <span className="text-[11px] font-semibold text-slate-500">
@@ -127,7 +139,7 @@ export default function DashboardPage() {
         </span>
       </div>
 
-      {/* 📊 상단 핵심 지표 요약 카드 (총 6개 그리드 배치) */}
+      {/* 📊 상단 핵심 지표 요약 카드 */}
       <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
         <div className="bg-white p-3.5 rounded-2xl shadow-xs border border-slate-100 flex flex-col justify-between">
           <span className="text-[11px] font-bold text-slate-400">전체 고객 수</span>
@@ -203,6 +215,7 @@ export default function DashboardPage() {
               
               const daySchedules = schedules.filter(s => s.schedule_date === dateStr);
               const dayConsultations = consultations.filter(c => c.consult_date_str === dateStr);
+              // 🟢 피드백 날짜가 일치하고, 상담일과 피드백일이 다를 때만 명확히 피드백으로 분류
               const dayFeedbacks = consultations.filter(f => f.target_date === dateStr && f.consult_date_str !== dateStr);
 
               const allItems = [
@@ -259,7 +272,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* 우측: 오늘 완료해야 할 피드백 (체크박스 및 코멘트 추가) */}
+        {/* 우측: 오늘 완료해야 할 피드백 */}
         <div className="lg:col-span-6 bg-white p-4.5 rounded-2xl shadow-xs border border-slate-100 flex flex-col justify-between h-[380px]">
           <div>
             <div className="flex justify-between items-center border-b pb-2.5 mb-3">
@@ -282,7 +295,6 @@ export default function DashboardPage() {
                     className="p-3 bg-purple-50/50 border border-purple-200/80 rounded-xl flex items-start justify-between cursor-pointer hover:bg-purple-50 transition gap-3"
                   >
                     <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                      {/* 🟢 체크박스 추가 (클릭 시 즉시 완료 토글) */}
                       <input 
                         type="checkbox" 
                         checked={!!f.is_feedback_completed}
@@ -297,7 +309,6 @@ export default function DashboardPage() {
                         <p className={`text-xs font-extrabold truncate ${f.is_feedback_completed ? "text-slate-400 line-through" : "text-slate-900"}`}>
                           처방: {f.prescription || "없음"}
                         </p>
-                        {/* 🟢 추후관리 코멘트 노출 */}
                         {f.follow_up && (
                           <p className="text-[11px] text-slate-600 mt-1 bg-white/80 p-1.5 rounded border border-purple-100 truncate" title={f.follow_up}>
                             💬 코멘트: {f.follow_up}
@@ -371,6 +382,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* 캘린더 날짜 클릭 시 일정 전체 보기 모달 */}
       {dayDetailDate && (
         <div onClick={() => setDayDetailDate(null)} className="fixed inset-0 z-[90] bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col cursor-default max-h-[80vh]" onClick={e => e.stopPropagation()}>
@@ -404,7 +416,8 @@ export default function DashboardPage() {
                         onClick={() => { setDayDetailDate(null); setSelectedDetailConsultation(c); }} 
                         className="px-3 py-3 rounded-xl flex items-center justify-between transition cursor-pointer font-bold border bg-emerald-50 border-emerald-200 text-emerald-900 hover:bg-emerald-100 shadow-2xs"
                       >
-                        <span className="whitespace-pre-line text-xs">🩺 상담: {formatName(c.patients)} - {c.prescription || "처방없음"}</span>
+                        <span className="whitespace-pre-line text-xs">🩺 상담: {formatName(c.patients)}
+                        {c.prescription || "처방없음"}</span>
                       </div>
                     );
                   } else if (item.type === 'feedback') {
@@ -417,7 +430,8 @@ export default function DashboardPage() {
                           f.is_feedback_completed ? "bg-slate-100 border-slate-200 text-slate-400 line-through" : "bg-purple-50 border-purple-200 text-purple-900 hover:bg-purple-100"
                         }`}
                       >
-                        <span className="whitespace-pre-line">📌 피드백: {formatName(f.patients)} - {f.prescription || "처방없음"}</span>
+                        <span className="whitespace-pre-line">📌 피드백: {formatName(f.patients)}
+                        {f.prescription || "처방없음"}</span>
                       </div>
                     );
                   } else {
