@@ -7,6 +7,7 @@ import Link from "next/link";
 export default function StatsPage() {
   const [patients, setPatients] = useState<any[]>([]);
   const [consultations, setConsultations] = useState<any[]>([]);
+  const [salesRecords, setSalesRecords] = useState<any[]>([]); // 🟢 판매관리 데이터 상태 추가
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
 
   const [periodFilter, setPeriodFilter] = useState("6months");
@@ -17,22 +18,38 @@ export default function StatsPage() {
   }, []);
 
   const fetchData = async () => {
+    // 1. 환자 데이터 로딩
     const { data: pData } = await supabase.from("patients").select("*").order("created_at");
     if (pData) setPatients(pData);
 
-    const { data: cData, error } = await supabase
+    // 2. 상담 데이터 로딩 (상담 건수 추이용)
+    const { data: cData, error: cError } = await supabase
       .from("consultations")
       .select("*, patients(name, phone, custom_id, gender, birth_year)")
       .order("created_at", { ascending: false });
 
-    if (error) console.error("데이터 로딩 에러:", error.message);
-
+    if (cError) console.error("상담 데이터 로딩 에러:", cError.message);
     if (cData) {
       const processed = cData.map((c: any) => {
         const consultDateStr = c.consultation_date || c.created_at?.split('T')[0];
         return { ...c, consult_date_str: consultDateStr };
       });
       setConsultations(processed);
+    }
+
+    // 3. 판매관리 데이터 로딩 (매출 추이용) 🟢
+    const { data: sData, error: sError } = await supabase
+      .from("sales")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (sError) console.error("판매 데이터 로딩 에러:", sError.message);
+    if (sData) {
+      const processedSales = sData.map((s: any) => {
+        const saleDateStr = s.sale_date || s.created_at?.split('T')[0];
+        return { ...s, sale_date_str: saleDateStr };
+      });
+      setSalesRecords(processedSales);
     }
   };
 
@@ -64,15 +81,19 @@ export default function StatsPage() {
   const currentPatients = patients.filter(p => p.created_at?.startsWith(thisYm));
   const prevPatients = patients.filter(p => p.created_at?.startsWith(lastYm));
 
-  const currentSales = currentConsultations.reduce((sum, c) => sum + (c.amount || 0), 0);
-  const prevSales = prevConsultations.reduce((sum, c) => sum + (c.amount || 0), 0);
+  // 🟢 매출 계산은 이제 consultations가 아닌 salesRecords에서 가져옵니다.
+  const currentSalesRecords = salesRecords.filter(s => s.sale_date_str?.startsWith(thisYm));
+  const prevSalesRecords = salesRecords.filter(s => s.sale_date_str?.startsWith(lastYm));
+
+  const currentSales = currentSalesRecords.reduce((sum, s) => sum + (s.total_amount || s.amount || 0), 0);
+  const prevSales = prevSalesRecords.reduce((sum, s) => sum + (s.total_amount || s.amount || 0), 0);
 
   const daysPassed = Math.max(1, currentDate.getDate());
   const dailyAverageSales = Math.round(currentSales / daysPassed);
   const lastMonthTotalDays = new Date(lastMonthDate.getFullYear(), lastMonthDate.getMonth() + 1, 0).getDate();
   const prevDailyAverageSales = Math.round(prevSales / lastMonthTotalDays);
 
-  // 전월 대비 증감률 계산 공식: [(이번 달 값 - 지난 달 값) ÷ 지난 달 값] × 100
+  // 전월 대비 증감률 계산 공식
   const calcRateValue = (current: number, previous: number) => {
     if (previous === 0) return current > 0 ? 100 : 0;
     return ((current - previous) / previous) * 100;
@@ -106,24 +127,27 @@ export default function StatsPage() {
   const constitutionArray = Object.entries(constitutionCounts).sort((a, b) => b[1] - a[1]);
   const donutColors = ["#14b8a6", "#f59e0b", "#3b82f6", "#8b5cf6", "#94a3b8", "#f43f5e", "#10b981"]; 
 
-  // 월별 차트 데이터 생성 (상담 수 기준)
-  const monthlyChartData = monthlyBuckets.map((bucket, idx) => {
+  // 월별 차트 데이터 생성 (매출은 sales, 상담은 consultations 기준) 🟢
+  const monthlyChartData = monthlyBuckets.map((bucket) => {
     const monthConsults = consultations.filter(c => c.consult_date_str?.startsWith(bucket.yearMonth));
-    const sales = monthConsults.reduce((sum, c) => sum + (c.amount || 0), 0);
-    const consultCount = monthConsults.length; // 🟢 상담 수 집계
+    const monthSalesRecs = salesRecords.filter(s => s.sale_date_str?.startsWith(bucket.yearMonth));
+    
+    const sales = monthSalesRecs.reduce((sum, s) => sum + (s.total_amount || s.amount || 0), 0);
+    const consultCount = monthConsults.length; 
 
-    const prevBucketYm = monthlyBuckets[idx - 1]?.yearMonth;
-    let prevSalesVal = 0;
-    let prevConsultVal = 0;
+    // 정확한 전월 계산을 위해 Date 객체 활용
+    const bDate = new Date(`${bucket.yearMonth}-01`);
+    bDate.setMonth(bDate.getMonth() - 1);
+    const prevBucketYm = `${bDate.getFullYear()}-${String(bDate.getMonth() + 1).padStart(2, '0')}`;
 
-    if (prevBucketYm) {
-      const prevConsults = consultations.filter(c => c.consult_date_str?.startsWith(prevBucketYm));
-      prevSalesVal = prevConsults.reduce((sum, c) => sum + (c.amount || 0), 0);
-      prevConsultVal = prevConsults.length;
-    }
+    const prevConsults = consultations.filter(c => c.consult_date_str?.startsWith(prevBucketYm));
+    const prevSalesRecs = salesRecords.filter(s => s.sale_date_str?.startsWith(prevBucketYm));
+
+    const prevSalesVal = prevSalesRecs.reduce((sum, s) => sum + (s.total_amount || s.amount || 0), 0);
+    const prevConsultVal = prevConsults.length;
 
     const sRate = calcRateValue(sales, prevSalesVal);
-    const consultRateVal = calcRateValue(consultCount, prevConsultVal); // 🟢 상담 수 증감률
+    const consultRateVal = calcRateValue(consultCount, prevConsultVal); 
 
     return { 
       yearMonth: bucket.yearMonth, 
@@ -135,11 +159,10 @@ export default function StatsPage() {
     };
   });
 
-  // 점과 선으로 이어진 SVG 차트 렌더링
+  // 점과 선으로 이어진 SVG 차트 렌더링 (원본 UI 유지)
   const renderSVGChart = (type: "consult" | "sales") => {
     let rawMax = Math.max(...monthlyChartData.map(d => type === "consult" ? d.consultCount : d.sales), 1);
     
-    // 🟢 1000만원 단위 눈금 및 배경 선 계산 로직
     let displayMax = rawMax;
     let yTicks: number[] = [];
 
@@ -148,12 +171,10 @@ export default function StatsPage() {
       displayMax = Math.ceil(rawMax / step) * step;
       if (displayMax === 0) displayMax = step;
       
-      // 위에서부터 0까지 1000만 원 간격으로 배열 생성
       for (let i = displayMax; i >= 0; i -= step) {
         yTicks.push(i);
       }
     } else {
-      // 상담 건수의 경우 짝수로 맞춰서 절반 선이 깔끔하게 보이도록 설정
       displayMax = Math.ceil(rawMax / 2) * 2;
       yTicks = [displayMax, displayMax / 2, 0];
     }
@@ -161,22 +182,18 @@ export default function StatsPage() {
     const barColor = type === "consult" ? "#94a3b8" : "#e5e5e5"; 
     const lineColor = type === "consult" ? "#334155" : "#78350f"; 
 
-    // 증감률 점들의 X, Y 좌표 계산
     const points = monthlyChartData.map((d, i) => {
       const x = (i / Math.max(1, monthlyChartData.length - 1)) * 100;
       const rawRate = type === "consult" ? d.consultRateVal : d.sRate;
       const clampedRate = Math.max(-100, Math.min(100, rawRate));
-      const y = 50 - (clampedRate / 2); // 0%가 중앙 50% 높이에 오도록 계산
+      const y = 50 - (clampedRate / 2); 
       return { x, y, rawRate };
     });
 
-    // 점 사이를 잇는 SVG Path 경로 문자열 생성
     const linePathD = points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x}% ${p.y}%`).join(" ");
 
     return (
       <div className="relative w-full h-[240px] mt-4 select-none">
-        
-        {/* 🟢 Y축 데이터 값 범례 (다이내믹 렌더링) */}
         <div className="absolute left-0 top-4 bottom-8 w-11 z-0">
           {yTicks.map((val, i) => {
             const yPct = 100 - (val / displayMax) * 100;
@@ -189,20 +206,16 @@ export default function StatsPage() {
           })}
         </div>
 
-        {/* Y축 증감률 범례 */}
         <div className="absolute right-0 top-4 bottom-8 flex flex-col justify-between text-[10px] text-slate-400 w-8 pl-1 z-0">
           <span>+100%</span>
           <span>0%</span>
           <span>-100%</span>
         </div>
 
-        {/* 차트 영역 */}
         <div className="absolute left-12 right-10 top-4 bottom-8 border-b border-slate-200">
           <svg className="w-full h-full overflow-visible" preserveAspectRatio="none">
-            
-            {/* 🟢 동적 배경 가이드 라인 (데이터 선에 맞게 렌더링) */}
             {yTicks.map((val, i) => {
-              if (val === 0) return null; // 바닥은 div border-b로 표시되므로 0선은 생략
+              if (val === 0) return null; 
               const yPct = 100 - (val / displayMax) * 100;
               return (
                 <line 
@@ -216,18 +229,17 @@ export default function StatsPage() {
               );
             })}
 
-            {/* 데이터 막대(Bar) */}
             {monthlyChartData.map((d, i) => {
               const x = points[i].x;
               const val = type === "consult" ? d.consultCount : d.sales;
-              const heightPct = (val / displayMax) * 100; // maxVal 대신 displayMax 적용
+              const heightPct = (val / displayMax) * 100; 
               const barWidth = 8;
 
               return (
                 <g key={`bar-${i}`} className="group cursor-pointer">
                   {val > 0 && (
                     <rect 
-                      x={`${x - barWidth / 2}%`} 
+                      x={`calc(${x}% - ${barWidth / 2}%)`} 
                       y={`${100 - heightPct}%`} 
                       width={`${barWidth}%`} 
                       height={`${heightPct}%`} 
@@ -240,7 +252,6 @@ export default function StatsPage() {
               );
             })}
 
-            {/* 점과 점 사이를 잇는 연결선 (Line) */}
             <path 
               d={linePathD} 
               fill="none" 
@@ -251,7 +262,6 @@ export default function StatsPage() {
               className="transition-all duration-300"
             />
 
-            {/* 증감률 점(Dots) & 툴팁 */}
             {monthlyChartData.map((d, i) => {
               const { x, y, rawRate } = points[i];
               const val = type === "consult" ? d.consultCount : d.sales;
@@ -259,9 +269,8 @@ export default function StatsPage() {
 
               return (
                 <g key={`point-${i}`} className="group cursor-pointer">
-                  <rect x={`${x - barWidth}%`} y="0" width={`${barWidth * 2}%`} height="100%" fill="transparent" />
+                  <rect x={`calc(${x}% - ${barWidth}%)`} y="0" width={`calc(${barWidth * 2}%)`} height="100%" fill="transparent" />
                   
-                  {/* 동그라미 점 */}
                   <circle 
                     cx={`${x}%`} 
                     cy={`${y}%`} 
@@ -272,9 +281,8 @@ export default function StatsPage() {
                     className="group-hover:r-[6] transition-all"
                   />
                   
-                  {/* 호버 툴팁 */}
                   <g className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    <rect x={`${x - 14}%`} y="-26" width="105" height="24" rx="4" fill="#1e293b" />
+                    <rect x={`calc(${x}% - 52px)`} y="calc(-26px)" width="105" height="24" rx="4" fill="#1e293b" />
                     <text x={`${x}%`} y="-10" fill="white" fontSize="9" fontWeight="bold" textAnchor="middle">
                       {val.toLocaleString()}{type === "consult" ? "건" : "원"} ({rawRate > 0 ? `+${rawRate.toFixed(0)}%` : `${rawRate.toFixed(0)}%`})
                     </text>
@@ -285,7 +293,6 @@ export default function StatsPage() {
           </svg>
         </div>
 
-        {/* X축 월별 라벨 */}
         <div className="absolute left-12 right-10 bottom-0 h-6 flex justify-between items-end text-[10px] font-semibold text-slate-400">
           {monthlyChartData.map((d, idx) => (
             <span key={idx}>{d.label}</span>
