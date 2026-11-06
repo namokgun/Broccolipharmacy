@@ -64,6 +64,13 @@ export default function SalesPage() {
     setProductSearch("");
   };
 
+  // ✅ [요구사항 2] 고객 표시 정보 우선순위: custom_id(아이디) 우선, 없으면 phone(전번), 둘 다 없으면 "번호 없음"
+  const getCustomerDisplayInfo = (p: any) => {
+    if (p.custom_id) return p.custom_id;
+    if (p.phone) return p.phone;
+    return "번호 없음";
+  };
+
   // 🟢 팝업 모달 열기 (수정)
   const handleOpenEditModal = (sale: any) => {
     setEditingSaleId(sale.id);
@@ -97,6 +104,18 @@ export default function SalesPage() {
 
   const handleQuantity = (id: string, d: number) => {
     setSelectedProducts(selectedProducts.map(p => p.id === id ? { ...p, quantity: Math.max(1, p.quantity + d) } : p));
+  };
+
+  // ✅ [요구사항 3] 수동 타이핑으로 수량 변경
+  const handleManualQuantity = (id: string, val: string, isEdit: boolean) => {
+    const qty = parseInt(val, 10);
+    const validQty = isNaN(qty) || qty < 1 ? 1 : qty;
+    
+    if (isEdit) {
+      setEditSelectedProducts(editSelectedProducts.map(p => p.id === id ? { ...p, quantity: validQty } : p));
+    } else {
+      setSelectedProducts(selectedProducts.map(p => p.id === id ? { ...p, quantity: validQty } : p));
+    }
   };
 
   const totalAmount = selectedProducts.reduce((sum, p) => sum + (p.price || 0) * p.quantity, 0);
@@ -187,19 +206,24 @@ export default function SalesPage() {
     let list = [...sales];
     if (historySearch) {
       const term = historySearch.toLowerCase();
-      list = list.filter(s => 
-        s.patient_name?.toLowerCase().includes(term) || 
-        s.sale_date?.includes(term) ||
-        s.payment_method?.includes(term) ||
-        s.items?.some((i: any) => i.name.toLowerCase().includes(term))
-      );
+      list = list.filter(s => {
+        const pt = patients.find(p => p.id === s.patient_id);
+        return (
+          s.patient_name?.toLowerCase().includes(term) || 
+          pt?.custom_id?.toLowerCase().includes(term) || // ID 검색어 필터 포함
+          pt?.phone?.includes(term) || // 번호 검색어 필터 포함
+          s.sale_date?.includes(term) ||
+          s.payment_method?.includes(term) ||
+          s.items?.some((i: any) => i.name.toLowerCase().includes(term))
+        );
+      });
     }
     return list.sort((a, b) => {
       const dateA = new Date(a.sale_date).getTime();
       const dateB = new Date(b.sale_date).getTime();
       return sortOrder === "desc" ? dateB - dateA : dateA - dateB;
     });
-  }, [sales, historySearch, sortOrder]);
+  }, [sales, patients, historySearch, sortOrder]);
 
   return (
     <div className="w-full h-[calc(100vh-32px)] flex flex-col space-y-3 overflow-hidden max-w-[1700px] mx-auto pb-2">
@@ -251,17 +275,18 @@ export default function SalesPage() {
                 </div>
                 <div className="relative">
                   <label className="block font-bold text-slate-700 text-xs mb-1">고객 선택 *</label>
-                  <input type="text" placeholder="고객명/연락처 검색..." value={patientSearch} onChange={e => setPatientSearch(e.target.value)} 
+                  <input type="text" placeholder="이름/ID/전화번호 검색..." value={patientSearch} onChange={e => setPatientSearch(e.target.value)} 
                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#528771]" 
                   />
                   {patientSearch && (
                     <div className="absolute z-20 w-full max-h-40 overflow-y-auto border border-slate-200 rounded-xl bg-white shadow-xl mt-1">
-                      {patients.filter(p => p.name.includes(patientSearch) || (p.phone && p.phone.includes(patientSearch))).map(p => (
+                      {patients.filter(p => p.name.includes(patientSearch) || p.custom_id?.includes(patientSearch) || p.phone?.includes(patientSearch)).map(p => (
                         <div key={p.id} onClick={() => { setSelectedPatient(p); setPatientSearch(""); }} 
                           className="p-2.5 hover:bg-teal-50 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none"
                         >
                           <span className="font-extrabold text-slate-900 text-xs">{p.name}</span>
-                          <span className="font-bold text-slate-500 text-[11px]">{p.phone || "번호 없음"}</span>
+                          {/* ✅ [요구사항 2] 고객 검색 목록에서 ID 우선 출력 적용 */}
+                          <span className="font-bold text-slate-500 text-[11px]">{getCustomerDisplayInfo(p)}</span>
                         </div>
                       ))}
                     </div>
@@ -303,7 +328,15 @@ export default function SalesPage() {
                       </div>
                       <div className="flex items-center gap-1.5 self-end sm:self-auto">
                         <button type="button" onClick={() => handleQuantity(p.id, -1)} className="w-6 h-6 bg-slate-50 border border-slate-200 rounded text-xs font-black text-slate-700 hover:bg-slate-100">-</button>
-                        <span className="font-extrabold w-5 text-center text-xs text-slate-900">{p.quantity}</span>
+                        
+                        {/* ✅ [요구사항 3] 수량 수동 입력 input (크로스 브라우징 화살표 제거 CSS 적용) */}
+                        <input 
+                          type="number" 
+                          value={p.quantity === 0 ? "" : p.quantity}
+                          onChange={(e) => handleManualQuantity(p.id, e.target.value, false)}
+                          className="w-10 h-6 text-center text-xs font-extrabold text-slate-900 border border-slate-200 rounded focus:outline-none focus:border-[#528771] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                        />
+                        
                         <button type="button" onClick={() => handleQuantity(p.id, 1)} className="w-6 h-6 bg-slate-50 border border-slate-200 rounded text-xs font-black text-slate-700 hover:bg-slate-100">+</button>
                         <span className="font-extrabold text-[#528771] ml-1 w-16 text-right text-xs">{(p.price * p.quantity).toLocaleString()}원</span>
                         <button type="button" onClick={() => setSelectedProducts(selectedProducts.filter(x => x.id !== p.id))} className="text-red-400 ml-1 hover:text-red-600 font-bold p-1 text-[10px]">✕</button>
@@ -390,7 +423,6 @@ export default function SalesPage() {
                 <div key={s.id} className="py-2 px-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors cursor-default group relative flex flex-col justify-between">
                   <div className="flex justify-between items-center">
                     <div className="flex items-baseline gap-2 overflow-hidden">
-                      {/* 🟢 날짜를 고객 이름 바로 옆으로 압축 배치 */}
                       <span className="font-black text-slate-900 text-xs truncate">{s.patient_name}</span>
                       <span className="text-[10px] font-bold text-slate-400 whitespace-nowrap">({s.sale_date} · {s.payment_method})</span>
                     </div>
@@ -428,7 +460,7 @@ export default function SalesPage() {
             <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
               <input 
                 type="text" 
-                placeholder="날짜(YYYY-MM-DD), 고객명, 제품명 검색..." 
+                placeholder="날짜, 고객명, 제품명 검색..." 
                 value={historySearch} 
                 onChange={(e) => setHistorySearch(e.target.value)}
                 className="w-full sm:w-64 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#528771]"
@@ -442,43 +474,62 @@ export default function SalesPage() {
             </div>
           </div>
           
-          <div className="flex-1 overflow-y-auto">
+          <div className="flex-1 overflow-x-auto overflow-y-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-100/80 text-slate-600 sticky top-0 backdrop-blur-md z-10 border-b border-slate-200">
                 <tr>
-                  <th className="py-3 px-4 font-bold whitespace-nowrap">판매일자</th>
-                  <th className="py-3 px-4 font-bold whitespace-nowrap">고객명</th>
-                  <th className="py-3 px-4 font-bold">판매 상품 내역</th>
-                  <th className="py-3 px-4 font-bold whitespace-nowrap">결제수단</th>
-                  <th className="py-3 px-4 font-bold text-right whitespace-nowrap">총 결제금액</th>
-                  <th className="py-3 px-4 font-bold text-center whitespace-nowrap">관리</th>
+                  {/* ✅ [요구사항 1] 간격 줄이고 ID, 넓은 코멘트 배치 적용 */}
+                  <th className="py-3 px-4 font-bold whitespace-nowrap w-[90px]">판매일자</th>
+                  <th className="py-3 px-4 font-bold whitespace-nowrap w-[80px]">고객명</th>
+                  <th className="py-3 px-4 font-bold whitespace-nowrap w-[90px]">ID</th>
+                  <th className="py-3 px-4 font-bold w-[220px]">판매 상품 내역</th>
+                  
+                  {/* 💛 넓게 배치되는 코멘트 셀 */}
+                  <th className="py-3 px-4 font-extrabold w-auto min-w-[250px] text-slate-800">코멘트</th>
+                  
+                  {/* 우측 밀착 셀들 */}
+                  <th className="py-3 px-4 font-bold text-center whitespace-nowrap w-[100px]">결제수단</th>
+                  <th className="py-3 px-4 font-bold text-right whitespace-nowrap w-[120px]">총 결제금액</th>
+                  <th className="py-3 px-4 font-bold text-center whitespace-nowrap w-[90px]">관리</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredHistorySales.length === 0 ? (
-                  <tr><td colSpan={6} className="py-12 text-center text-slate-400 font-bold">검색된 판매 내역이 없습니다.</td></tr>
+                  <tr><td colSpan={8} className="py-12 text-center text-slate-400 font-bold">검색된 판매 내역이 없습니다.</td></tr>
                 ) : (
-                  filteredHistorySales.map((s) => (
-                    <tr key={s.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-3 px-4 font-extrabold text-slate-800">{s.sale_date}</td>
-                      <td className="py-3 px-4 font-extrabold text-slate-900">{s.patient_name}</td>
-                      <td className="py-3 px-4">
-                        <div className="font-bold text-slate-700 max-w-[250px] leading-tight">
-                          {s.items?.map((i: any) => `${i.name}(${i.quantity})`).join(", ")}
-                        </div>
-                        {s.memo && <div className="text-[10px] text-slate-400 mt-1 truncate max-w-[250px]">{s.memo}</div>}
-                      </td>
-                      <td className="py-3 px-4 font-bold text-slate-600">{s.payment_method}</td>
-                      <td className="py-3 px-4 font-black text-[#528771] text-right">{s.total_amount?.toLocaleString()}원</td>
-                      <td className="py-3 px-4 text-center">
-                        <div className="flex justify-center gap-1.5">
-                          {/* 🟢 팝업 모달을 호출하도록 수정 */}
-                          <button onClick={() => handleOpenEditModal(s)} className="text-[11px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-md transition">수정</button>
-                          <button onClick={() => handleDelete(s.id)} className="text-[11px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-md transition">삭제</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                  filteredHistorySales.map((s) => {
+                    const pt = patients.find(p => p.id === s.patient_id);
+                    const ptId = pt?.custom_id || "-";
+
+                    return (
+                      <tr key={s.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3 px-4 font-extrabold text-slate-800">{s.sale_date}</td>
+                        <td className="py-3 px-4 font-extrabold text-slate-900">{s.patient_name}</td>
+                        {/* ID 데이터 삽입 */}
+                        <td className="py-3 px-4 font-bold text-slate-600">{ptId}</td>
+                        
+                        <td className="py-3 px-4">
+                          <div className="font-bold text-slate-700 max-w-[250px] leading-tight">
+                            {s.items?.map((i: any) => `${i.name}(${i.quantity})`).join(", ")}
+                          </div>
+                        </td>
+                        
+                        {/* 코멘트를 별도 컬럼으로 빼고 넓게 표시 */}
+                        <td className="py-3 px-4 text-slate-600 font-medium whitespace-normal break-words max-w-md">
+                          {s.memo || "-"}
+                        </td>
+                        
+                        <td className="py-3 px-4 font-bold text-slate-600 text-center">{s.payment_method}</td>
+                        <td className="py-3 px-4 font-black text-[#528771] text-right">{s.total_amount?.toLocaleString()}원</td>
+                        <td className="py-3 px-4 text-center">
+                          <div className="flex justify-center gap-1.5">
+                            <button onClick={() => handleOpenEditModal(s)} className="text-[11px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-md transition">수정</button>
+                            <button onClick={() => handleDelete(s.id)} className="text-[11px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-md transition">삭제</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -522,17 +573,18 @@ export default function SalesPage() {
                 </div>
                 <div className="relative">
                   <label className="block font-bold text-slate-700 mb-1">고객 선택 *</label>
-                  <input type="text" placeholder="고객명/연락처 검색..." value={editPatientSearch} onChange={e => setEditPatientSearch(e.target.value)} 
+                  <input type="text" placeholder="이름/ID/전화번호 검색..." value={editPatientSearch} onChange={e => setEditPatientSearch(e.target.value)} 
                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" 
                   />
                   {editPatientSearch && (
                     <div className="absolute z-20 w-full max-h-40 overflow-y-auto border border-slate-200 rounded-xl bg-white shadow-xl mt-1">
-                      {patients.filter(p => p.name.includes(editPatientSearch) || (p.phone && p.phone.includes(editPatientSearch))).map(p => (
+                      {patients.filter(p => p.name.includes(editPatientSearch) || p.custom_id?.includes(editPatientSearch) || p.phone?.includes(editPatientSearch)).map(p => (
                         <div key={p.id} onClick={() => { setEditSelectedPatient(p); setEditPatientSearch(""); }} 
                           className="p-2.5 hover:bg-teal-50 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none"
                         >
                           <span className="font-extrabold text-slate-900">{p.name}</span>
-                          <span className="font-bold text-slate-500">{p.phone || "번호 없음"}</span>
+                          {/* ✅ [요구사항 2] 고객 검색 목록 ID 우선 반영 */}
+                          <span className="font-bold text-slate-500">{getCustomerDisplayInfo(p)}</span>
                         </div>
                       ))}
                     </div>
@@ -574,7 +626,15 @@ export default function SalesPage() {
                       </div>
                       <div className="flex items-center gap-2">
                         <button type="button" onClick={() => handleEditQuantity(p.id, -1)} className="w-6 h-6 bg-white border rounded font-bold">-</button>
-                        <span className="font-bold w-6 text-center">{p.quantity}</span>
+                        
+                        {/* ✅ [요구사항 3] 모달 안쪽 수동 입력 기능 추가 */}
+                        <input 
+                          type="number" 
+                          value={p.quantity === 0 ? "" : p.quantity}
+                          onChange={(e) => handleManualQuantity(p.id, e.target.value, true)}
+                          className="w-10 h-6 text-center font-extrabold text-slate-900 border border-slate-200 rounded focus:outline-none focus:border-[#528771] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                        />
+                        
                         <button type="button" onClick={() => handleEditQuantity(p.id, 1)} className="w-6 h-6 bg-white border rounded font-bold">+</button>
                         <span className="font-extrabold text-teal-900 ml-2">{(p.price * p.quantity).toLocaleString()}원</span>
                         <button type="button" onClick={() => setEditSelectedProducts(editSelectedProducts.filter(x => x.id !== p.id))} className="text-red-400 ml-2 hover:text-red-600 font-bold">✕</button>
