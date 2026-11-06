@@ -154,12 +154,12 @@ export default function ConsultationHistoryPage() {
                       )}
                     </div>
 
-                    {/* 설진태그 표시 */}
-                    <div className="flex items-center gap-1 flex-shrink-0 max-w-[150px] overflow-hidden">
+                    {/* 🟢 수정됨: 설진태그 표시 (글자 제한 및 ... 잘림 해제, # 제거, 자연스러운 줄바꿈) */}
+                    <div className="flex flex-wrap items-center gap-1 flex-shrink-0">
                       {Array.isArray(c.tongue_tags) && c.tongue_tags.length > 0 ? (
                         c.tongue_tags.map((tag: string, idx: number) => (
-                          <span key={idx} className="bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded text-[10px] font-extrabold truncate">
-                            #{tag}
+                          <span key={idx} className="bg-amber-50 text-amber-800 border border-amber-200 px-1.5 py-0.5 rounded text-[10px] font-extrabold">
+                            {tag}
                           </span>
                         ))
                       ) : (
@@ -209,21 +209,20 @@ export default function ConsultationHistoryPage() {
                     </span>
                   </div>
 
-                  {/* 🟢 기존 소화배변/수면상태 칸을 '설진' 내용 표시로 변경 */}
                   <div className="p-3.5 bg-slate-50/60 rounded-2xl border border-slate-100">
                     <span className="text-[10px] font-bold text-slate-400 block mb-1">설진</span>
                     <span className="font-bold text-slate-800">{selectedConsultation.tongue_diagnosis || selectedConsultation.digestion_stool || "-"}</span>
                   </div>
                 </div>
 
-                {/* 설진태그 상세 영역 */}
+                {/* 🟢 수정됨: 설진태그 상세 영역 (# 기호 제거) */}
                 {selectedConsultation.tongue_tags && selectedConsultation.tongue_tags.length > 0 && (
                   <div className="p-3.5 bg-amber-50/50 rounded-2xl border border-amber-200">
                     <span className="text-[10px] font-bold text-amber-800 block mb-1.5">설진 태그</span>
                     <div className="flex flex-wrap gap-1">
                       {selectedConsultation.tongue_tags.map((t: string, i: number) => (
                         <span key={i} className="bg-white text-amber-900 border border-amber-300 px-2 py-0.5 rounded-lg text-[11px] font-extrabold shadow-2xs">
-                          #{t}
+                          {t}
                         </span>
                       ))}
                     </div>
