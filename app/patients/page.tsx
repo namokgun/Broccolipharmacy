@@ -38,7 +38,7 @@ export default function PatientsPage() {
   const [photosModalPatient, setPhotosModalPatient] = useState<any | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
-  // 폼 필드 (전화번호 제외)
+  // 폼 필드
   const [name, setName] = useState("");
   const [customId, setCustomId] = useState("");
   const [address, setAddress] = useState("");
@@ -47,7 +47,10 @@ export default function PatientsPage() {
   const [bodyType, setBodyType] = useState("선택 안함");
   const [tagsInput, setTagsInput] = useState("");
   const [memo, setMemo] = useState("");
+  
+  // 대표 고객 검색 선택 관련 상태
   const [representativeId, setRepresentativeId] = useState<string>("");
+  const [repSearch, setRepSearch] = useState("");
 
   const [activeCount, setActiveCount] = useState(0);
 
@@ -138,8 +141,8 @@ export default function PatientsPage() {
   });
   const returningCount = Object.values(patientConsultCounts).filter(cnt => cnt >= 2).length;
 
-  // 우측 통계: 고객별 판매액 TOP 산출
-  const customerSalesRanking = useMemo(() => {
+  // 우측 통계: 전체 누적 TOP 산출
+  const customerSalesRankingAll = useMemo(() => {
     const stats: Record<string, { name: string, totalAmt: number, count: number }> = {};
     sales.forEach(s => {
       const name = s.patient_name || "미지정 고객";
@@ -150,12 +153,32 @@ export default function PatientsPage() {
     return Object.values(stats).sort((a, b) => b.totalAmt - a.totalAmt);
   }, [sales]);
 
-  const totalSalesSumAll = customerSalesRanking.reduce((sum, c) => sum + c.totalAmt, 0);
+  const totalSalesSumAll = customerSalesRankingAll.reduce((sum, c) => sum + c.totalAmt, 0);
+
+  // 우측 통계: 최근 3개월 누적 TOP 산출
+  const customerSalesRanking3Months = useMemo(() => {
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+    const stats: Record<string, { name: string, totalAmt: number, count: number }> = {};
+    sales.forEach(s => {
+      const saleDateObj = new Date(s.sale_date);
+      if (saleDateObj >= threeMonthsAgo) {
+        const name = s.patient_name || "미지정 고객";
+        if (!stats[name]) stats[name] = { name, totalAmt: 0, count: 0 };
+        stats[name].totalAmt += (s.total_amount || 0);
+        stats[name].count += 1;
+      }
+    });
+    return Object.values(stats).sort((a, b) => b.totalAmt - a.totalAmt);
+  }, [sales]);
+
+  const totalSalesSum3Months = customerSalesRanking3Months.reduce((sum, c) => sum + c.totalAmt, 0);
 
   const handleOpenRegister = () => {
     setEditingPatientId(null);
     setName(""); setCustomId(""); setAddress(""); setGender("남"); setBirthYear(""); setBodyType("선택 안함");
-    setTagsInput(""); setMemo(""); setRepresentativeId("");
+    setTagsInput(""); setMemo(""); setRepresentativeId(""); setRepSearch("");
     setIsModalOpen(true);
   };
 
@@ -170,6 +193,14 @@ export default function PatientsPage() {
     setTagsInput(p.tags && Array.isArray(p.tags) ? p.tags.join(", ") : "");
     setMemo(p.memo || "");
     setRepresentativeId(p.representative_id || "");
+    
+    if (p.representative_id) {
+      const rep = patients.find(pt => pt.id === p.representative_id);
+      setRepSearch(rep ? rep.name : "");
+    } else {
+      setRepSearch("");
+    }
+
     setIsModalOpen(true);
   };
 
@@ -245,7 +276,7 @@ export default function PatientsPage() {
   return (
     <div className="w-full h-[calc(100vh-32px)] flex flex-col space-y-2 overflow-hidden max-w-[1700px] mx-auto pb-1 text-xs">
       
-      {/* 🟢 상단 헤더 */}
+      {/* 상단 헤더 */}
       <div className="bg-white px-4 py-2.5 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center flex-shrink-0">
         <h1 className="text-base font-extrabold text-slate-900">고객 관리</h1>
         <button onClick={handleOpenRegister} className="px-3.5 py-1.5 bg-[#528771] hover:bg-[#3d6856] text-white rounded-xl font-black text-xs transition shadow-sm whitespace-nowrap">
@@ -253,10 +284,10 @@ export default function PatientsPage() {
         </button>
       </div>
 
-      {/* 🟢 3분할 인터페이스 (좌측: 목록 / 가운데: 상세 및 최근내역 / 우측: 통계) */}
+      {/* 3분할 인터페이스 */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-2.5 flex-1 min-h-0">
         
-        {/* 1열: 고객 목록 (col-span-5) */}
+        {/* 1열: 고객 목록 */}
         <div className="lg:col-span-5 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-3.5 space-y-2.5">
           
           <div className="grid grid-cols-3 gap-2 flex-shrink-0">
@@ -335,27 +366,49 @@ export default function PatientsPage() {
           </div>
         </div>
 
-        {/* 2열: 선택된 고객 상세 정보 및 최근 상담/판매 내역 (col-span-4) */}
+        {/* 2열: 선택된 고객 상세 정보 (체질/나이/성별/태그를 이름 아래 작은 글씨로 이동) */}
         <div className="lg:col-span-4 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-3.5 space-y-2.5">
           {selectedPatient ? (
             <div className="flex-1 overflow-y-auto space-y-3 pr-1 hide-scrollbar">
               
-              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex items-center justify-between">
-                <div>
+              {/* 상단 이름 및 수정/삭제 바 */}
+              <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
                   <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
                     <span>👤</span> {selectedPatient.name} {selectedPatient.custom_id ? `(${selectedPatient.custom_id})` : ""}
                   </h2>
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={() => handleOpenEdit(selectedPatient)} className="px-2.5 py-1 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-bold text-[10px] transition">수정</button>
+                    <button onClick={() => handleDeletePatient(selectedPatient.id)} className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg font-bold text-[10px] transition">삭제</button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <button onClick={() => handleOpenEdit(selectedPatient)} className="px-2.5 py-1 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-lg font-bold text-[10px] transition">수정</button>
-                  <button onClick={() => handleDeletePatient(selectedPatient.id)} className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 rounded-lg font-bold text-[10px] transition">삭제</button>
+
+                {/* 🟢 이름 아래 작은 글씨 영역 (체질, 나이/성별, 태그) */}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-600 pt-0.5">
+                  <span className="font-bold text-teal-800">
+                    {selectedPatient.body_type && selectedPatient.body_type !== "선택 안함" ? selectedPatient.body_type : "체질 미설정"}
+                  </span>
+                  <span>·</span>
+                  <span>{selectedPatient.birth_year ? `${new Date().getFullYear() - selectedPatient.birth_year + 1}세` : "-"} / {selectedPatient.gender || "-"}</span>
+                  
+                  {selectedPatient.tags && selectedPatient.tags.length > 0 && (
+                    <>
+                      <span>·</span>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedPatient.tags.map((tag: string, idx: number) => (
+                          <span key={idx} className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${getTagColor(tag)}`}>{tag}</span>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
+              {/* 상단 요약 카드 (체질 자리 대신 '최근 상담일' 배치) */}
               <div className="grid grid-cols-3 gap-1.5 text-center text-xs">
                 <div className="p-2 bg-slate-50 rounded-xl border border-slate-100">
-                  <span className="text-[9px] text-slate-400 block mb-0.5">체질</span>
-                  <span className="font-extrabold text-teal-900 text-[11px]">{selectedPatient.body_type && selectedPatient.body_type !== "선택 안함" ? selectedPatient.body_type : "-"}</span>
+                  <span className="text-[9px] text-slate-400 block mb-0.5">최근 상담일</span>
+                  <span className="font-bold text-slate-800 text-[11px]">{selectedPatientStats.lastDate}</span>
                 </div>
                 <div className="p-2 bg-slate-50 rounded-xl border border-slate-100">
                   <span className="text-[9px] text-slate-400 block mb-0.5">상담 횟수</span>
@@ -367,35 +420,7 @@ export default function PatientsPage() {
                 </div>
               </div>
 
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-2 text-xs">
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <span className="text-[9px] font-bold text-slate-400 block mb-0.5">나이 / 성별</span>
-                    <span className="font-bold text-slate-800">
-                      {selectedPatient.birth_year ? `${new Date().getFullYear() - selectedPatient.birth_year + 1}세` : "-"} / {selectedPatient.gender || "-"}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[9px] font-bold text-slate-400 block mb-0.5">최근 상담일</span>
-                    <span className="font-bold text-slate-800">{selectedPatientStats.lastDate}</span>
-                  </div>
-                </div>
-
-                <div>
-                  <span className="text-[9px] font-bold text-slate-400 block mb-1">태그</span>
-                  <div className="flex flex-wrap gap-1">
-                    {selectedPatient.tags && selectedPatient.tags.length > 0 ? (
-                      selectedPatient.tags.map((tag: string, idx: number) => (
-                        <span key={idx} className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${getTagColor(tag)}`}>{tag}</span>
-                      ))
-                    ) : (
-                      <span className="text-slate-400 text-[10px]">등록된 태그 없음</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* 🟢 최근 판매 내역 추가 */}
+              {/* 최근 판매 내역 */}
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
                   <h3 className="text-xs font-extrabold text-slate-900">🛍️ 최근 판매 내역 ({selectedPatientStats.pSales.length}건)</h3>
@@ -419,7 +444,7 @@ export default function PatientsPage() {
                 </div>
               </div>
 
-              {/* 최근 상담 내역 */}
+              {/* 🟢 최근 상담 내역 (날짜 옆에 처방, 그 아래 줄 주호소, 금액은 우측 유지) */}
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
                   <h3 className="text-xs font-extrabold text-slate-900">💬 최근 상담 내역 ({selectedPatientStats.pConsults.length}건)</h3>
@@ -430,13 +455,15 @@ export default function PatientsPage() {
                     <div className="p-3 bg-slate-50 rounded-xl text-center text-[11px] text-slate-400">상담 내역이 없습니다.</div>
                   ) : (
                     selectedPatientStats.pConsults.slice(0, 2).map(c => (
-                      <div key={c.id} className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs space-y-0.5">
-                        <div className="flex justify-between items-center text-[10px] font-bold text-slate-500">
-                          <span>{c.consultation_date || c.created_at?.split('T')[0]}</span>
-                          {c.amount && <span className="text-purple-800 font-extrabold">{c.amount.toLocaleString()}원</span>}
+                      <div key={c.id} className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs flex flex-col gap-1">
+                        <div className="flex justify-between items-center font-bold text-slate-700">
+                          <div className="flex items-center gap-2 truncate">
+                            <span className="text-[10px] text-slate-400">{c.consultation_date || c.created_at?.split('T')[0]}</span>
+                            {c.prescription && <span className="text-teal-900 font-extrabold text-[11px] truncate" title={c.prescription}>{c.prescription}</span>}
+                          </div>
+                          {c.amount && <span className="text-purple-800 font-extrabold flex-shrink-0">{c.amount.toLocaleString()}원</span>}
                         </div>
-                        {c.symptoms && <p className="font-bold text-slate-900 truncate text-[11px]">{c.symptoms}</p>}
-                        {c.prescription && <p className="text-teal-900 font-semibold truncate text-[11px]">{c.prescription}</p>}
+                        {c.symptoms && <p className="font-semibold text-slate-600 text-[11px] truncate" title={c.symptoms}>{c.symptoms}</p>}
                       </div>
                     ))
                   )}
@@ -466,39 +493,76 @@ export default function PatientsPage() {
           )}
         </div>
 
-        {/* 3열: 우측 통계 - 고객별 판매액 TOP (col-span-3) */}
-        <div className="lg:col-span-3 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-3.5 space-y-2">
-          <div className="flex justify-between items-center flex-shrink-0">
-            <h3 className="text-xs font-extrabold text-slate-900">🏆 고객별 판매액 TOP</h3>
-            <span className="text-[10px] font-bold text-slate-400">총 {totalSalesSumAll.toLocaleString()}원</span>
-          </div>
+        {/* 3열: 우측 통계 (위아래로 나눠서 전체 누적 TOP, 3개월 누적 TOP) */}
+        <div className="lg:col-span-3 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-3.5 space-y-3">
           
-          <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 hide-scrollbar">
-            {customerSalesRanking.map((c, idx) => {
-              const percent = Math.round((c.totalAmt / (totalSalesSumAll || 1)) * 100);
-              return (
-                <div key={c.name} className="p-2 bg-slate-50 rounded-xl border border-slate-100 flex flex-col gap-1">
-                  <div className="flex justify-between items-center text-[11px]">
-                    <span className="font-extrabold text-slate-800 truncate max-w-[100px]" title={c.name}>
-                      {idx + 1}. {c.name}
-                    </span>
-                    <span className="font-black text-[#528771]">{c.totalAmt.toLocaleString()}원 <span className="text-[9px] text-slate-400 font-normal">({percent}%)</span></span>
+          {/* 전체 누적 TOP */}
+          <div className="flex flex-col flex-1 overflow-hidden space-y-1.5">
+            <div className="flex justify-between items-center flex-shrink-0">
+              <h3 className="text-xs font-extrabold text-slate-900">🏆 전체 누적 판매 TOP</h3>
+              <span className="text-[10px] font-bold text-slate-400">{totalSalesSumAll.toLocaleString()}원</span>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto space-y-1 pr-1 hide-scrollbar">
+              {customerSalesRankingAll.slice(0, 5).map((c, idx) => {
+                const percent = Math.round((c.totalAmt / (totalSalesSumAll || 1)) * 100);
+                return (
+                  <div key={c.name} className="p-1.5 bg-slate-50 rounded-xl border border-slate-100 flex flex-col gap-0.5">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="font-extrabold text-slate-800 truncate max-w-[100px]" title={c.name}>
+                        {idx + 1}. {c.name}
+                      </span>
+                      <span className="font-black text-[#528771]">{c.totalAmt.toLocaleString()}원</span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-1 overflow-hidden">
+                      <div className="bg-[#528771] h-full rounded-full" style={{ width: `${percent}%` }}></div>
+                    </div>
                   </div>
-                  <div className="w-full bg-slate-200 rounded-full h-1 overflow-hidden">
-                    <div className="bg-[#528771] h-full rounded-full" style={{ width: `${percent}%` }}></div>
-                  </div>
-                </div>
-              );
-            })}
-            {customerSalesRanking.length === 0 && (
-              <div className="text-xs font-bold text-slate-400 text-center py-12">판매 데이터가 없습니다.</div>
-            )}
+                );
+              })}
+              {customerSalesRankingAll.length === 0 && (
+                <div className="text-[11px] text-slate-400 text-center py-4">데이터 없음</div>
+              )}
+            </div>
           </div>
+
+          <hr className="border-slate-100 my-1" />
+
+          {/* 최근 3개월 누적 TOP */}
+          <div className="flex flex-col flex-1 overflow-hidden space-y-1.5">
+            <div className="flex justify-between items-center flex-shrink-0">
+              <h3 className="text-xs font-extrabold text-slate-900">🔥 3개월 누적 판매 TOP</h3>
+              <span className="text-[10px] font-bold text-slate-400">{totalSalesSum3Months.toLocaleString()}원</span>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto space-y-1 pr-1 hide-scrollbar">
+              {customerSalesRanking3Months.slice(0, 5).map((c, idx) => {
+                const percent = Math.round((c.totalAmt / (totalSalesSum3Months || 1)) * 100);
+                return (
+                  <div key={c.name} className="p-1.5 bg-slate-50 rounded-xl border border-slate-100 flex flex-col gap-0.5">
+                    <div className="flex justify-between items-center text-[11px]">
+                      <span className="font-extrabold text-slate-800 truncate max-w-[100px]" title={c.name}>
+                        {idx + 1}. {c.name}
+                      </span>
+                      <span className="font-black text-amber-700">{c.totalAmt.toLocaleString()}원</span>
+                    </div>
+                    <div className="w-full bg-slate-200 rounded-full h-1 overflow-hidden">
+                      <div className="bg-amber-600 h-full rounded-full" style={{ width: `${percent}%` }}></div>
+                    </div>
+                  </div>
+                );
+              })}
+              {customerSalesRanking3Months.length === 0 && (
+                <div className="text-[11px] text-slate-400 text-center py-4">데이터 없음</div>
+              )}
+            </div>
+          </div>
+
         </div>
 
       </div>
 
-      {/* 🟢 신규 고객 등록 및 수정 모달 */}
+      {/* 신규 고객 등록 및 수정 모달 */}
       {isModalOpen && (
         <div onClick={() => setIsModalOpen(false)} className="fixed inset-0 z-[120] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-lg rounded-3xl p-5 shadow-2xl border border-slate-200 flex flex-col space-y-3 cursor-default" onClick={e => e.stopPropagation()}>
@@ -508,24 +572,75 @@ export default function PatientsPage() {
             </div>
             <form onSubmit={handleSubmit} className="space-y-2.5 text-xs">
               <div className="grid grid-cols-2 gap-2">
-                <div><label className="block font-bold text-slate-700 mb-1">이름 *</label><input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold" required /></div>
-                <div><label className="block font-bold text-slate-700 mb-1">아이디 / 차트번호</label><input type="text" value={customId} onChange={(e) => setCustomId(e.target.value)} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold" placeholder="예: 2026-001" /></div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">이름 *</label>
+                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold" required />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">아이디</label>
+                  <input type="text" value={customId} onChange={(e) => setCustomId(e.target.value)} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold" />
+                </div>
               </div>
-              <div>
+
+              <div className="relative">
                 <label className="block font-bold text-teal-800 mb-1">대표 고객 (가족 환자 연결)</label>
-                <select value={representativeId} onChange={(e) => setRepresentativeId(e.target.value)} className="w-full p-2 bg-teal-50/50 border border-teal-100 rounded-xl font-semibold">
-                  <option value="">-- 본인이 대표 고객 (또는 독립) --</option>
-                  {patients.filter(p => p.id !== editingPatientId).map(p => (<option key={p.id} value={p.id}>{p.name}</option>))}
-                </select>
+                <input 
+                  type="text" 
+                  placeholder="대표 고객 이름 검색..." 
+                  value={repSearch} 
+                  onChange={(e) => setRepSearch(e.target.value)} 
+                  className="w-full p-2 bg-teal-50/50 border border-teal-100 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" 
+                />
+                {representativeId && (
+                  <div className="mt-1 flex items-center justify-between bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-200 text-[11px]">
+                    <span className="font-bold text-teal-900">선택됨: {patients.find(p => p.id === representativeId)?.name}</span>
+                    <button type="button" onClick={() => { setRepresentativeId(""); setRepSearch(""); }} className="text-red-500 font-bold hover:underline">해제</button>
+                  </div>
+                )}
+                {repSearch && !representativeId && (
+                  <div className="absolute z-30 w-full max-h-36 overflow-y-auto border border-slate-200 rounded-xl bg-white shadow-xl mt-1">
+                    {patients.filter(p => p.id !== editingPatientId && p.name.includes(repSearch)).map(p => (
+                      <div key={p.id} onClick={() => { setRepresentativeId(p.id); setRepSearch(p.name); }} 
+                        className="p-2 hover:bg-teal-50 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none"
+                      >
+                        <span className="font-extrabold text-slate-900">{p.name}</span>
+                        <span className="font-bold text-slate-400 text-[10px]">{p.custom_id || ""}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
+
               <div className="grid grid-cols-3 gap-2">
-                <div><label className="block font-bold text-slate-700 mb-1">성별</label><select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold"><option value="남">남</option><option value="여">여</option></select></div>
-                <div><label className="block font-bold text-slate-700 mb-1">출생 연도</label><input type="number" value={birthYear} onChange={(e) => setBirthYear(e.target.value)} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold" placeholder="1981" /></div>
-                <div><label className="block font-bold text-slate-700 mb-1">체질</label><select value={bodyType} onChange={(e) => setBodyType(e.target.value)} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold">{CONSTITUTION_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select></div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">성별</label>
+                  <select value={gender} onChange={(e) => setGender(e.target.value)} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold"><option value="남">남</option><option value="여">여</option></select>
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">출생 연도</label>
+                  <input type="number" value={birthYear} onChange={(e) => setBirthYear(e.target.value)} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold" />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">체질</label>
+                  <select value={bodyType} onChange={(e) => setBodyType(e.target.value)} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold">{CONSTITUTION_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>
+                </div>
               </div>
-              <div><label className="block font-bold text-slate-700 mb-1">주소</label><input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold" placeholder="거주지" /></div>
-              <div><label className="block font-bold text-slate-700 mb-1">분류 태그 (쉼표로 구분)</label><input type="text" value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold" placeholder="예: VIP, 피로, 수면" /></div>
-              <div><label className="block font-bold text-teal-800 mb-1">텍스트 메모</label><textarea value={memo} onChange={(e) => setMemo(e.target.value)} rows={2} className="w-full p-2 bg-teal-50/50 border border-teal-100 rounded-xl text-xs font-semibold resize-none" placeholder="특이사항 메모..." /></div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">주소</label>
+                <input type="text" value={address} onChange={(e) => setAddress(e.target.value)} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold" />
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">분류 태그 (쉼표로 구분)</label>
+                <input type="text" value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold" />
+              </div>
+
+              <div>
+                <label className="block font-bold text-teal-800 mb-1">텍스트 메모</label>
+                <textarea value={memo} onChange={(e) => setMemo(e.target.value)} rows={2} className="w-full p-2 bg-teal-50/50 border border-teal-100 rounded-xl text-xs font-semibold resize-none" />
+              </div>
+
               <div className="flex justify-end gap-2 pt-2 border-t">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-3.5 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition">취소</button>
                 <button type="submit" className="px-4 py-2 bg-[#528771] text-white font-bold rounded-xl hover:bg-[#3d6856] transition shadow-sm">저장하기</button>
@@ -540,7 +655,6 @@ export default function PatientsPage() {
           <div className="bg-white w-full max-w-3xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center border-b pb-3">
               <h3 className="text-lg font-bold text-slate-900">📂 {historyModalPatient.name} 님의 전체 상담 기록</h3>
-              <button onClick={() => setHistoryModalPatient(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
             </div>
             <div className="flex-1 overflow-y-auto space-y-4 pr-1">
               {consultations.filter(c => c.patient_id === historyModalPatient.id).length === 0 ? (
