@@ -64,14 +64,12 @@ export default function SalesPage() {
     setProductSearch("");
   };
 
-  // ✅ [요구사항 2] 고객 표시 정보 우선순위: custom_id(아이디) 우선, 없으면 phone(전번), 둘 다 없으면 "번호 없음"
   const getCustomerDisplayInfo = (p: any) => {
     if (p.custom_id) return p.custom_id;
     if (p.phone) return p.phone;
     return "번호 없음";
   };
 
-  // 🟢 팝업 모달 열기 (수정)
   const handleOpenEditModal = (sale: any) => {
     setEditingSaleId(sale.id);
     setEditSaleDate(sale.sale_date || new Date().toISOString().split('T')[0]);
@@ -94,7 +92,6 @@ export default function SalesPage() {
     else { alert("삭제되었습니다."); fetchData(); }
   };
 
-  // 일반 등록 제품 추가
   const handleAddProduct = (product: any) => {
     const existing = selectedProducts.find(p => p.id === product.id);
     if (existing) setSelectedProducts(selectedProducts.map(p => p.id === product.id ? { ...p, quantity: p.quantity + 1 } : p));
@@ -106,7 +103,6 @@ export default function SalesPage() {
     setSelectedProducts(selectedProducts.map(p => p.id === id ? { ...p, quantity: Math.max(1, p.quantity + d) } : p));
   };
 
-  // ✅ [요구사항 3] 수동 타이핑으로 수량 변경
   const handleManualQuantity = (id: string, val: string, isEdit: boolean) => {
     const qty = parseInt(val, 10);
     const validQty = isNaN(qty) || qty < 1 ? 1 : qty;
@@ -120,7 +116,6 @@ export default function SalesPage() {
 
   const totalAmount = selectedProducts.reduce((sum, p) => sum + (p.price || 0) * p.quantity, 0);
 
-  // 모달 안에서 제품 추가
   const handleEditAddProduct = (product: any) => {
     const existing = editSelectedProducts.find(p => p.id === product.id);
     if (existing) setEditSelectedProducts(editSelectedProducts.map(p => p.id === product.id ? { ...p, quantity: p.quantity + 1 } : p));
@@ -134,7 +129,6 @@ export default function SalesPage() {
 
   const editTotalAmount = editSelectedProducts.reduce((sum, p) => sum + (p.price || 0) * p.quantity, 0);
 
-  // 새 판매 등록 제출
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!saleDate) return alert("판매일자를 입력해주세요.");
@@ -159,7 +153,6 @@ export default function SalesPage() {
     else { alert("등록되었습니다."); resetForm(); fetchData(); }
   };
 
-  // 🟢 팝업 수정 제출
   const handleUpdateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editSaleDate) return alert("판매일자를 입력해주세요.");
@@ -210,8 +203,8 @@ export default function SalesPage() {
         const pt = patients.find(p => p.id === s.patient_id);
         return (
           s.patient_name?.toLowerCase().includes(term) || 
-          pt?.custom_id?.toLowerCase().includes(term) || // ID 검색어 필터 포함
-          pt?.phone?.includes(term) || // 번호 검색어 필터 포함
+          pt?.custom_id?.toLowerCase().includes(term) || 
+          pt?.phone?.includes(term) || 
           s.sale_date?.includes(term) ||
           s.payment_method?.includes(term) ||
           s.items?.some((i: any) => i.name.toLowerCase().includes(term))
@@ -228,7 +221,6 @@ export default function SalesPage() {
   return (
     <div className="w-full h-[calc(100vh-32px)] flex flex-col space-y-3 overflow-hidden max-w-[1700px] mx-auto pb-2">
       
-      {/* 🟢 헤더 축소 (부가설명 삭제) */}
       <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center flex-shrink-0">
         <h1 className="text-lg font-extrabold text-slate-900">판매 관리</h1>
         <div className="flex bg-slate-100 p-1 rounded-xl">
@@ -244,7 +236,6 @@ export default function SalesPage() {
       {activeTab === "register" && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 flex-1 min-h-0">
           
-          {/* 1열: 판매 등록 폼 */}
           <div className="lg:col-span-5 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col p-5 overflow-y-auto space-y-4">
             <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#528771]"></span> 새 판매 등록
@@ -285,7 +276,6 @@ export default function SalesPage() {
                           className="p-2.5 hover:bg-teal-50 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none"
                         >
                           <span className="font-extrabold text-slate-900 text-xs">{p.name}</span>
-                          {/* ✅ [요구사항 2] 고객 검색 목록에서 ID 우선 출력 적용 */}
                           <span className="font-bold text-slate-500 text-[11px]">{getCustomerDisplayInfo(p)}</span>
                         </div>
                       ))}
@@ -329,7 +319,6 @@ export default function SalesPage() {
                       <div className="flex items-center gap-1.5 self-end sm:self-auto">
                         <button type="button" onClick={() => handleQuantity(p.id, -1)} className="w-6 h-6 bg-slate-50 border border-slate-200 rounded text-xs font-black text-slate-700 hover:bg-slate-100">-</button>
                         
-                        {/* ✅ [요구사항 3] 수량 수동 입력 input (크로스 브라우징 화살표 제거 CSS 적용) */}
                         <input 
                           type="number" 
                           value={p.quantity === 0 ? "" : p.quantity}
@@ -368,7 +357,6 @@ export default function SalesPage() {
             </form>
           </div>
 
-          {/* 2열: 인기 제품 TOP & 요약 통계 */}
           <div className="lg:col-span-3 flex flex-col gap-3 overflow-hidden">
             <div className="bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col flex-1 p-5 overflow-hidden">
               <h3 className="text-xs font-extrabold text-slate-900 mb-3 flex items-center gap-1.5">
@@ -411,7 +399,6 @@ export default function SalesPage() {
             </div>
           </div>
 
-          {/* 3열: 최근 판매 내역 (🟢 날짜를 이름 옆으로 밀고 최대한 많은 행이 보이도록 콤팩트 압축) */}
           <div className="lg:col-span-4 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col p-4 overflow-hidden">
             <h3 className="text-xs font-extrabold text-slate-900 mb-2.5 flex items-center justify-between">
               <span>최근 판매 내역</span>
@@ -478,18 +465,16 @@ export default function SalesPage() {
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-100/80 text-slate-600 sticky top-0 backdrop-blur-md z-10 border-b border-slate-200">
                 <tr>
-                  {/* ✅ [요구사항 1] 간격 줄이고 ID, 넓은 코멘트 배치 적용 */}
-                  <th className="py-3 px-4 font-bold whitespace-nowrap w-[90px]">판매일자</th>
-                  <th className="py-3 px-4 font-bold whitespace-nowrap w-[80px]">고객명</th>
-                  <th className="py-3 px-4 font-bold whitespace-nowrap w-[90px]">ID</th>
+                  {/* 🟢 [수정됨] 간격 늘리고 줄바꿈 방지 적용 */}
+                  <th className="py-3 px-4 font-bold whitespace-nowrap w-[110px]">판매일자</th>
+                  <th className="py-3 px-4 font-bold whitespace-nowrap w-[90px]">고객명</th>
+                  <th className="py-3 px-4 font-bold whitespace-nowrap w-[100px]">ID</th>
                   <th className="py-3 px-4 font-bold w-[220px]">판매 상품 내역</th>
                   
-                  {/* 💛 넓게 배치되는 코멘트 셀 */}
                   <th className="py-3 px-4 font-extrabold w-auto min-w-[250px] text-slate-800">코멘트</th>
                   
-                  {/* 우측 밀착 셀들 */}
-                  <th className="py-3 px-4 font-bold text-center whitespace-nowrap w-[100px]">결제수단</th>
-                  <th className="py-3 px-4 font-bold text-right whitespace-nowrap w-[120px]">총 결제금액</th>
+                  <th className="py-3 px-4 font-bold text-center whitespace-nowrap w-[90px]">결제수단</th>
+                  <th className="py-3 px-4 font-bold text-right whitespace-nowrap w-[110px]">총 결제금액</th>
                   <th className="py-3 px-4 font-bold text-center whitespace-nowrap w-[90px]">관리</th>
                 </tr>
               </thead>
@@ -503,10 +488,10 @@ export default function SalesPage() {
 
                     return (
                       <tr key={s.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="py-3 px-4 font-extrabold text-slate-800">{s.sale_date}</td>
-                        <td className="py-3 px-4 font-extrabold text-slate-900">{s.patient_name}</td>
-                        {/* ID 데이터 삽입 */}
-                        <td className="py-3 px-4 font-bold text-slate-600">{ptId}</td>
+                        {/* 🟢 [수정됨] 데이터 셀에도 whitespace-nowrap 강제 적용 */}
+                        <td className="py-3 px-4 font-extrabold text-slate-800 whitespace-nowrap">{s.sale_date}</td>
+                        <td className="py-3 px-4 font-extrabold text-slate-900 whitespace-nowrap">{s.patient_name}</td>
+                        <td className="py-3 px-4 font-bold text-slate-600 whitespace-nowrap">{ptId}</td>
                         
                         <td className="py-3 px-4">
                           <div className="font-bold text-slate-700 max-w-[250px] leading-tight">
@@ -514,14 +499,13 @@ export default function SalesPage() {
                           </div>
                         </td>
                         
-                        {/* 코멘트를 별도 컬럼으로 빼고 넓게 표시 */}
                         <td className="py-3 px-4 text-slate-600 font-medium whitespace-normal break-words max-w-md">
                           {s.memo || "-"}
                         </td>
                         
-                        <td className="py-3 px-4 font-bold text-slate-600 text-center">{s.payment_method}</td>
-                        <td className="py-3 px-4 font-black text-[#528771] text-right">{s.total_amount?.toLocaleString()}원</td>
-                        <td className="py-3 px-4 text-center">
+                        <td className="py-3 px-4 font-bold text-slate-600 text-center whitespace-nowrap">{s.payment_method}</td>
+                        <td className="py-3 px-4 font-black text-[#528771] text-right whitespace-nowrap">{s.total_amount?.toLocaleString()}원</td>
+                        <td className="py-3 px-4 text-center whitespace-nowrap">
                           <div className="flex justify-center gap-1.5">
                             <button onClick={() => handleOpenEditModal(s)} className="text-[11px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-md transition">수정</button>
                             <button onClick={() => handleDelete(s.id)} className="text-[11px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-md transition">삭제</button>
@@ -583,7 +567,6 @@ export default function SalesPage() {
                           className="p-2.5 hover:bg-teal-50 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none"
                         >
                           <span className="font-extrabold text-slate-900">{p.name}</span>
-                          {/* ✅ [요구사항 2] 고객 검색 목록 ID 우선 반영 */}
                           <span className="font-bold text-slate-500">{getCustomerDisplayInfo(p)}</span>
                         </div>
                       ))}
@@ -627,7 +610,6 @@ export default function SalesPage() {
                       <div className="flex items-center gap-2">
                         <button type="button" onClick={() => handleEditQuantity(p.id, -1)} className="w-6 h-6 bg-white border rounded font-bold">-</button>
                         
-                        {/* ✅ [요구사항 3] 모달 안쪽 수동 입력 기능 추가 */}
                         <input 
                           type="number" 
                           value={p.quantity === 0 ? "" : p.quantity}
