@@ -24,7 +24,7 @@ export default function PurchasesPage() {
   const [customManufacturerInput, setCustomManufacturerInput] = useState("");
   const [memo, setMemo] = useState("");
   
-  // ✅ 제품 관련 상태 (검색 기반)
+  // 제품 검색 및 선택 상태
   const [productSearch, setProductSearch] = useState("");
   const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
 
@@ -70,7 +70,7 @@ export default function PurchasesPage() {
     return Array.from(new Set([...fromProducts, ...fromPurchases])).filter(Boolean);
   }, [products, purchases]);
 
-  // ✅ 제품 추가 로직 (기본 공급가를 0으로 세팅하여 수동 입력 유도, 원래 판매가는 original_price로 백업)
+  // 제품 추가 로직
   const handleAddProduct = (product: any) => {
     const existing = selectedProducts.find(p => p.id === product.id);
     if (existing) {
@@ -78,15 +78,14 @@ export default function PurchasesPage() {
     } else {
       setSelectedProducts([...selectedProducts, { 
         ...product, 
-        original_price: product.price || 0, // 원래 판매가 
-        purchase_price: 0, // 🟢 매입가(공급가)는 별도 입력 
+        original_price: product.price || 0, 
+        purchase_price: 0, 
         quantity: 1 
       }]);
     }
     setProductSearch("");
   };
 
-  // 수량 및 가격 업데이트 함수
   const updateProduct = (id: string, field: string, value: number) => {
     setSelectedProducts(selectedProducts.map(p => p.id === id ? { ...p, [field]: value } : p));
   };
@@ -102,8 +101,7 @@ export default function PurchasesPage() {
     setSelectedProducts(selectedProducts.filter(p => p.id !== id));
   };
 
-
-  // ✅ 수정 모달 제품 추가
+  // 수정 모달 제품 추가
   const handleEditAddProduct = (product: any) => {
     const existing = editSelectedProducts.find(p => p.id === product.id);
     if (existing) {
@@ -134,7 +132,6 @@ export default function PurchasesPage() {
     setEditSelectedProducts(editSelectedProducts.filter(p => p.id !== id));
   };
 
-
   // 수정 모달 열기
   const handleOpenEditModal = (p: any) => {
     setEditingPurchaseId(p.id);
@@ -163,14 +160,9 @@ export default function PurchasesPage() {
     else { alert("삭제되었습니다."); fetchData(); }
   };
 
-  // 금액 계산 (부가세 제외로 원하시는 경우 0.1 부분 제거 가능하지만, 기존 코드 유지)
-  const supplyAmount = selectedProducts.reduce((sum, p) => sum + ((p.purchase_price || 0) * p.quantity), 0);
-  const vat = Math.floor(supplyAmount * 0.1);
-  const totalAmount = supplyAmount + vat;
-
-  const editSupplyAmount = editSelectedProducts.reduce((sum, p) => sum + ((p.purchase_price || 0) * p.quantity), 0);
-  const editVat = Math.floor(editSupplyAmount * 0.1);
-  const editTotalAmount = editSupplyAmount + editVat;
+  // ✅ 부가세 제외하고 오직 공급가액 합계만 총 사입 금액으로 계산
+  const totalAmount = selectedProducts.reduce((sum, p) => sum + ((p.purchase_price || 0) * p.quantity), 0);
+  const editTotalAmount = editSelectedProducts.reduce((sum, p) => sum + ((p.purchase_price || 0) * p.quantity), 0);
 
   // 등록 제출
   const handleSubmit = async (e: React.FormEvent) => {
@@ -252,7 +244,6 @@ export default function PurchasesPage() {
     });
   }, [purchases, historySearch, sortOrder]);
 
-
   // 마진율 계산 함수
   const calculateMargin = (salePrice: number, purchasePrice: number) => {
     if (!salePrice || salePrice === 0) return { amount: 0, percent: 0 };
@@ -262,11 +253,10 @@ export default function PurchasesPage() {
     return { amount: marginAmount, percent: marginPercent };
   };
 
-
   return (
     <div className="w-full h-[calc(100vh-32px)] flex flex-col space-y-3 overflow-hidden max-w-[1700px] mx-auto pb-2">
       
-      {/* 타이틀 및 탭 네비게이션 */}
+      {/* 상단 타이틀 및 탭 네비게이션 */}
       <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center flex-shrink-0">
         <h1 className="text-lg font-extrabold text-slate-900">사입 관리</h1>
         <div className="flex bg-slate-100 p-1 rounded-xl">
@@ -288,7 +278,8 @@ export default function PurchasesPage() {
       {activeTab === "register" && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 flex-1 min-h-0">
           
-          {/* 🟢 좌측: 새 사입 등록 폼 */}
+          {/* ✅ 판매관리와 동일한 3분할 레이아웃 배치 구조 적용 */}
+          {/* 좌측: 사입 등록 폼 (col-span-7) */}
           <div className="lg:col-span-7 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col p-5 overflow-y-auto space-y-3">
             <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#528771]"></span> 새 사입 등록
@@ -322,7 +313,7 @@ export default function PurchasesPage() {
                 </div>
               </div>
 
-              {/* ✅ 제품 추가 영역 (검색 방식) */}
+              {/* 제품 검색 및 추가 영역 */}
               <div className="relative pt-1 border-t border-slate-100 mt-2">
                 <label className="block font-bold text-slate-700 mb-1">매입 제품 추가 *</label>
                 <input 
@@ -346,21 +337,20 @@ export default function PurchasesPage() {
                   </div>
                 )}
                 
-                {/* 선택된 제품 리스트 (판매관리와 동일한 리스트 UI 적용) */}
+                {/* 선택된 제품 리스트 카드 */}
                 <div className="space-y-2 mt-3">
                   {selectedProducts.map(p => {
                     const margin = calculateMargin(p.original_price, p.purchase_price);
                     
                     return (
                       <div key={p.id} className="flex flex-col bg-white border border-slate-200 shadow-sm rounded-xl p-3 gap-2">
-                        
                         <div className="flex justify-between items-center">
                           <div className="flex flex-col">
                             <span className="font-extrabold text-slate-900 text-xs">{p.name}</span>
                             <span className="text-[10px] font-bold text-slate-400 mt-0.5">정상 판매가: {p.original_price?.toLocaleString()}원</span>
                           </div>
                           
-                          {/* 수량 조절 버튼 */}
+                          {/* 수량 조절 */}
                           <div className="flex items-center gap-1">
                             <button type="button" onClick={() => handleQuantity(p.id, -1)} className="w-6 h-6 bg-slate-50 border border-slate-200 rounded text-xs font-black text-slate-700 hover:bg-slate-100">-</button>
                             <input 
@@ -374,10 +364,10 @@ export default function PurchasesPage() {
                           </div>
                         </div>
 
-                        {/* 단가 입력 및 마진 계산 영역 */}
+                        {/* 공급가 입력 및 마진 계산 표시 */}
                         <div className="bg-slate-50 rounded-lg p-2.5 flex items-center justify-between gap-3 border border-slate-100">
                           <div className="flex items-center gap-2">
-                            <span className="font-bold text-slate-600">공급 단가(매입가):</span>
+                            <span className="font-bold text-slate-600">공급가(매입가):</span>
                             <div className="relative">
                               <input 
                                 type="number" 
@@ -408,16 +398,10 @@ export default function PurchasesPage() {
 
               <div className="flex-1"></div>
 
-              {/* 금액 요약 바 */}
+              {/* 총 사입 금액 표시 요약 바 (부가세 제외) */}
               <div className="flex justify-between items-center px-4 py-3 bg-teal-50/50 rounded-xl font-extrabold border border-teal-100">
-                <div className="flex flex-col gap-1 text-[11px] text-teal-800">
-                  <span>공급가액: {supplyAmount.toLocaleString()}원</span>
-                  <span>부가세(10%): {vat.toLocaleString()}원</span>
-                </div>
-                <div className="text-[#2e5e49] flex flex-col items-end">
-                  <span className="text-[10px] font-bold mb-0.5">총 사입 금액</span>
-                  <span className="text-xl font-black">{totalAmount.toLocaleString()}원</span>
-                </div>
+                <span className="text-teal-900">총 사입 금액 (공급가액 합계)</span>
+                <span className="text-[#528771] text-lg font-black">{totalAmount.toLocaleString()}원</span>
               </div>
 
               <div>
@@ -430,7 +414,7 @@ export default function PurchasesPage() {
             </form>
           </div>
 
-          {/* 우측: 제조사별 매입액 & 최근 등록 내역 */}
+          {/* 우측: 제조사별 매입액 & 최근 등록 내역 (col-span-5) */}
           <div className="lg:col-span-5 flex flex-col gap-3 overflow-hidden">
             
             <div className="grid grid-cols-2 gap-2 bg-white p-4 rounded-3xl shadow-sm border border-slate-200 flex-shrink-0">
@@ -563,9 +547,7 @@ export default function PurchasesPage() {
         </div>
       )}
 
-      {/* =========================================================================
-          🟢 사입 내역 수정 팝업 모달 (Modal)
-      ========================================================================= */}
+      {/* 사입 내역 수정 팝업 모달 */}
       {isEditModalOpen && (
         <div onClick={() => setIsEditModalOpen(false)} className="fixed inset-0 z-[120] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-xl max-h-[90vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col cursor-default" onClick={e => e.stopPropagation()}>
@@ -675,7 +657,7 @@ export default function PurchasesPage() {
               </div>
 
               <div className="flex justify-between items-center p-3 bg-teal-50/50 rounded-xl font-extrabold border border-teal-100 mt-2">
-                <span className="text-teal-900">총 사입 금액 (부가세 포함)</span>
+                <span className="text-teal-900">총 사입 금액 (공급가액 합계)</span>
                 <span className="text-[#528771] text-base">{editTotalAmount.toLocaleString()}원</span>
               </div>
 
