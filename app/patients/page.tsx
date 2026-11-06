@@ -155,19 +155,21 @@ export default function PatientsPage() {
 
   const totalSalesSumAll = customerSalesRankingAll.reduce((sum, c) => sum + c.totalAmt, 0);
 
-  // 우측 통계: 최근 3개월 누적 TOP 산출
+  // 우측 통계: 최근 3개월 누적 TOP 산출 (Client-side 안전 처리)
   const customerSalesRanking3Months = useMemo(() => {
     const threeMonthsAgo = new Date();
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
     const stats: Record<string, { name: string, totalAmt: number, count: number }> = {};
     sales.forEach(s => {
-      const saleDateObj = new Date(s.sale_date);
-      if (saleDateObj >= threeMonthsAgo) {
-        const name = s.patient_name || "미지정 고객";
-        if (!stats[name]) stats[name] = { name, totalAmt: 0, count: 0 };
-        stats[name].totalAmt += (s.total_amount || 0);
-        stats[name].count += 1;
+      if (s.sale_date) {
+        const saleDateObj = new Date(s.sale_date);
+        if (!isNaN(saleDateObj.getTime()) && saleDateObj >= threeMonthsAgo) {
+          const name = s.patient_name || "미지정 고객";
+          if (!stats[name]) stats[name] = { name, totalAmt: 0, count: 0 };
+          stats[name].totalAmt += (s.total_amount || 0);
+          stats[name].count += 1;
+        }
       }
     });
     return Object.values(stats).sort((a, b) => b.totalAmt - a.totalAmt);
@@ -366,12 +368,11 @@ export default function PatientsPage() {
           </div>
         </div>
 
-        {/* 2열: 선택된 고객 상세 정보 (체질/나이/성별/태그를 이름 아래 작은 글씨로 이동) */}
+        {/* 2열: 선택된 고객 상세 정보 */}
         <div className="lg:col-span-4 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-3.5 space-y-2.5">
           {selectedPatient ? (
             <div className="flex-1 overflow-y-auto space-y-3 pr-1 hide-scrollbar">
               
-              {/* 상단 이름 및 수정/삭제 바 */}
               <div className="bg-slate-50 p-3 rounded-2xl border border-slate-100 flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
@@ -383,7 +384,6 @@ export default function PatientsPage() {
                   </div>
                 </div>
 
-                {/* 🟢 이름 아래 작은 글씨 영역 (체질, 나이/성별, 태그) */}
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-slate-600 pt-0.5">
                   <span className="font-bold text-teal-800">
                     {selectedPatient.body_type && selectedPatient.body_type !== "선택 안함" ? selectedPatient.body_type : "체질 미설정"}
@@ -404,7 +404,6 @@ export default function PatientsPage() {
                 </div>
               </div>
 
-              {/* 상단 요약 카드 (체질 자리 대신 '최근 상담일' 배치) */}
               <div className="grid grid-cols-3 gap-1.5 text-center text-xs">
                 <div className="p-2 bg-slate-50 rounded-xl border border-slate-100">
                   <span className="text-[9px] text-slate-400 block mb-0.5">최근 상담일</span>
@@ -444,7 +443,7 @@ export default function PatientsPage() {
                 </div>
               </div>
 
-              {/* 🟢 최근 상담 내역 (날짜 옆에 처방, 그 아래 줄 주호소, 금액은 우측 유지) */}
+              {/* 최근 상담 내역 */}
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
                   <h3 className="text-xs font-extrabold text-slate-900">💬 최근 상담 내역 ({selectedPatientStats.pConsults.length}건)</h3>
@@ -493,10 +492,9 @@ export default function PatientsPage() {
           )}
         </div>
 
-        {/* 3열: 우측 통계 (위아래로 나눠서 전체 누적 TOP, 3개월 누적 TOP) */}
+        {/* 3열: 우측 통계 */}
         <div className="lg:col-span-3 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-3.5 space-y-3">
           
-          {/* 전체 누적 TOP */}
           <div className="flex flex-col flex-1 overflow-hidden space-y-1.5">
             <div className="flex justify-between items-center flex-shrink-0">
               <h3 className="text-xs font-extrabold text-slate-900">🏆 전체 누적 판매 TOP</h3>
@@ -528,7 +526,6 @@ export default function PatientsPage() {
 
           <hr className="border-slate-100 my-1" />
 
-          {/* 최근 3개월 누적 TOP */}
           <div className="flex flex-col flex-1 overflow-hidden space-y-1.5">
             <div className="flex justify-between items-center flex-shrink-0">
               <h3 className="text-xs font-extrabold text-slate-900">🔥 3개월 누적 판매 TOP</h3>
