@@ -22,8 +22,10 @@ export default function PurchasesPage() {
   const [manufacturer, setManufacturer] = useState("직접입력");
   const [isCustomManufacturer, setIsCustomManufacturer] = useState(true);
   const [customManufacturerInput, setCustomManufacturerInput] = useState("");
-  const [paymentStatus, setPaymentStatus] = useState("완료");
   const [memo, setMemo] = useState("");
+  
+  // ✅ 제품 관련 상태 (검색 기반)
+  const [productSearch, setProductSearch] = useState("");
   const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
 
   // 수정 모달 폼 상태
@@ -31,8 +33,9 @@ export default function PurchasesPage() {
   const [editManufacturer, setEditManufacturer] = useState("직접입력");
   const [editIsCustomManufacturer, setEditIsCustomManufacturer] = useState(true);
   const [editCustomManufacturerInput, setEditCustomManufacturerInput] = useState("");
-  const [editPaymentStatus, setEditPaymentStatus] = useState("완료");
   const [editMemo, setEditMemo] = useState("");
+  
+  const [editProductSearch, setEditProductSearch] = useState("");
   const [editSelectedProducts, setEditSelectedProducts] = useState<any[]>([]);
 
   useEffect(() => {
@@ -55,9 +58,9 @@ export default function PurchasesPage() {
     setManufacturer("직접입력");
     setIsCustomManufacturer(true);
     setCustomManufacturerInput("");
-    setPaymentStatus("완료");
     setSelectedProducts([]);
     setMemo("");
+    setProductSearch("");
   };
 
   // 제품 및 기존 사입 내역에서 제조사(거래처) 목록 추출
@@ -67,39 +70,70 @@ export default function PurchasesPage() {
     return Array.from(new Set([...fromProducts, ...fromPurchases])).filter(Boolean);
   }, [products, purchases]);
 
-  // 등록 제품 추가
-  const handleAddProduct = (productId: string) => {
-    const product = products.find(p => p.id === productId);
-    if (!product) return;
-    if (!selectedProducts.find(p => p.id === product.id)) {
-      setSelectedProducts([...selectedProducts, { ...product, purchase_price: product.price || 0, quantity: 1 }]);
+  // ✅ 제품 추가 로직 (기본 공급가를 0으로 세팅하여 수동 입력 유도, 원래 판매가는 original_price로 백업)
+  const handleAddProduct = (product: any) => {
+    const existing = selectedProducts.find(p => p.id === product.id);
+    if (existing) {
+      setSelectedProducts(selectedProducts.map(p => p.id === product.id ? { ...p, quantity: p.quantity + 1 } : p));
+    } else {
+      setSelectedProducts([...selectedProducts, { 
+        ...product, 
+        original_price: product.price || 0, // 원래 판매가 
+        purchase_price: 0, // 🟢 매입가(공급가)는 별도 입력 
+        quantity: 1 
+      }]);
     }
+    setProductSearch("");
   };
 
+  // 수량 및 가격 업데이트 함수
   const updateProduct = (id: string, field: string, value: number) => {
     setSelectedProducts(selectedProducts.map(p => p.id === id ? { ...p, [field]: value } : p));
   };
-
+  const handleQuantity = (id: string, d: number) => {
+    setSelectedProducts(selectedProducts.map(p => p.id === id ? { ...p, quantity: Math.max(1, p.quantity + d) } : p));
+  };
+  const handleManualQuantity = (id: string, val: string) => {
+    const qty = parseInt(val, 10);
+    const validQty = isNaN(qty) || qty < 1 ? 1 : qty;
+    setSelectedProducts(selectedProducts.map(p => p.id === id ? { ...p, quantity: validQty } : p));
+  };
   const removeProduct = (id: string) => {
     setSelectedProducts(selectedProducts.filter(p => p.id !== id));
   };
 
-  // 수정 모달 제품 추가
-  const handleEditAddProduct = (productId: string) => {
-    const product = products.find(p => p.id === productId);
-    if (!product) return;
-    if (!editSelectedProducts.find(p => p.id === product.id)) {
-      setEditSelectedProducts([...editSelectedProducts, { ...product, purchase_price: product.price || 0, quantity: 1 }]);
+
+  // ✅ 수정 모달 제품 추가
+  const handleEditAddProduct = (product: any) => {
+    const existing = editSelectedProducts.find(p => p.id === product.id);
+    if (existing) {
+      setEditSelectedProducts(editSelectedProducts.map(p => p.id === product.id ? { ...p, quantity: p.quantity + 1 } : p));
+    } else {
+      setEditSelectedProducts([...editSelectedProducts, { 
+        ...product, 
+        original_price: product.price || 0, 
+        purchase_price: 0, 
+        quantity: 1 
+      }]);
     }
+    setEditProductSearch("");
   };
 
   const updateEditProduct = (id: string, field: string, value: number) => {
     setEditSelectedProducts(editSelectedProducts.map(p => p.id === id ? { ...p, [field]: value } : p));
   };
-
+  const handleEditQuantity = (id: string, d: number) => {
+    setEditSelectedProducts(editSelectedProducts.map(p => p.id === id ? { ...p, quantity: Math.max(1, p.quantity + d) } : p));
+  };
+  const handleEditManualQuantity = (id: string, val: string) => {
+    const qty = parseInt(val, 10);
+    const validQty = isNaN(qty) || qty < 1 ? 1 : qty;
+    setEditSelectedProducts(editSelectedProducts.map(p => p.id === id ? { ...p, quantity: validQty } : p));
+  };
   const removeEditProduct = (id: string) => {
     setEditSelectedProducts(editSelectedProducts.filter(p => p.id !== id));
   };
+
 
   // 수정 모달 열기
   const handleOpenEditModal = (p: any) => {
@@ -116,9 +150,9 @@ export default function PurchasesPage() {
       setEditCustomManufacturerInput(p.manufacturer || "");
     }
 
-    setEditPaymentStatus(p.payment_status || "완료");
     setEditSelectedProducts(p.items || []);
     setEditMemo(p.memo || "");
+    setEditProductSearch("");
     setIsEditModalOpen(true);
   };
 
@@ -129,12 +163,12 @@ export default function PurchasesPage() {
     else { alert("삭제되었습니다."); fetchData(); }
   };
 
-  // 금액 계산
-  const supplyAmount = selectedProducts.reduce((sum, p) => sum + (p.purchase_price * p.quantity), 0);
+  // 금액 계산 (부가세 제외로 원하시는 경우 0.1 부분 제거 가능하지만, 기존 코드 유지)
+  const supplyAmount = selectedProducts.reduce((sum, p) => sum + ((p.purchase_price || 0) * p.quantity), 0);
   const vat = Math.floor(supplyAmount * 0.1);
   const totalAmount = supplyAmount + vat;
 
-  const editSupplyAmount = editSelectedProducts.reduce((sum, p) => sum + (p.purchase_price * p.quantity), 0);
+  const editSupplyAmount = editSelectedProducts.reduce((sum, p) => sum + ((p.purchase_price || 0) * p.quantity), 0);
   const editVat = Math.floor(editSupplyAmount * 0.1);
   const editTotalAmount = editSupplyAmount + editVat;
 
@@ -148,7 +182,6 @@ export default function PurchasesPage() {
     const { data: { user } } = await supabase.auth.getUser();
     const payload = {
       manufacturer: finalManufacturer, 
-      payment_status: paymentStatus, 
       purchase_date: purchaseDate,
       items: selectedProducts, 
       total_amount: totalAmount, 
@@ -174,7 +207,6 @@ export default function PurchasesPage() {
 
     const payload = {
       manufacturer: finalManufacturer, 
-      payment_status: editPaymentStatus, 
       purchase_date: editPurchaseDate,
       items: editSelectedProducts, 
       total_amount: editTotalAmount, 
@@ -210,7 +242,6 @@ export default function PurchasesPage() {
       list = list.filter(p => 
         p.manufacturer?.toLowerCase().includes(term) || 
         p.purchase_date?.includes(term) ||
-        p.payment_status?.includes(term) ||
         p.items?.some((i: any) => i.name.toLowerCase().includes(term))
       );
     }
@@ -221,10 +252,21 @@ export default function PurchasesPage() {
     });
   }, [purchases, historySearch, sortOrder]);
 
+
+  // 마진율 계산 함수
+  const calculateMargin = (salePrice: number, purchasePrice: number) => {
+    if (!salePrice || salePrice === 0) return { amount: 0, percent: 0 };
+    const pPrice = purchasePrice || 0;
+    const marginAmount = salePrice - pPrice;
+    const marginPercent = (marginAmount / salePrice) * 100;
+    return { amount: marginAmount, percent: marginPercent };
+  };
+
+
   return (
     <div className="w-full h-[calc(100vh-32px)] flex flex-col space-y-3 overflow-hidden max-w-[1700px] mx-auto pb-2">
       
-      {/* 🟢 판매관리와 동일한 미니멀 타이틀 및 탭 네비게이션 */}
+      {/* 타이틀 및 탭 네비게이션 */}
       <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center flex-shrink-0">
         <h1 className="text-lg font-extrabold text-slate-900">사입 관리</h1>
         <div className="flex bg-slate-100 p-1 rounded-xl">
@@ -246,110 +288,149 @@ export default function PurchasesPage() {
       {activeTab === "register" && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 flex-1 min-h-0">
           
-          {/* 🟢 좌측: 새 사입 등록 폼 (공간 확장, col-span-7) */}
+          {/* 🟢 좌측: 새 사입 등록 폼 */}
           <div className="lg:col-span-7 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col p-5 overflow-y-auto space-y-3">
             <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#528771]"></span> 새 사입 등록
             </h2>
             
-            <form onSubmit={handleSubmit} className="flex flex-col h-full space-y-3 text-xs">
-              <div className="grid grid-cols-3 gap-3">
+            <form onSubmit={handleSubmit} className="flex flex-col h-full space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">사입일 *</label>
-                  <input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} required className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" />
+                  <input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} required className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" />
                 </div>
                 
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">거래처(제조사) *</label>
-                  <select 
-                    value={isCustomManufacturer ? "직접입력" : manufacturer}
-                    onChange={e => {
-                      if (e.target.value === "직접입력") { setIsCustomManufacturer(true); setCustomManufacturerInput(""); } 
-                      else { setIsCustomManufacturer(false); setManufacturer(e.target.value); }
-                    }}
-                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771] mb-1"
-                  >
-                    <option value="직접입력">직접 입력</option>
-                    {allManufacturers.map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                  {isCustomManufacturer && (
-                    <input type="text" value={customManufacturerInput} onChange={e => setCustomManufacturerInput(e.target.value)} placeholder="새 거래처명 입력..." required className="w-full p-2 bg-teal-50/50 border border-teal-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" />
-                  )}
-                </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">결제 상태</label>
-                  <select value={paymentStatus} onChange={e => setPaymentStatus(e.target.value)} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]">
-                    <option value="완료">결제 완료</option>
-                    <option value="미결제">미결제</option>
-                  </select>
+                  <div className="flex flex-col gap-1.5">
+                    <select 
+                      value={isCustomManufacturer ? "직접입력" : manufacturer}
+                      onChange={e => {
+                        if (e.target.value === "직접입력") { setIsCustomManufacturer(true); setCustomManufacturerInput(""); } 
+                        else { setIsCustomManufacturer(false); setManufacturer(e.target.value); }
+                      }}
+                      className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]"
+                    >
+                      <option value="직접입력">직접 입력</option>
+                      {allManufacturers.map(m => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                    {isCustomManufacturer && (
+                      <input type="text" value={customManufacturerInput} onChange={e => setCustomManufacturerInput(e.target.value)} placeholder="새 거래처명 직접 입력..." required className="w-full p-2.5 bg-teal-50/50 border border-teal-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" />
+                    )}
+                  </div>
                 </div>
               </div>
 
-              {/* 제품 테이블 영역 */}
-              <div className="border border-slate-200 rounded-2xl overflow-hidden bg-slate-50">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-100/50 border-b border-slate-200 text-slate-500">
-                    <tr>
-                      <th className="py-2 px-3 font-bold whitespace-nowrap">제품명</th>
-                      <th className="py-2 px-3 font-bold w-28 whitespace-nowrap">매입 단가</th>
-                      <th className="py-2 px-3 font-bold w-20 whitespace-nowrap">수량</th>
-                      <th className="py-2 px-3 font-bold w-28 text-right whitespace-nowrap">공급가액</th>
-                      <th className="py-2 px-3 font-bold w-12 text-center whitespace-nowrap">관리</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
-                    {selectedProducts.map(p => (
-                      <tr key={p.id}>
-                        <td className="py-1.5 px-3 font-extrabold text-slate-800 truncate max-w-[140px]" title={p.name}>{p.name}</td>
-                        <td className="py-1.5 px-3"><input type="number" value={p.purchase_price} onChange={e => updateProduct(p.id, 'purchase_price', Number(e.target.value))} className="w-full p-1 bg-slate-50 border rounded-lg text-right font-semibold focus:outline-none focus:border-teal-500" /></td>
-                        <td className="py-1.5 px-3"><input type="number" value={p.quantity} onChange={e => updateProduct(p.id, 'quantity', Number(e.target.value))} className="w-full p-1 bg-slate-50 border rounded-lg text-center font-semibold focus:outline-none focus:border-teal-500" /></td>
-                        <td className="py-1.5 px-3 text-right font-bold text-slate-700">{(p.purchase_price * p.quantity).toLocaleString()}원</td>
-                        <td className="py-1.5 px-3 text-center"><button type="button" onClick={() => removeProduct(p.id)} className="text-red-500 font-bold hover:bg-red-50 p-1 rounded-lg">✕</button></td>
-                      </tr>
+              {/* ✅ 제품 추가 영역 (검색 방식) */}
+              <div className="relative pt-1 border-t border-slate-100 mt-2">
+                <label className="block font-bold text-slate-700 mb-1">매입 제품 추가 *</label>
+                <input 
+                  type="text" 
+                  placeholder="+ 제품명 검색하여 추가..." 
+                  value={productSearch} 
+                  onChange={e => setProductSearch(e.target.value)} 
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#528771]" 
+                />
+                
+                {productSearch && (
+                  <div className="absolute z-10 w-full max-h-40 overflow-y-auto border border-slate-200 rounded-xl bg-white shadow-xl mt-1">
+                    {products.filter(pr => pr.name.includes(productSearch)).map(pr => (
+                      <div key={pr.id} onClick={() => handleAddProduct(pr)} 
+                        className="p-2.5 hover:bg-teal-50 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none"
+                      >
+                        <span className="font-extrabold text-slate-900 text-xs">{pr.name}</span>
+                        <span className="font-bold text-slate-500 text-[11px]">판매가: {pr.price?.toLocaleString() || 0}원</span>
+                      </div>
                     ))}
-                    <tr>
-                      <td colSpan={5} className="py-2 px-3 bg-slate-50/50">
-                        <select 
-                          className="w-full p-2 bg-white border border-slate-200 rounded-xl font-semibold text-slate-700 focus:outline-none focus:border-[#528771]"
-                          value=""
-                          onChange={(e) => handleAddProduct(e.target.value)}
-                        >
-                          <option value="" disabled>+ 제품관리 탭에 등록된 제품 선택하여 추가...</option>
-                          {products.map(pr => (
-                            <option key={pr.id} value={pr.id}>{pr.name} (분류: {pr.category || "없음"})</option>
-                          ))}
-                        </select>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+                  </div>
+                )}
+                
+                {/* 선택된 제품 리스트 (판매관리와 동일한 리스트 UI 적용) */}
+                <div className="space-y-2 mt-3">
+                  {selectedProducts.map(p => {
+                    const margin = calculateMargin(p.original_price, p.purchase_price);
+                    
+                    return (
+                      <div key={p.id} className="flex flex-col bg-white border border-slate-200 shadow-sm rounded-xl p-3 gap-2">
+                        
+                        <div className="flex justify-between items-center">
+                          <div className="flex flex-col">
+                            <span className="font-extrabold text-slate-900 text-xs">{p.name}</span>
+                            <span className="text-[10px] font-bold text-slate-400 mt-0.5">정상 판매가: {p.original_price?.toLocaleString()}원</span>
+                          </div>
+                          
+                          {/* 수량 조절 버튼 */}
+                          <div className="flex items-center gap-1">
+                            <button type="button" onClick={() => handleQuantity(p.id, -1)} className="w-6 h-6 bg-slate-50 border border-slate-200 rounded text-xs font-black text-slate-700 hover:bg-slate-100">-</button>
+                            <input 
+                              type="number" 
+                              value={p.quantity === 0 ? "" : p.quantity}
+                              onChange={(e) => handleManualQuantity(p.id, e.target.value)}
+                              className="w-10 h-6 text-center text-xs font-extrabold text-slate-900 border border-slate-200 rounded focus:outline-none focus:border-[#528771] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                            />
+                            <button type="button" onClick={() => handleQuantity(p.id, 1)} className="w-6 h-6 bg-slate-50 border border-slate-200 rounded text-xs font-black text-slate-700 hover:bg-slate-100">+</button>
+                            <button type="button" onClick={() => removeProduct(p.id)} className="text-red-400 ml-2 hover:text-red-600 font-bold p-1 text-[10px]">✕</button>
+                          </div>
+                        </div>
 
-              {/* 금액 요약 바 */}
-              <div className="flex justify-between items-center px-4 py-2.5 bg-slate-50 rounded-xl font-extrabold text-slate-700 border border-slate-100">
-                <div className="flex items-center gap-4">
-                  <span>공급가액 <span className="text-slate-900 ml-1">{supplyAmount.toLocaleString()}원</span></span>
-                  <span className="text-slate-300">|</span>
-                  <span>부가세 <span className="text-slate-900 ml-1">{vat.toLocaleString()}원</span></span>
+                        {/* 단가 입력 및 마진 계산 영역 */}
+                        <div className="bg-slate-50 rounded-lg p-2.5 flex items-center justify-between gap-3 border border-slate-100">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-600">공급 단가(매입가):</span>
+                            <div className="relative">
+                              <input 
+                                type="number" 
+                                value={p.purchase_price || ""} 
+                                onChange={e => updateProduct(p.id, 'purchase_price', Number(e.target.value))} 
+                                placeholder="0"
+                                className="w-24 p-1.5 pr-5 bg-white border border-slate-300 rounded font-extrabold text-slate-900 text-right focus:outline-none focus:border-teal-500" 
+                              />
+                              <span className="absolute right-2 top-1.5 font-bold text-slate-400">원</span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex flex-col text-right">
+                            <span className="text-[10px] font-bold text-slate-500">
+                              마진액: <span className={margin.amount >= 0 ? "text-emerald-600" : "text-rose-500"}>{margin.amount.toLocaleString()}원</span>
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-500 mt-0.5">
+                              마진율: <span className={margin.percent >= 0 ? "text-emerald-600" : "text-rose-500"}>{margin.percent.toFixed(1)}%</span>
+                            </span>
+                          </div>
+                        </div>
+
+                      </div>
+                    );
+                  })}
                 </div>
-                <div className="text-[#528771]">총 사입 금액 <span className="text-base ml-1.5">{totalAmount.toLocaleString()}원</span></div>
               </div>
 
               <div className="flex-1"></div>
 
+              {/* 금액 요약 바 */}
+              <div className="flex justify-between items-center px-4 py-3 bg-teal-50/50 rounded-xl font-extrabold border border-teal-100">
+                <div className="flex flex-col gap-1 text-[11px] text-teal-800">
+                  <span>공급가액: {supplyAmount.toLocaleString()}원</span>
+                  <span>부가세(10%): {vat.toLocaleString()}원</span>
+                </div>
+                <div className="text-[#2e5e49] flex flex-col items-end">
+                  <span className="text-[10px] font-bold mb-0.5">총 사입 금액</span>
+                  <span className="text-xl font-black">{totalAmount.toLocaleString()}원</span>
+                </div>
+              </div>
+
               <div>
-                <label className="block font-bold text-slate-700 mb-1">비고 / 메모</label>
-                <textarea value={memo} onChange={e => setMemo(e.target.value)} rows={3} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold resize-none focus:outline-none focus:border-[#528771]" placeholder="특이사항 입력..." />
+                <textarea value={memo} onChange={e => setMemo(e.target.value)} rows={3} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold resize-none focus:outline-none focus:border-[#528771]" placeholder="비고 / 특이사항 메모..." />
               </div>
 
               <div className="pt-1">
-                <button type="submit" className="w-full py-3 bg-[#528771] hover:bg-[#3d6856] text-white font-black text-xs rounded-xl transition shadow-sm">사입 등록하기</button>
+                <button type="submit" className="w-full py-3 bg-[#528771] hover:bg-[#3d6856] text-white font-black text-sm rounded-xl transition shadow-sm">사입 등록 완료하기</button>
               </div>
             </form>
           </div>
 
-          {/* 우측: 제조사별 매입액 & 최근 등록 내역 (col-span-5) */}
+          {/* 우측: 제조사별 매입액 & 최근 등록 내역 */}
           <div className="lg:col-span-5 flex flex-col gap-3 overflow-hidden">
             
             <div className="grid grid-cols-2 gap-2 bg-white p-4 rounded-3xl shadow-sm border border-slate-200 flex-shrink-0">
@@ -382,7 +463,7 @@ export default function PurchasesPage() {
 
             <div className="bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col flex-1 p-4 overflow-hidden">
               <h3 className="text-xs font-extrabold text-slate-900 mb-2 flex justify-between items-center">
-                <span>최근 등록된 내역</span>
+                <span>최근 사입 내역</span>
                 <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">총 {purchases.length}건</span>
               </h3>
               <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 hide-scrollbar">
@@ -391,7 +472,7 @@ export default function PurchasesPage() {
                     <div className="flex justify-between items-center">
                       <div className="flex items-baseline gap-2 overflow-hidden">
                         <span className="font-black text-slate-900 text-xs truncate">{p.manufacturer}</span>
-                        <span className="text-[10px] font-bold text-slate-400 whitespace-nowrap">({p.purchase_date} · {p.payment_status})</span>
+                        <span className="text-[10px] font-bold text-slate-400 whitespace-nowrap">({p.purchase_date})</span>
                       </div>
                       <span className="font-black text-[#528771] text-xs whitespace-nowrap ml-2">{p.total_amount?.toLocaleString()}원</span>
                     </div>
@@ -409,7 +490,6 @@ export default function PurchasesPage() {
             </div>
 
           </div>
-
         </div>
       )}
 
@@ -445,12 +525,12 @@ export default function PurchasesPage() {
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-100/80 text-slate-600 sticky top-0 backdrop-blur-md z-10 border-b border-slate-200">
                 <tr>
-                  <th className="py-3 px-4 font-bold whitespace-nowrap">사입일</th>
-                  <th className="py-3 px-4 font-bold whitespace-nowrap">거래처(제조사)</th>
-                  <th className="py-3 px-4 font-bold">매입 상품 내역</th>
-                  <th className="py-3 px-4 font-bold whitespace-nowrap">상태</th>
-                  <th className="py-3 px-4 font-bold text-right whitespace-nowrap">총 사입 금액</th>
-                  <th className="py-3 px-4 font-bold text-center whitespace-nowrap">관리</th>
+                  <th className="py-3 px-4 font-bold whitespace-nowrap w-[100px]">사입일</th>
+                  <th className="py-3 px-4 font-bold whitespace-nowrap w-[120px]">거래처(제조사)</th>
+                  <th className="py-3 px-4 font-bold w-[250px]">매입 상품 내역</th>
+                  <th className="py-3 px-4 font-bold">비고(메모)</th>
+                  <th className="py-3 px-4 font-bold text-right whitespace-nowrap w-[120px]">총 사입 금액</th>
+                  <th className="py-3 px-4 font-bold text-center whitespace-nowrap w-[90px]">관리</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -459,19 +539,16 @@ export default function PurchasesPage() {
                 ) : (
                   filteredHistoryPurchases.map((p) => (
                     <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-3 px-4 font-extrabold text-slate-800">{p.purchase_date}</td>
-                      <td className="py-3 px-4 font-extrabold text-slate-900">{p.manufacturer}</td>
+                      <td className="py-3 px-4 font-extrabold text-slate-800 whitespace-nowrap">{p.purchase_date}</td>
+                      <td className="py-3 px-4 font-extrabold text-slate-900 whitespace-nowrap">{p.manufacturer}</td>
                       <td className="py-3 px-4">
                         <div className="font-bold text-slate-700 max-w-[250px] leading-tight">
                           {p.items?.map((i: any) => `${i.name}(${i.quantity})`).join(", ")}
                         </div>
-                        {p.memo && <div className="text-[10px] text-slate-400 mt-1 truncate max-w-[250px]">{p.memo}</div>}
                       </td>
-                      <td className="py-3 px-4 font-bold text-slate-600">
-                        <span className={`px-2 py-0.5 rounded text-[10px] ${p.payment_status === '완료' ? 'bg-teal-50 text-teal-700' : 'bg-rose-50 text-rose-700'}`}>{p.payment_status}</span>
-                      </td>
-                      <td className="py-3 px-4 font-black text-[#528771] text-right">{p.total_amount?.toLocaleString()}원</td>
-                      <td className="py-3 px-4 text-center">
+                      <td className="py-3 px-4 text-slate-500 max-w-[200px] truncate">{p.memo || "-"}</td>
+                      <td className="py-3 px-4 font-black text-[#528771] text-right whitespace-nowrap">{p.total_amount?.toLocaleString()}원</td>
+                      <td className="py-3 px-4 text-center whitespace-nowrap">
                         <div className="flex justify-center gap-1.5">
                           <button onClick={() => handleOpenEditModal(p)} className="text-[11px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-md transition">수정</button>
                           <button onClick={() => handleDeletePurchase(p.id)} className="text-[11px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-md transition">삭제</button>
@@ -498,7 +575,7 @@ export default function PurchasesPage() {
             </div>
 
             <form onSubmit={handleUpdateSubmit} className="flex-1 overflow-y-auto pr-2 space-y-4 text-xs">
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block font-bold text-slate-700 mb-1">사입일 *</label>
                   <input type="date" value={editPurchaseDate} onChange={e => setEditPurchaseDate(e.target.value)} required className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" />
@@ -521,57 +598,84 @@ export default function PurchasesPage() {
                     <input type="text" value={editCustomManufacturerInput} onChange={e => setEditCustomManufacturerInput(e.target.value)} placeholder="새 거래처명 입력..." required className="w-full p-2.5 bg-teal-50/50 border border-teal-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" />
                   )}
                 </div>
+              </div>
 
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">결제 상태</label>
-                  <select value={editPaymentStatus} onChange={e => setEditPaymentStatus(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]">
-                    <option value="완료">결제 완료</option>
-                    <option value="미결제">미결제</option>
-                  </select>
+              <div className="relative pt-1 border-t border-slate-100">
+                <label className="block font-bold text-slate-700 mb-1">매입 제품 추가 *</label>
+                <input 
+                  type="text" 
+                  placeholder="+ 제품명 검색하여 추가..." 
+                  value={editProductSearch} 
+                  onChange={e => setEditProductSearch(e.target.value)} 
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" 
+                />
+                
+                {editProductSearch && (
+                  <div className="absolute z-10 w-full max-h-40 overflow-y-auto border border-slate-200 rounded-xl bg-white shadow-xl mt-1">
+                    {products.filter(pr => pr.name.includes(editProductSearch)).map(pr => (
+                      <div key={pr.id} onClick={() => handleEditAddProduct(pr)} 
+                        className="p-2.5 hover:bg-teal-50 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none"
+                      >
+                        <span className="font-extrabold text-slate-900">{pr.name}</span>
+                        <span className="font-bold text-slate-500">판매가: {pr.price?.toLocaleString()}원</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                
+                <div className="space-y-2 mt-3">
+                  {editSelectedProducts.map(p => {
+                    const margin = calculateMargin(p.original_price, p.purchase_price);
+
+                    return (
+                      <div key={p.id} className="flex flex-col bg-white border border-slate-200 shadow-sm rounded-xl p-3 gap-2">
+                        <div className="flex justify-between items-center">
+                          <div className="flex flex-col">
+                            <span className="font-extrabold text-slate-900">{p.name}</span>
+                            <span className="text-[10px] font-bold text-slate-400 mt-0.5">정상 판매가: {p.original_price?.toLocaleString()}원</span>
+                          </div>
+                          
+                          <div className="flex items-center gap-1">
+                            <button type="button" onClick={() => handleEditQuantity(p.id, -1)} className="w-6 h-6 bg-slate-50 border rounded font-bold">-</button>
+                            <input 
+                              type="number" 
+                              value={p.quantity === 0 ? "" : p.quantity}
+                              onChange={(e) => handleEditManualQuantity(p.id, e.target.value)}
+                              className="w-10 h-6 text-center font-extrabold border border-slate-200 rounded focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                            />
+                            <button type="button" onClick={() => handleEditQuantity(p.id, 1)} className="w-6 h-6 bg-slate-50 border rounded font-bold">+</button>
+                            <button type="button" onClick={() => removeEditProduct(p.id)} className="text-red-400 ml-2 hover:text-red-600 font-bold p-1">✕</button>
+                          </div>
+                        </div>
+
+                        <div className="bg-slate-50 rounded-lg p-2.5 flex items-center justify-between gap-3 border border-slate-100">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-600">공급 단가(매입가):</span>
+                            <input 
+                              type="number" 
+                              value={p.purchase_price || ""} 
+                              onChange={e => updateEditProduct(p.id, 'purchase_price', Number(e.target.value))} 
+                              placeholder="0"
+                              className="w-24 p-1.5 bg-white border border-slate-300 rounded font-extrabold text-right focus:outline-none focus:border-teal-500" 
+                            />
+                          </div>
+                          <div className="flex flex-col text-right">
+                            <span className="text-[10px] font-bold text-slate-500">
+                              마진액: <span className={margin.amount >= 0 ? "text-emerald-600" : "text-rose-500"}>{margin.amount.toLocaleString()}원</span>
+                            </span>
+                            <span className="text-[10px] font-bold text-slate-500 mt-0.5">
+                              마진율: <span className={margin.percent >= 0 ? "text-emerald-600" : "text-rose-500"}>{margin.percent.toFixed(1)}%</span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
-              <div className="border border-slate-200 rounded-2xl overflow-hidden bg-slate-50">
-                <table className="w-full text-left">
-                  <thead className="bg-slate-100/50 border-b border-slate-200 text-slate-500">
-                    <tr>
-                      <th className="py-2.5 px-3 font-bold whitespace-nowrap">제품명</th>
-                      <th className="py-2.5 px-3 font-bold w-28 whitespace-nowrap">매입 단가</th>
-                      <th className="py-2.5 px-3 font-bold w-20 whitespace-nowrap">수량</th>
-                      <th className="py-2.5 px-3 font-bold w-28 text-right whitespace-nowrap">공급가액</th>
-                      <th className="py-2.5 px-3 font-bold w-12 text-center whitespace-nowrap">관리</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 bg-white">
-                    {editSelectedProducts.map(p => (
-                      <tr key={p.id}>
-                        <td className="py-2 px-3 font-extrabold text-slate-800">{p.name}</td>
-                        <td className="py-2 px-3"><input type="number" value={p.purchase_price} onChange={e => updateEditProduct(p.id, 'purchase_price', Number(e.target.value))} className="w-full p-1.5 bg-slate-50 border rounded-lg text-right font-semibold" /></td>
-                        <td className="py-2 px-3"><input type="number" value={p.quantity} onChange={e => updateEditProduct(p.id, 'quantity', Number(e.target.value))} className="w-full p-1.5 bg-slate-50 border rounded-lg text-center font-semibold" /></td>
-                        <td className="py-2 px-3 text-right font-bold text-slate-700">{(p.purchase_price * p.quantity).toLocaleString()}원</td>
-                        <td className="py-2 px-3 text-center"><button type="button" onClick={() => removeEditProduct(p.id)} className="text-red-500 font-bold hover:bg-red-50 p-1.5 rounded-lg">✕</button></td>
-                      </tr>
-                    ))}
-                    <tr>
-                      <td colSpan={5} className="py-3 px-4 bg-slate-50/50">
-                        <select 
-                          className="w-full p-2 bg-white border border-slate-200 rounded-xl font-semibold text-slate-700 focus:outline-none focus:border-[#528771]"
-                          value=""
-                          onChange={(e) => handleEditAddProduct(e.target.value)}
-                        >
-                          <option value="" disabled>+ 제품 추가하기...</option>
-                          {products.map(pr => (
-                            <option key={pr.id} value={pr.id}>{pr.name}</option>
-                          ))}
-                        </select>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="flex justify-between items-center p-3 bg-slate-50 rounded-xl font-extrabold text-sm">
-                <span>총 사입 금액</span>
+              <div className="flex justify-between items-center p-3 bg-teal-50/50 rounded-xl font-extrabold border border-teal-100 mt-2">
+                <span className="text-teal-900">총 사입 금액 (부가세 포함)</span>
                 <span className="text-[#528771] text-base">{editTotalAmount.toLocaleString()}원</span>
               </div>
 
