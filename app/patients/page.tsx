@@ -54,6 +54,10 @@ export default function PatientsPage() {
 
   const [activeCount, setActiveCount] = useState(0);
 
+  // 3개월 통계 상태값 (빌드 에러 방지용 client-side 계산)
+  const [customerSalesRanking3Months, setCustomerSalesRanking3Months] = useState<any[]>([]);
+  const [totalSalesSum3Months, setTotalSalesSum3Months] = useState(0);
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -72,6 +76,33 @@ export default function PatientsPage() {
       setActiveCount(0);
     }
   }, [consultations]);
+
+  // 3개월 판매 통계 계산 (클라이언트 안전 실행)
+  useEffect(() => {
+    if (sales.length > 0) {
+      const threeMonthsAgo = new Date();
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+      const stats: Record<string, { name: string, totalAmt: number, count: number }> = {};
+      sales.forEach(s => {
+        if (s.sale_date) {
+          const saleDateObj = new Date(s.sale_date);
+          if (!isNaN(saleDateObj.getTime()) && saleDateObj >= threeMonthsAgo) {
+            const name = s.patient_name || "미지정 고객";
+            if (!stats[name]) stats[name] = { name, totalAmt: 0, count: 0 };
+            stats[name].totalAmt += (s.total_amount || 0);
+            stats[name].count += 1;
+          }
+        }
+      });
+      const ranking = Object.values(stats).sort((a, b) => b.totalAmt - a.totalAmt);
+      setCustomerSalesRanking3Months(ranking);
+      setTotalSalesSum3Months(ranking.reduce((sum, c) => sum + c.totalAmt, 0));
+    } else {
+      setCustomerSalesRanking3Months([]);
+      setTotalSalesSum3Months(0);
+    }
+  }, [sales]);
 
   const fetchData = async () => {
     const { data: pData } = await supabase.from("patients").select("*").order("name");
@@ -154,28 +185,6 @@ export default function PatientsPage() {
   }, [sales]);
 
   const totalSalesSumAll = customerSalesRankingAll.reduce((sum, c) => sum + c.totalAmt, 0);
-
-  // 우측 통계: 최근 3개월 누적 TOP 산출 (Client-side 안전 처리)
-  const customerSalesRanking3Months = useMemo(() => {
-    const threeMonthsAgo = new Date();
-    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-
-    const stats: Record<string, { name: string, totalAmt: number, count: number }> = {};
-    sales.forEach(s => {
-      if (s.sale_date) {
-        const saleDateObj = new Date(s.sale_date);
-        if (!isNaN(saleDateObj.getTime()) && saleDateObj >= threeMonthsAgo) {
-          const name = s.patient_name || "미지정 고객";
-          if (!stats[name]) stats[name] = { name, totalAmt: 0, count: 0 };
-          stats[name].totalAmt += (s.total_amount || 0);
-          stats[name].count += 1;
-        }
-      }
-    });
-    return Object.values(stats).sort((a, b) => b.totalAmt - a.totalAmt);
-  }, [sales]);
-
-  const totalSalesSum3Months = customerSalesRanking3Months.reduce((sum, c) => sum + c.totalAmt, 0);
 
   const handleOpenRegister = () => {
     setEditingPatientId(null);
