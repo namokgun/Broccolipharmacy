@@ -307,7 +307,7 @@ function ConsultationsForm() {
             </div>
             <div className="flex-1 flex items-center gap-2">
               <label className="w-12 text-xs font-bold text-slate-700 shrink-0">설진</label>
-              <input type="text" value={digestionStool} onChange={(e) => setDigestionStool(e.target.value)} className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900" placeholder="예: 백태, 위축, 어혈반" />
+              <input type="text" value={digestionStool} onChange={(e) => setDigestionStool(e.target.value)} className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-semibold text-slate-900" placeholder="" />
             </div>
           </div>
 
