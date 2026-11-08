@@ -7,16 +7,13 @@ export default function PurchasesPage() {
   const [purchases, setPurchases] = useState<any[]>([]);
   const [products, setProducts] = useState<any[]>([]);
   
-  // 탭 및 팝업 모달 상태 관리
   const [activeTab, setActiveTab] = useState<"register" | "history">("register");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingPurchaseId, setEditingPurchaseId] = useState<string | null>(null);
 
-  // 전체 내역 정렬 및 검색 상태
   const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
   const [historySearch, setHistorySearch] = useState("");
 
-  // 등록 폼 상태
   const [purchaseDate, setPurchaseDate] = useState("");
   const [currentMonth, setCurrentMonth] = useState("");
   const [manufacturer, setManufacturer] = useState("직접입력");
@@ -24,11 +21,9 @@ export default function PurchasesPage() {
   const [customManufacturerInput, setCustomManufacturerInput] = useState("");
   const [memo, setMemo] = useState("");
   
-  // 제품 검색 및 선택 상태
   const [productSearch, setProductSearch] = useState("");
   const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
 
-  // 수정 모달 폼 상태
   const [editPurchaseDate, setEditPurchaseDate] = useState("");
   const [editManufacturer, setEditManufacturer] = useState("직접입력");
   const [editIsCustomManufacturer, setEditIsCustomManufacturer] = useState(true);
@@ -63,14 +58,12 @@ export default function PurchasesPage() {
     setProductSearch("");
   };
 
-  // 제품 및 기존 사입 내역에서 제조사(거래처) 목록 추출
   const allManufacturers = useMemo(() => {
     const fromProducts = products.map(p => p.manufacturer);
     const fromPurchases = purchases.map(p => p.manufacturer);
     return Array.from(new Set([...fromProducts, ...fromPurchases])).filter(Boolean);
   }, [products, purchases]);
 
-  // 제품 추가 로직 (공급가 DB 정보 자동 연동)
   const handleAddProduct = (product: any) => {
     const existing = selectedProducts.find(p => p.id === product.id);
     if (existing) {
@@ -79,15 +72,11 @@ export default function PurchasesPage() {
       setSelectedProducts([...selectedProducts, { 
         ...product, 
         original_price: product.price || 0, 
-        purchase_price: product.purchase_price || 0, // DB에 등록된 매입가 자동 연동
+        purchase_price: product.purchase_price || 0, 
         quantity: 1 
       }]);
     }
     setProductSearch("");
-  };
-
-  const updateProduct = (id: string, field: string, value: number) => {
-    setSelectedProducts(selectedProducts.map(p => p.id === id ? { ...p, [field]: value } : p));
   };
 
   const handleQuantity = (id: string, d: number) => {
@@ -104,7 +93,6 @@ export default function PurchasesPage() {
     setSelectedProducts(selectedProducts.filter(p => p.id !== id));
   };
 
-  // 수정 모달 제품 추가 (공급가 DB 정보 자동 연동)
   const handleEditAddProduct = (product: any) => {
     const existing = editSelectedProducts.find(p => p.id === product.id);
     if (existing) {
@@ -118,10 +106,6 @@ export default function PurchasesPage() {
       }]);
     }
     setEditProductSearch("");
-  };
-
-  const updateEditProduct = (id: string, field: string, value: number) => {
-    setEditSelectedProducts(editSelectedProducts.map(p => p.id === id ? { ...p, [field]: value } : p));
   };
 
   const handleEditQuantity = (id: string, d: number) => {
@@ -138,7 +122,6 @@ export default function PurchasesPage() {
     setEditSelectedProducts(editSelectedProducts.filter(p => p.id !== id));
   };
 
-  // 수정 모달 열기
   const handleOpenEditModal = (p: any) => {
     setEditingPurchaseId(p.id);
     setEditPurchaseDate(p.purchase_date || new Date().toISOString().split('T')[0]);
@@ -166,11 +149,9 @@ export default function PurchasesPage() {
     else { alert("삭제되었습니다."); fetchData(); }
   };
 
-  // 총 사입 금액 (공급가액 합계)
   const totalAmount = selectedProducts.reduce((sum, p) => sum + ((p.purchase_price || 0) * p.quantity), 0);
   const editTotalAmount = editSelectedProducts.reduce((sum, p) => sum + ((p.purchase_price || 0) * p.quantity), 0);
 
-  // 등록 제출
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const finalManufacturer = isCustomManufacturer ? customManufacturerInput.trim() : manufacturer;
@@ -196,7 +177,6 @@ export default function PurchasesPage() {
     }
   };
 
-  // 수정 제출
   const handleUpdateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const finalManufacturer = editIsCustomManufacturer ? editCustomManufacturerInput.trim() : editManufacturer;
@@ -220,7 +200,6 @@ export default function PurchasesPage() {
     }
   };
 
-  // 통계 계산
   const thisMonthPurchases = purchases.filter(p => currentMonth && p.purchase_date?.startsWith(currentMonth));
   const thisMonthCount = thisMonthPurchases.length;
   const thisMonthSum = thisMonthPurchases.reduce((sum, p) => sum + (p.total_amount || 0), 0);
@@ -250,7 +229,6 @@ export default function PurchasesPage() {
     });
   }, [purchases, historySearch, sortOrder]);
 
-  // 마진율 계산 함수
   const calculateMargin = (salePrice: number, purchasePrice: number) => {
     if (!salePrice || salePrice === 0) return { amount: 0, percent: 0 };
     const pPrice = purchasePrice || 0;
@@ -262,7 +240,6 @@ export default function PurchasesPage() {
   return (
     <div className="w-full h-[calc(100vh-32px)] flex flex-col space-y-3 overflow-hidden max-w-[1700px] mx-auto pb-2">
       
-      {/* 상단 헤더 */}
       <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center flex-shrink-0">
         <h1 className="text-lg font-extrabold text-slate-900">사입 관리</h1>
         <div className="flex bg-slate-100 p-1 rounded-xl">
@@ -278,7 +255,6 @@ export default function PurchasesPage() {
       {activeTab === "register" && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 flex-1 min-h-0">
           
-          {/* 1열: 사입 등록 폼 (col-span-6) - 제품 목록 한줄 압축을 위해 넓이 확장 */}
           <div className="lg:col-span-6 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col p-5 overflow-y-auto space-y-4">
             <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-[#528771]"></span> 새 사입 등록
@@ -325,19 +301,18 @@ export default function PurchasesPage() {
                         className="p-2.5 hover:bg-teal-50 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none"
                       >
                         <span className="font-extrabold text-slate-900 text-xs">{pr.name}</span>
-                        <span className="font-bold text-slate-500 text-[11px]">판매가: {pr.price?.toLocaleString()}원</span>
+                        <span className="font-bold text-slate-500 text-[11px]">단가: {pr.purchase_price?.toLocaleString() || "0"}원</span>
                       </div>
                     ))}
                   </div>
                 )}
                 
-                {/* 🟢 선택된 제품 리스트 (한 줄 압축형 UI 적용) */}
                 <div className="mt-3">
                   {selectedProducts.length > 0 && (
                     <div className="flex items-center text-[10px] font-extrabold text-slate-400 border-b border-slate-200 pb-1.5 mb-1.5 px-1">
                       <div className="flex-1">제품명 (판매가)</div>
-                      <div className="w-[75px] text-center">공급가(원)</div>
-                      <div className="w-[70px] text-center">수량</div>
+                      <div className="w-[80px] text-right pr-2">공급가(원)</div>
+                      <div className="w-[75px] text-center">수량</div>
                       <div className="w-[85px] text-right">예상 마진</div>
                       <div className="w-[30px]"></div>
                     </div>
@@ -349,36 +324,27 @@ export default function PurchasesPage() {
                       return (
                         <div key={p.id} className="flex items-center justify-between py-1.5 border-b border-slate-100 hover:bg-slate-50 transition px-1 gap-2">
                           
-                          {/* 1. 제품명 및 판매가 */}
                           <div className="flex flex-col flex-1 min-w-0">
                             <span className="font-extrabold text-slate-900 text-xs truncate" title={p.name}>{p.name}</span>
                             <span className="text-[9px] font-bold text-slate-400 truncate">판매: {p.original_price?.toLocaleString()}원</span>
                           </div>
                           
-                          {/* 2. 공급가 입력 */}
-                          <div className="w-[75px] flex-shrink-0">
-                            <input 
-                              type="number" 
-                              value={p.purchase_price || ""} 
-                              onChange={e => updateProduct(p.id, 'purchase_price', Number(e.target.value))} 
-                              placeholder="0"
-                              className="w-full p-1 bg-white border border-slate-200 rounded-md font-extrabold text-right focus:outline-none focus:border-teal-500 text-[11px]" 
-                            />
+                          {/* 🟢 매입가 고정 (수정 불가) 영역 */}
+                          <div className="w-[80px] flex-shrink-0 text-right pr-2">
+                            <span className="font-extrabold text-slate-700 text-[11px]">{p.purchase_price?.toLocaleString() || "0"}</span>
                           </div>
 
-                          {/* 3. 수량 조절 */}
-                          <div className="w-[70px] flex items-center justify-center flex-shrink-0 bg-slate-50 border border-slate-100 rounded-md">
-                            <button type="button" onClick={() => handleQuantity(p.id, -1)} className="w-5 h-5 text-[11px] font-black text-slate-500 hover:text-slate-800">-</button>
+                          <div className="w-[75px] flex items-center justify-center flex-shrink-0 bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
+                            <button type="button" onClick={() => handleQuantity(p.id, -1)} className="w-5 h-6 bg-slate-100 text-[11px] font-black text-slate-500 hover:text-slate-800 hover:bg-slate-200 transition">-</button>
                             <input 
                               type="number" 
                               value={p.quantity === 0 ? "" : p.quantity}
                               onChange={(e) => handleManualQuantity(p.id, e.target.value)}
-                              className="w-6 h-5 text-center text-[11px] font-extrabold text-slate-900 bg-transparent border-none focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                              className="w-7 h-6 text-center text-[11px] font-extrabold text-slate-900 bg-white border-none focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
                             />
-                            <button type="button" onClick={() => handleQuantity(p.id, 1)} className="w-5 h-5 text-[11px] font-black text-slate-500 hover:text-slate-800">+</button>
+                            <button type="button" onClick={() => handleQuantity(p.id, 1)} className="w-5 h-6 bg-slate-100 text-[11px] font-black text-slate-500 hover:text-slate-800 hover:bg-slate-200 transition">+</button>
                           </div>
 
-                          {/* 4. 마진 표시 */}
                           <div className="w-[85px] flex flex-col text-right flex-shrink-0">
                             <span className={`text-[11px] font-extrabold ${margin.amount >= 0 ? "text-emerald-600" : "text-rose-500"}`}>
                               {margin.amount.toLocaleString()}원
@@ -386,7 +352,6 @@ export default function PurchasesPage() {
                             <span className="text-[9px] font-bold text-slate-400">({margin.percent.toFixed(1)}%)</span>
                           </div>
 
-                          {/* 5. 삭제 버튼 */}
                           <div className="w-[30px] flex justify-end flex-shrink-0">
                             <button type="button" onClick={() => removeProduct(p.id)} className="text-red-400 hover:text-red-600 font-black text-[11px] px-1 py-0.5">✕</button>
                           </div>
@@ -419,7 +384,6 @@ export default function PurchasesPage() {
             </form>
           </div>
 
-          {/* 2열: 제조사별 통계 및 요약 (col-span-2) */}
           <div className="lg:col-span-2 flex flex-col gap-3 overflow-hidden">
             <div className="bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col flex-1 p-4 overflow-hidden">
               <h3 className="text-xs font-extrabold text-slate-900 mb-3 flex items-center gap-1.5">
@@ -459,32 +423,24 @@ export default function PurchasesPage() {
             </div>
           </div>
 
-          {/* 3열: 최근 사입 내역 (col-span-4) - 제품명 강조 배치 */}
           <div className="lg:col-span-4 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col p-4 overflow-hidden">
             <h3 className="text-xs font-extrabold text-slate-900 mb-2.5 flex items-center justify-between">
               <span>최근 사입 내역</span>
               <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">총 {purchases.length}건</span>
             </h3>
             
-            <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 hide-scrollbar">
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 hide-scrollbar">
               {purchases.map(p => {
-                // 🟢 메인 제품명 추출 로직 (예: "비타민 외 3건")
-                const itemNames = p.items?.map((i:any) => i.name) || [];
-                const mainItemName = itemNames.length > 0 ? itemNames[0] : "제품 없음";
-                const itemSummary = itemNames.length > 1 ? `${mainItemName} 외 ${itemNames.length - 1}건` : mainItemName;
                 const totalQty = p.items?.reduce((sum: number, i: any) => sum + i.quantity, 0) || 0;
+                // 마우스 오버 툴팁용 텍스트 생성
+                const fullTooltip = p.items?.map((i: any) => `${i.name}(${i.quantity}개)`).join(', ');
 
                 return (
-                  <div key={p.id} className="py-2.5 px-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors cursor-default group relative flex flex-col justify-between gap-1">
+                  <div key={p.id} className="p-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors cursor-default group relative flex flex-col justify-between gap-2">
                     <div className="flex justify-between items-start">
-                      <div className="flex flex-col min-w-0 pr-2">
-                        <span className="font-extrabold text-slate-900 text-xs truncate" title={p.items?.map((i:any) => `${i.name}(${i.quantity})`).join(', ')}>
-                          {itemSummary}
-                        </span>
-                        <div className="text-[10px] font-bold text-slate-500 flex items-center gap-1.5 mt-0.5">
-                          <span className="bg-slate-100 border border-slate-200 text-slate-600 px-1.5 py-0.2 rounded">{p.manufacturer}</span>
-                          <span className="text-slate-400">총 {totalQty}개 매입</span>
-                        </div>
+                      <div className="text-[10px] font-bold text-slate-500 flex items-center gap-1.5">
+                        <span className="bg-slate-100 border border-slate-200 text-slate-600 px-1.5 py-0.5 rounded">{p.manufacturer}</span>
+                        <span className="text-slate-400">총 {totalQty}개</span>
                       </div>
                       <div className="flex flex-col items-end flex-shrink-0">
                         <span className="font-black text-[#528771] text-xs">{p.total_amount?.toLocaleString()}원</span>
@@ -492,7 +448,19 @@ export default function PurchasesPage() {
                       </div>
                     </div>
                     
-                    <button onClick={() => handleOpenEditModal(p)} className="absolute top-1/2 -translate-y-1/2 right-2 text-[10px] font-bold text-white bg-slate-800 px-2 py-1 rounded-md shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
+                    {/* 🟢 최대 2줄 제한 태그 UI (넘어가면 숨김, 툴팁으로 확인) */}
+                    <div 
+                      className="flex flex-wrap gap-1 max-h-[36px] overflow-hidden relative pr-10" 
+                      title={fullTooltip}
+                    >
+                      {p.items?.map((i:any, idx:number) => (
+                        <span key={idx} className="inline-flex items-center gap-1 bg-teal-50 border border-teal-100 text-teal-900 px-1.5 py-0.5 rounded text-[10px] font-bold whitespace-nowrap">
+                          {i.name} <span className="text-teal-600">| {i.quantity}</span>
+                        </span>
+                      ))}
+                    </div>
+                    
+                    <button onClick={() => handleOpenEditModal(p)} className="absolute bottom-2.5 right-2 text-[10px] font-bold text-white bg-slate-800 px-2 py-1 rounded-md shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
                       수정
                     </button>
                   </div>
@@ -507,7 +475,6 @@ export default function PurchasesPage() {
         </div>
       )}
 
-      {/* 탭 2: 전체 내역 조회 */}
       {activeTab === "history" && (
         <div className="flex-1 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
           <div className="p-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center bg-slate-50/50 gap-3">
@@ -541,8 +508,8 @@ export default function PurchasesPage() {
                 <tr>
                   <th className="py-3 px-4 font-bold whitespace-nowrap w-[110px]">사입일자</th>
                   <th className="py-3 px-4 font-bold whitespace-nowrap w-[130px]">거래처(제조사)</th>
-                  <th className="py-3 px-4 font-bold w-[250px]">매입 상품 내역</th>
-                  <th className="py-3 px-4 font-extrabold w-auto min-w-[250px] text-slate-800">코멘트</th>
+                  <th className="py-3 px-4 font-bold w-[350px]">매입 상품 내역 (마우스 오버 시 전체보기)</th>
+                  <th className="py-3 px-4 font-extrabold w-auto min-w-[200px] text-slate-800">코멘트</th>
                   <th className="py-3 px-4 font-bold text-right whitespace-nowrap w-[120px]">총 사입 금액</th>
                   <th className="py-3 px-4 font-bold text-center whitespace-nowrap w-[90px]">관리</th>
                 </tr>
@@ -554,13 +521,23 @@ export default function PurchasesPage() {
                   filteredHistoryPurchases.map((p) => (
                     <tr key={p.id} className="hover:bg-slate-50 transition-colors">
                       <td className="py-3 px-4 font-extrabold text-slate-800 whitespace-nowrap">{p.purchase_date}</td>
-                      <td className="py-3 px-4 font-extrabold text-slate-900 whitespace-nowrap">{p.manufacturer}</td>
-                      <td className="py-3 px-4">
-                        <div className="font-bold text-slate-700 max-w-[250px] leading-tight">
-                          {p.items?.map((i: any) => `${i.name}(${i.quantity})`).join(", ")}
+                      <td className="py-3 px-4 font-extrabold text-slate-900 whitespace-nowrap">
+                        <span className="bg-white border border-slate-200 px-2 py-1 rounded-lg shadow-sm">{p.manufacturer}</span>
+                      </td>
+                      <td className="py-2.5 px-4">
+                        {/* 🟢 히스토리 테이블에도 2줄 태그 UI 적용 */}
+                        <div 
+                          className="flex flex-wrap gap-1 max-w-[330px] max-h-[42px] overflow-hidden relative"
+                          title={p.items?.map((i: any) => `${i.name}(${i.quantity}개)`).join(", ")}
+                        >
+                          {p.items?.map((i:any, idx:number) => (
+                            <span key={idx} className="inline-flex items-center gap-1 bg-slate-100 border border-slate-200 text-slate-700 px-1.5 py-0.5 rounded-md text-[10px] font-bold whitespace-nowrap">
+                              {i.name} <span className="text-slate-500">| {i.quantity}</span>
+                            </span>
+                          ))}
                         </div>
                       </td>
-                      <td className="py-3 px-4 text-slate-600 font-medium whitespace-normal break-words max-w-md">
+                      <td className="py-3 px-4 text-slate-600 font-medium whitespace-normal break-words max-w-[250px]">
                         {p.memo || "-"}
                       </td>
                       <td className="py-3 px-4 font-black text-[#528771] text-right whitespace-nowrap">{p.total_amount?.toLocaleString()}원</td>
@@ -579,7 +556,6 @@ export default function PurchasesPage() {
         </div>
       )}
 
-      {/* 🟢 사입 내역 수정 팝업 모달 (등록 폼과 동일한 한 줄 압축 UI 적용) */}
       {isEditModalOpen && (
         <div onClick={() => setIsEditModalOpen(false)} className="fixed inset-0 z-[120] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-2xl max-h-[90vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col cursor-default" onClick={e => e.stopPropagation()}>
@@ -630,7 +606,7 @@ export default function PurchasesPage() {
                         className="p-2.5 hover:bg-teal-50 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none"
                       >
                         <span className="font-extrabold text-slate-900">{pr.name}</span>
-                        <span className="font-bold text-slate-500">판매가: {pr.price?.toLocaleString()}원</span>
+                        <span className="font-bold text-slate-500">단가: {pr.purchase_price?.toLocaleString() || "0"}원</span>
                       </div>
                     ))}
                   </div>
@@ -640,8 +616,8 @@ export default function PurchasesPage() {
                   {editSelectedProducts.length > 0 && (
                     <div className="flex items-center text-[10px] font-extrabold text-slate-400 border-b border-slate-200 pb-1.5 mb-1.5 px-1">
                       <div className="flex-1">제품명 (판매가)</div>
-                      <div className="w-[75px] text-center">공급가(원)</div>
-                      <div className="w-[70px] text-center">수량</div>
+                      <div className="w-[80px] text-right pr-2">공급가(원)</div>
+                      <div className="w-[75px] text-center">수량</div>
                       <div className="w-[85px] text-right">예상 마진</div>
                       <div className="w-[30px]"></div>
                     </div>
@@ -657,25 +633,20 @@ export default function PurchasesPage() {
                             <span className="text-[9px] font-bold text-slate-400 truncate">판매: {p.original_price?.toLocaleString()}원</span>
                           </div>
                           
-                          <div className="w-[75px] flex-shrink-0">
-                            <input 
-                              type="number" 
-                              value={p.purchase_price || ""} 
-                              onChange={e => updateEditProduct(p.id, 'purchase_price', Number(e.target.value))} 
-                              placeholder="0"
-                              className="w-full p-1 bg-white border border-slate-200 rounded-md font-extrabold text-right focus:outline-none focus:border-teal-500 text-[11px]" 
-                            />
+                          {/* 🟢 수정 모달에서도 매입가 고정 (수정 불가) */}
+                          <div className="w-[80px] flex-shrink-0 text-right pr-2">
+                            <span className="font-extrabold text-slate-700 text-[11px]">{p.purchase_price?.toLocaleString() || "0"}</span>
                           </div>
 
-                          <div className="w-[70px] flex items-center justify-center flex-shrink-0 bg-slate-50 border border-slate-100 rounded-md">
-                            <button type="button" onClick={() => handleEditQuantity(p.id, -1)} className="w-5 h-5 text-[11px] font-black text-slate-500 hover:text-slate-800">-</button>
+                          <div className="w-[75px] flex items-center justify-center flex-shrink-0 bg-slate-50 border border-slate-200 rounded-lg overflow-hidden">
+                            <button type="button" onClick={() => handleEditQuantity(p.id, -1)} className="w-5 h-6 bg-slate-100 text-[11px] font-black text-slate-500 hover:text-slate-800 hover:bg-slate-200 transition">-</button>
                             <input 
                               type="number" 
                               value={p.quantity === 0 ? "" : p.quantity}
                               onChange={(e) => handleEditManualQuantity(p.id, e.target.value)}
-                              className="w-6 h-5 text-center text-[11px] font-extrabold text-slate-900 bg-transparent border-none focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
+                              className="w-7 h-6 text-center text-[11px] font-extrabold text-slate-900 bg-white border-none focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
                             />
-                            <button type="button" onClick={() => handleEditQuantity(p.id, 1)} className="w-5 h-5 text-[11px] font-black text-slate-500 hover:text-slate-800">+</button>
+                            <button type="button" onClick={() => handleEditQuantity(p.id, 1)} className="w-5 h-6 bg-slate-100 text-[11px] font-black text-slate-500 hover:text-slate-800 hover:bg-slate-200 transition">+</button>
                           </div>
 
                           <div className="w-[85px] flex flex-col text-right flex-shrink-0">
@@ -710,7 +681,7 @@ export default function PurchasesPage() {
 
               <div className="flex justify-end gap-2 pt-4 border-t border-slate-100 shrink-0">
                 <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition">취소</button>
-                <button type="submit" className="px-6 py-2.5 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 transition shadow-sm">
+                <button type="submit" className="px-6 py-2.5 bg-[#528771] text-white font-bold rounded-xl hover:bg-[#3d6856] transition shadow-sm">
                   수정 완료
                 </button>
               </div>
