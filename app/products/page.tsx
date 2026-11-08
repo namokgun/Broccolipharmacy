@@ -22,10 +22,14 @@ export default function ProductsPage() {
   const [isCustomManufacturer, setIsCustomManufacturer] = useState(true);
   const [customManufacturerInput, setCustomManufacturerInput] = useState("");
 
+  const [purchasePrice, setPurchasePrice] = useState(""); // 🟢 매입가 추가
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
   const [status, setStatus] = useState("판매중");
   const [description, setDescription] = useState("");
+
+  // 🟢 다중 수량 판매 옵션 상태
+  const [options, setOptions] = useState<{ id: string, name: string, price: string, unit: string }[]>([]);
   
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -69,10 +73,12 @@ export default function ProductsPage() {
     setManufacturer("직접입력");
     setIsCustomManufacturer(true); 
     setCustomManufacturerInput("");
+    setPurchasePrice("");
     setPrice(""); 
     setStock(""); 
     setStatus("판매중"); 
     setDescription(""); 
+    setOptions([]); // 옵션 초기화
     setImageFile(null); 
     setImagePreview(null);
     setIsModalOpen(true);
@@ -93,10 +99,15 @@ export default function ProductsPage() {
       setCustomManufacturerInput(p.manufacturer || "");
     }
 
+    setPurchasePrice(p.purchase_price ? p.purchase_price.toString() : "");
     setPrice(p.price ? p.price.toString() : "");
     setStock(p.stock ? p.stock.toString() : "");
     setStatus(p.status || "판매중");
     setDescription(p.description || "");
+    
+    // 저장된 옵션 바인딩
+    setOptions(p.options ? p.options.map((o: any) => ({ ...o, price: o.price.toString(), unit: o.unit.toString() })) : []);
+
     setImageFile(null);
     setImagePreview(p.image_url || null);
     setIsModalOpen(true);
@@ -124,6 +135,19 @@ export default function ProductsPage() {
     return data.publicUrl;
   };
 
+  // 🟢 옵션 조작 핸들러
+  const handleAddOption = () => {
+    setOptions([...options, { id: Date.now().toString(), name: "", price: "", unit: "1" }]);
+  };
+
+  const updateOption = (id: string, field: string, value: string) => {
+    setOptions(options.map(opt => opt.id === id ? { ...opt, [field]: value } : opt));
+  };
+
+  const removeOption = (id: string) => {
+    setOptions(options.filter(opt => opt.id !== id));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name) return alert("제품명을 입력해주세요.");
@@ -133,6 +157,16 @@ export default function ProductsPage() {
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return alert("로그인 정보가 없습니다.");
+
+    // 옵션 데이터 정제
+    const cleanedOptions = options
+      .filter(o => o.name.trim() !== "")
+      .map(o => ({
+        id: o.id,
+        name: o.name.trim(),
+        price: parseInt(o.price) || 0,
+        unit: parseInt(o.unit) || 1
+      }));
 
     setUploading(true);
     try {
@@ -144,8 +178,10 @@ export default function ProductsPage() {
         manufacturer: finalManufacturer, 
         status, 
         description,
+        purchase_price: purchasePrice ? parseInt(purchasePrice) : 0,
         price: price ? parseInt(price) : 0,
         stock: stock ? parseInt(stock) : 0,
+        options: cleanedOptions, // JSON 타입으로 옵션 저장
         image_url: imageUrl,
         user_id: user.id
       };
@@ -182,7 +218,6 @@ export default function ProductsPage() {
   return (
     <div className="w-full h-[calc(100vh-32px)] flex flex-col space-y-3 overflow-hidden max-w-[1700px] mx-auto pb-2">
       
-      {/* 🟢 판매/사입 관리와 동일한 미니멀 타이틀 헤더 */}
       <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center flex-shrink-0">
         <h1 className="text-lg font-extrabold text-slate-900">제품 관리</h1>
         <button onClick={handleOpenRegister} className="px-4 py-1.5 bg-[#528771] hover:bg-[#3d6856] text-white rounded-xl font-bold text-xs transition shadow-sm whitespace-nowrap">
@@ -192,9 +227,8 @@ export default function ProductsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 flex-1 min-h-0">
         
-        {/* 좌측: 리스트 영역 */}
+        {/* 좌측: 제품 리스트 영역 */}
         <div className="lg:col-span-8 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden">
-          
           <div className="px-4 pt-3 pb-2 flex items-center gap-1.5 overflow-x-auto hide-scrollbar border-b border-slate-100 flex-shrink-0">
             {manufacturerTabs.map(m => {
               const count = m === "전체" ? products.length : products.filter(p => p.manufacturer === m).length;
@@ -220,15 +254,16 @@ export default function ProductsPage() {
                   <th className="py-2.5 px-4 font-bold w-16">이미지</th>
                   <th className="py-2.5 px-4 font-bold">제품명</th>
                   <th className="py-2.5 px-4 font-bold text-center">분류</th>
-                  <th className="py-2.5 px-4 font-bold">제조사</th>
-                  <th className="py-2.5 px-4 font-bold text-right">판매가</th>
-                  <th className="py-2.5 px-4 font-bold text-center">재고수량</th>
+                  <th className="py-2.5 px-4 font-bold text-center">옵션수</th>
+                  <th className="py-2.5 px-4 font-bold text-right">매입가</th>
+                  <th className="py-2.5 px-4 font-bold text-right">기본 판매가</th>
+                  <th className="py-2.5 px-4 font-bold text-center">총 재고(낱개)</th>
                   <th className="py-2.5 px-4 font-bold text-center">상태</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredProducts.length === 0 ? (
-                  <tr><td colSpan={7} className="py-12 text-center text-slate-400 font-bold">등록된 제품이 없습니다.</td></tr>
+                  <tr><td colSpan={8} className="py-12 text-center text-slate-400 font-bold">등록된 제품이 없습니다.</td></tr>
                 ) : (
                   filteredProducts.map((p) => (
                     <tr 
@@ -245,9 +280,12 @@ export default function ProductsPage() {
                       <td className="py-2.5 px-4 text-center">
                         <span className="text-[10px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-100 whitespace-nowrap">{p.category || "-"}</span>
                       </td>
-                      <td className="py-2.5 px-4 font-semibold text-slate-600">{p.manufacturer || "-"}</td>
+                      <td className="py-2.5 px-4 font-bold text-slate-500 text-center">
+                        {p.options && p.options.length > 0 ? `${p.options.length}개` : "-"}
+                      </td>
+                      <td className="py-2.5 px-4 font-semibold text-slate-500 text-right">{p.purchase_price?.toLocaleString() || "0"}원</td>
                       <td className="py-2.5 px-4 font-extrabold text-slate-800 text-right">{p.price?.toLocaleString()}원</td>
-                      <td className="py-2.5 px-4 font-bold text-slate-700 text-center">{p.stock}</td>
+                      <td className="py-2.5 px-4 font-black text-[#528771] text-center">{p.stock}</td>
                       <td className="py-2.5 px-4 text-center">
                         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap ${p.status === '판매중' ? 'text-emerald-700 bg-emerald-50' : 'text-rose-700 bg-rose-50'}`}>
                           {p.status}
@@ -307,14 +345,36 @@ export default function ProductsPage() {
                     <span className={`font-bold ${selectedProduct.status === '판매중' ? 'text-emerald-600' : 'text-rose-600'}`}>{selectedProduct.status}</span>
                   </div>
                   <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
-                    <span className="font-bold text-slate-400">판매가</span>
-                    <span className="font-extrabold text-[#528771]">{selectedProduct.price?.toLocaleString()}원</span>
+                    <span className="font-bold text-slate-400">기본 매입가</span>
+                    <span className="font-extrabold text-slate-700">{selectedProduct.purchase_price?.toLocaleString() || "0"}원</span>
                   </div>
                   <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
-                    <span className="font-bold text-slate-400">재고수량</span>
-                    <span className="font-bold text-slate-800">{selectedProduct.stock}개</span>
+                    <span className="font-bold text-slate-400">기본 판매가</span>
+                    <span className="font-extrabold text-[#528771]">{selectedProduct.price?.toLocaleString()}원</span>
+                  </div>
+                  <div className="flex justify-between items-center py-1.5 border-b border-slate-100 bg-slate-50 px-2 rounded-lg mt-1">
+                    <span className="font-bold text-slate-700">총 재고 수량 (단일재고)</span>
+                    <span className="font-black text-slate-900 text-sm">{selectedProduct.stock}개</span>
                   </div>
                 </div>
+
+                {/* 🟢 다중 옵션 렌더링 영역 */}
+                {selectedProduct.options && selectedProduct.options.length > 0 && (
+                  <div className="px-1 mt-2">
+                    <h4 className="text-[11px] font-bold text-slate-700 mb-2 border-b border-slate-200 pb-1">판매 옵션 구성</h4>
+                    <div className="space-y-1.5">
+                      {selectedProduct.options.map((opt: any, idx: number) => (
+                        <div key={idx} className="flex justify-between items-center bg-white border border-slate-200 p-2 rounded-xl shadow-xs">
+                          <div className="flex flex-col">
+                            <span className="font-extrabold text-slate-800 text-[11px]">{opt.name}</span>
+                            <span className="text-[9px] font-bold text-slate-400">재고 차감: {opt.unit}개</span>
+                          </div>
+                          <span className="font-extrabold text-[#528771] text-xs">{opt.price.toLocaleString()}원</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ) : (
@@ -325,16 +385,16 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {/* 제품 등록 / 수정 모달 */}
+      {/* 🟢 제품 등록 / 수정 모달 */}
       {isModalOpen && (
         <div onClick={() => setIsModalOpen(false)} className="fixed inset-0 z-[120] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
-          <div className="bg-white w-full max-w-xl max-h-[90vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col cursor-default" onClick={e => e.stopPropagation()}>
+          <div className="bg-white w-full max-w-2xl max-h-[90vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col cursor-default" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center border-b pb-3 mb-4 shrink-0">
               <h3 className="text-base font-bold text-slate-900">{editingProductId ? "제품 정보 수정" : "새 제품 등록"}</h3>
               <button onClick={() => setIsModalOpen(false)} className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
             </div>
 
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto pr-2 space-y-4 text-xs">
+            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto pr-2 space-y-5 text-xs hide-scrollbar">
               
               <div className="flex gap-4">
                 <div className="w-24 flex flex-col gap-1.5 shrink-0">
@@ -343,7 +403,7 @@ export default function ProductsPage() {
                     {imagePreview ? (
                       <img src={imagePreview} className="w-full h-full object-cover" />
                     ) : (
-                      <span className="text-[10px] text-slate-400 font-bold text-center px-1">클릭하여 등록</span>
+                      <span className="text-[10px] text-slate-400 font-bold text-center px-1">클릭 등록</span>
                     )}
                     <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
                   </label>
@@ -401,26 +461,66 @@ export default function ProductsPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">판매가 (원)</label>
-                  <input type="number" value={price} onChange={e => setPrice(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" />
+              {/* 기본 가격 및 단일 재고 설정 영역 */}
+              <div className="p-4 bg-slate-50 border border-slate-200 rounded-2xl">
+                <h4 className="font-extrabold text-slate-800 mb-3 border-b border-slate-200 pb-2">기본 가격 및 단일 재고 설정</h4>
+                <div className="grid grid-cols-4 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">기본 매입가(원)</label>
+                    <input type="number" value={purchasePrice} onChange={e => setPurchasePrice(e.target.value)} placeholder="0" className="w-full p-2 bg-white border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">대표 판매가(원)</label>
+                    <input type="number" value={price} onChange={e => setPrice(e.target.value)} placeholder="0" className="w-full p-2 bg-white border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">총 낱개 재고</label>
+                    <input type="number" value={stock} onChange={e => setStock(e.target.value)} placeholder="0" className="w-full p-2 bg-white border border-slate-200 rounded-xl font-bold focus:outline-none focus:border-rose-400" />
+                  </div>
+                  <div>
+                    <label className="block font-bold text-slate-700 mb-1">상태</label>
+                    <select value={status} onChange={e => setStatus(e.target.value)} className="w-full p-2 bg-white border border-slate-200 rounded-xl font-semibold focus:outline-none">
+                      {STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">재고 수량</label>
-                  <input type="number" value={stock} onChange={e => setStock(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" />
+              </div>
+
+              {/* 🟢 다중 판매 옵션 영역 (1박스, 10개 등) */}
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <div>
+                    <label className="block font-bold text-slate-700 text-sm">추가 판매 옵션 구성 (선택)</label>
+                    <p className="text-[10px] text-slate-500 font-medium">다양한 묶음/단위(예: 1박스, 10환) 판매가 필요할 때 추가하세요.</p>
+                  </div>
+                  <button type="button" onClick={handleAddOption} className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-lg font-bold transition">
+                    + 옵션 추가
+                  </button>
                 </div>
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">상태</label>
-                  <select value={status} onChange={e => setStatus(e.target.value)} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold">
-                    {STATUS_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                  </select>
-                </div>
+                
+                {options.length > 0 && (
+                  <div className="space-y-2 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+                    <div className="flex gap-2 text-[10px] font-extrabold text-slate-400 px-1">
+                      <div className="flex-[2]">옵션명 (예: 10환)</div>
+                      <div className="flex-1">판매가(원)</div>
+                      <div className="flex-1">재고 차감 단위(개)</div>
+                      <div className="w-6"></div>
+                    </div>
+                    {options.map((opt) => (
+                      <div key={opt.id} className="flex gap-2 items-center">
+                        <input type="text" placeholder="예: 30환(1박스)" value={opt.name} onChange={e => updateOption(opt.id, 'name', e.target.value)} className="flex-[2] p-2 bg-white border border-slate-200 rounded-lg font-semibold focus:outline-none focus:border-[#528771]" />
+                        <input type="number" placeholder="금액" value={opt.price} onChange={e => updateOption(opt.id, 'price', e.target.value)} className="flex-1 p-2 bg-white border border-slate-200 rounded-lg font-semibold focus:outline-none focus:border-[#528771]" />
+                        <input type="number" placeholder="예: 30" value={opt.unit} onChange={e => updateOption(opt.id, 'unit', e.target.value)} title="판매 시 총 재고에서 차감될 기준 수량입니다." className="flex-1 p-2 bg-white border border-slate-200 rounded-lg font-semibold focus:outline-none focus:border-[#528771]" />
+                        <button type="button" onClick={() => removeOption(opt.id)} className="w-6 h-6 flex items-center justify-center bg-rose-50 text-rose-500 hover:bg-rose-100 rounded-md font-bold transition">✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div>
                 <label className="block font-bold text-slate-700 mb-1">상세 설명</label>
-                <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold resize-none focus:outline-none focus:border-[#528771]" placeholder="제품 특징이나 주요 성분을 입력하세요." />
+                <textarea value={description} onChange={e => setDescription(e.target.value)} rows={2} className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold resize-none focus:outline-none focus:border-[#528771]" placeholder="제품 특징이나 주요 성분을 입력하세요." />
               </div>
 
               <div className="flex justify-end gap-2 pt-4 border-t border-slate-100 shrink-0">
