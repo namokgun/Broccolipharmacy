@@ -33,6 +33,17 @@ export default function PurchasesPage() {
   const [editProductSearch, setEditProductSearch] = useState("");
   const [editSelectedProducts, setEditSelectedProducts] = useState<any[]>([]);
 
+  // 🟢 아코디언(펼쳐보기) 상태 관리
+  const [expandedRecentIds, setExpandedRecentIds] = useState<string[]>([]);
+  const [expandedHistoryIds, setExpandedHistoryIds] = useState<string[]>([]);
+
+  const toggleRecent = (id: string) => {
+    setExpandedRecentIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+  const toggleHistory = (id: string) => {
+    setExpandedHistoryIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+  };
+
   useEffect(() => {
     const now = new Date();
     setPurchaseDate(now.toISOString().split('T')[0]);
@@ -237,6 +248,13 @@ export default function PurchasesPage() {
     return { amount: marginAmount, percent: marginPercent };
   };
 
+  // 요약 텍스트 생성 함수
+  const getSummaryText = (items: any[]) => {
+    if (!items || items.length === 0) return "제품 없음";
+    const mainItem = items[0].name;
+    return items.length > 1 ? `${mainItem} 외 ${items.length - 1}건` : mainItem;
+  };
+
   return (
     <div className="w-full h-[calc(100vh-32px)] flex flex-col space-y-3 overflow-hidden max-w-[1700px] mx-auto pb-2">
       
@@ -323,13 +341,12 @@ export default function PurchasesPage() {
 
                       return (
                         <div key={p.id} className="flex items-center justify-between py-1.5 border-b border-slate-100 hover:bg-slate-50 transition px-1 gap-2">
-                          
                           <div className="flex flex-col flex-1 min-w-0">
                             <span className="font-extrabold text-slate-900 text-xs truncate" title={p.name}>{p.name}</span>
                             <span className="text-[9px] font-bold text-slate-400 truncate">판매: {p.original_price?.toLocaleString()}원</span>
                           </div>
                           
-                          {/* 🟢 매입가 고정 (수정 불가) 영역 */}
+                          {/* 매입가 고정(Read-only) */}
                           <div className="w-[80px] flex-shrink-0 text-right pr-2">
                             <span className="font-extrabold text-slate-700 text-[11px]">{p.purchase_price?.toLocaleString() || "0"}</span>
                           </div>
@@ -432,11 +449,10 @@ export default function PurchasesPage() {
             <div className="flex-1 overflow-y-auto space-y-2 pr-1 hide-scrollbar">
               {purchases.map(p => {
                 const totalQty = p.items?.reduce((sum: number, i: any) => sum + i.quantity, 0) || 0;
-                // 마우스 오버 툴팁용 텍스트 생성
-                const fullTooltip = p.items?.map((i: any) => `${i.name}(${i.quantity}개)`).join(', ');
+                const isExpanded = expandedRecentIds.includes(p.id);
 
                 return (
-                  <div key={p.id} className="p-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors cursor-default group relative flex flex-col justify-between gap-2">
+                  <div key={p.id} className="p-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors cursor-default relative flex flex-col gap-2">
                     <div className="flex justify-between items-start">
                       <div className="text-[10px] font-bold text-slate-500 flex items-center gap-1.5">
                         <span className="bg-slate-100 border border-slate-200 text-slate-600 px-1.5 py-0.5 rounded">{p.manufacturer}</span>
@@ -448,21 +464,40 @@ export default function PurchasesPage() {
                       </div>
                     </div>
                     
-                    {/* 🟢 최대 2줄 제한 태그 UI (넘어가면 숨김, 툴팁으로 확인) */}
-                    <div 
-                      className="flex flex-wrap gap-1 max-h-[36px] overflow-hidden relative pr-10" 
-                      title={fullTooltip}
-                    >
-                      {p.items?.map((i:any, idx:number) => (
-                        <span key={idx} className="inline-flex items-center gap-1 bg-teal-50 border border-teal-100 text-teal-900 px-1.5 py-0.5 rounded text-[10px] font-bold whitespace-nowrap">
-                          {i.name} <span className="text-teal-600">| {i.quantity}</span>
-                        </span>
-                      ))}
+                    {/* 🟢 아코디언 UI 적용 (기본 요약 + 펼치기 버튼) */}
+                    <div className="flex justify-between items-center mt-1">
+                      <span className="font-extrabold text-slate-800 text-[11px] truncate">
+                        {getSummaryText(p.items)}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => handleOpenEditModal(p)} className="text-[10px] font-bold text-slate-500 bg-white border border-slate-200 hover:bg-slate-100 px-2 py-1 rounded-md transition">
+                          수정
+                        </button>
+                        <button 
+                          onClick={() => toggleRecent(p.id)}
+                          className="text-[10px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-md transition"
+                        >
+                          {isExpanded ? "▲ 닫기" : "▼ 상세"}
+                        </button>
+                      </div>
                     </div>
-                    
-                    <button onClick={() => handleOpenEditModal(p)} className="absolute bottom-2.5 right-2 text-[10px] font-bold text-white bg-slate-800 px-2 py-1 rounded-md shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
-                      수정
-                    </button>
+
+                    {/* 🟢 아코디언 펼침 내용 (상세 리스트) */}
+                    {isExpanded && (
+                      <div className="mt-1 pt-2 border-t border-slate-100">
+                        <div className="bg-slate-50 rounded-lg p-2 space-y-1">
+                          {p.items?.map((i:any, idx:number) => (
+                            <div key={idx} className="flex justify-between items-center text-[10px]">
+                              <span className="font-bold text-slate-700 truncate mr-2">{i.name}</span>
+                              <div className="flex gap-2 flex-shrink-0">
+                                <span className="text-slate-400">{i.purchase_price?.toLocaleString()}원</span>
+                                <span className="font-extrabold text-teal-700 w-8 text-right">{i.quantity}개</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -508,7 +543,7 @@ export default function PurchasesPage() {
                 <tr>
                   <th className="py-3 px-4 font-bold whitespace-nowrap w-[110px]">사입일자</th>
                   <th className="py-3 px-4 font-bold whitespace-nowrap w-[130px]">거래처(제조사)</th>
-                  <th className="py-3 px-4 font-bold w-[350px]">매입 상품 내역 (마우스 오버 시 전체보기)</th>
+                  <th className="py-3 px-4 font-bold w-[350px]">매입 상품 내역</th>
                   <th className="py-3 px-4 font-extrabold w-auto min-w-[200px] text-slate-800">코멘트</th>
                   <th className="py-3 px-4 font-bold text-right whitespace-nowrap w-[120px]">총 사입 금액</th>
                   <th className="py-3 px-4 font-bold text-center whitespace-nowrap w-[90px]">관리</th>
@@ -518,37 +553,66 @@ export default function PurchasesPage() {
                 {filteredHistoryPurchases.length === 0 ? (
                   <tr><td colSpan={6} className="py-12 text-center text-slate-400 font-bold">검색된 사입 내역이 없습니다.</td></tr>
                 ) : (
-                  filteredHistoryPurchases.map((p) => (
-                    <tr key={p.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="py-3 px-4 font-extrabold text-slate-800 whitespace-nowrap">{p.purchase_date}</td>
-                      <td className="py-3 px-4 font-extrabold text-slate-900 whitespace-nowrap">
-                        <span className="bg-white border border-slate-200 px-2 py-1 rounded-lg shadow-sm">{p.manufacturer}</span>
-                      </td>
-                      <td className="py-2.5 px-4">
-                        {/* 🟢 히스토리 테이블에도 2줄 태그 UI 적용 */}
-                        <div 
-                          className="flex flex-wrap gap-1 max-w-[330px] max-h-[42px] overflow-hidden relative"
-                          title={p.items?.map((i: any) => `${i.name}(${i.quantity}개)`).join(", ")}
-                        >
-                          {p.items?.map((i:any, idx:number) => (
-                            <span key={idx} className="inline-flex items-center gap-1 bg-slate-100 border border-slate-200 text-slate-700 px-1.5 py-0.5 rounded-md text-[10px] font-bold whitespace-nowrap">
-                              {i.name} <span className="text-slate-500">| {i.quantity}</span>
+                  filteredHistoryPurchases.map((p) => {
+                    const isExpanded = expandedHistoryIds.includes(p.id);
+
+                    return (
+                      <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3 px-4 font-extrabold text-slate-800 whitespace-nowrap align-top">{p.purchase_date}</td>
+                        <td className="py-3 px-4 font-extrabold text-slate-900 whitespace-nowrap align-top">
+                          <span className="bg-white border border-slate-200 px-2 py-1 rounded-lg shadow-sm">{p.manufacturer}</span>
+                        </td>
+                        <td className="py-3 px-4 align-top">
+                          {/* 🟢 히스토리 테이블에도 아코디언 적용 */}
+                          <div className="flex items-center gap-3">
+                            <span className="font-extrabold text-slate-800 flex-1">
+                              {getSummaryText(p.items)}
                             </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td className="py-3 px-4 text-slate-600 font-medium whitespace-normal break-words max-w-[250px]">
-                        {p.memo || "-"}
-                      </td>
-                      <td className="py-3 px-4 font-black text-[#528771] text-right whitespace-nowrap">{p.total_amount?.toLocaleString()}원</td>
-                      <td className="py-3 px-4 text-center whitespace-nowrap">
-                        <div className="flex justify-center gap-1.5">
-                          <button onClick={() => handleOpenEditModal(p)} className="text-[11px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-md transition">수정</button>
-                          <button onClick={() => handleDeletePurchase(p.id)} className="text-[11px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-md transition">삭제</button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                            <button 
+                              onClick={() => toggleHistory(p.id)}
+                              className="text-[10px] font-bold text-slate-500 hover:text-slate-800 bg-white border border-slate-200 hover:bg-slate-100 px-2 py-1 rounded transition whitespace-nowrap"
+                            >
+                              {isExpanded ? "▲ 닫기" : "▼ 상세"}
+                            </button>
+                          </div>
+                          
+                          {/* 🟢 아코디언 펼침 시 미니 테이블 렌더링 */}
+                          {isExpanded && (
+                            <div className="mt-3 bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs">
+                              <table className="w-full text-left">
+                                <thead className="bg-slate-50 text-[10px] text-slate-500">
+                                  <tr>
+                                    <th className="px-3 py-1.5 font-bold">제품명</th>
+                                    <th className="px-3 py-1.5 font-bold text-right">단가</th>
+                                    <th className="px-3 py-1.5 font-bold text-right w-16">수량</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100 text-[11px]">
+                                  {p.items?.map((i:any, idx:number) => (
+                                    <tr key={idx} className="hover:bg-slate-50/50">
+                                      <td className="px-3 py-2 font-bold text-slate-700">{i.name}</td>
+                                      <td className="px-3 py-2 text-right text-slate-500">{i.purchase_price?.toLocaleString() || "0"}원</td>
+                                      <td className="px-3 py-2 text-right font-black text-[#528771]">{i.quantity}개</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3 px-4 text-slate-600 font-medium whitespace-normal break-words max-w-[250px] align-top">
+                          {p.memo || "-"}
+                        </td>
+                        <td className="py-3 px-4 font-black text-[#528771] text-right whitespace-nowrap align-top">{p.total_amount?.toLocaleString()}원</td>
+                        <td className="py-3 px-4 text-center whitespace-nowrap align-top">
+                          <div className="flex justify-center gap-1.5">
+                            <button onClick={() => handleOpenEditModal(p)} className="text-[11px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-md transition">수정</button>
+                            <button onClick={() => handleDeletePurchase(p.id)} className="text-[11px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-2.5 py-1 rounded-md transition">삭제</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -633,7 +697,7 @@ export default function PurchasesPage() {
                             <span className="text-[9px] font-bold text-slate-400 truncate">판매: {p.original_price?.toLocaleString()}원</span>
                           </div>
                           
-                          {/* 🟢 수정 모달에서도 매입가 고정 (수정 불가) */}
+                          {/* 매입가 고정 */}
                           <div className="w-[80px] flex-shrink-0 text-right pr-2">
                             <span className="font-extrabold text-slate-700 text-[11px]">{p.purchase_price?.toLocaleString() || "0"}</span>
                           </div>
