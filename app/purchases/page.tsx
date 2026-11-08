@@ -33,7 +33,6 @@ export default function PurchasesPage() {
   const [editProductSearch, setEditProductSearch] = useState("");
   const [editSelectedProducts, setEditSelectedProducts] = useState<any[]>([]);
 
-  // 🟢 아코디언(펼쳐보기) 상태 관리
   const [expandedRecentIds, setExpandedRecentIds] = useState<string[]>([]);
   const [expandedHistoryIds, setExpandedHistoryIds] = useState<string[]>([]);
 
@@ -248,7 +247,6 @@ export default function PurchasesPage() {
     return { amount: marginAmount, percent: marginPercent };
   };
 
-  // 요약 텍스트 생성 함수
   const getSummaryText = (items: any[]) => {
     if (!items || items.length === 0) return "제품 없음";
     const mainItem = items[0].name;
@@ -273,35 +271,41 @@ export default function PurchasesPage() {
       {activeTab === "register" && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 flex-1 min-h-0">
           
-          <div className="lg:col-span-6 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col p-5 overflow-y-auto space-y-4">
-            <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#528771]"></span> 새 사입 등록
-            </h2>
+          <div className="lg:col-span-6 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col p-4 overflow-y-auto space-y-3">
             
-            <form onSubmit={handleSubmit} className="flex flex-col h-full space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 text-xs mb-1">사입일자 *</label>
-                  <input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} required 
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#528771]" 
-                  />
-                </div>
-                <div>
-                  <label className="block font-bold text-slate-700 text-xs mb-1">거래처(제조사) *</label>
+            {/* 🟢 날짜 입력란을 헤더로 이동하여 세로 공간 절약 */}
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100 shrink-0">
+              <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#528771]"></span> 새 사입 등록
+              </h2>
+              <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2 py-1 rounded-lg">
+                <span className="text-[10px] font-bold text-slate-500">사입일자</span>
+                <input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} required 
+                  className="bg-transparent text-[10px] font-extrabold text-slate-700 focus:outline-none" 
+                />
+              </div>
+            </div>
+            
+            <form onSubmit={handleSubmit} className="flex flex-col h-full space-y-3 pt-1">
+              
+              {/* 🟢 거래처 입력을 가로로 나란히 배치하여 한 줄 절약 */}
+              <div>
+                <label className="block font-bold text-slate-700 text-xs mb-1">거래처(제조사) *</label>
+                <div className="flex gap-2">
                   <select 
                     value={isCustomManufacturer ? "직접입력" : manufacturer}
                     onChange={e => {
                       if (e.target.value === "직접입력") { setIsCustomManufacturer(true); setCustomManufacturerInput(""); } 
                       else { setIsCustomManufacturer(false); setManufacturer(e.target.value); }
                     }}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#528771] mb-1"
+                    className={`p-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#528771] ${isCustomManufacturer ? "w-1/2" : "w-full"}`}
                   >
                     <option value="직접입력">직접 입력</option>
                     {allManufacturers.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
                   {isCustomManufacturer && (
                     <input type="text" value={customManufacturerInput} onChange={e => setCustomManufacturerInput(e.target.value)} placeholder="거래처명 직접 입력..." required 
-                      className="w-full p-2.5 bg-teal-50/50 border border-teal-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#528771]" 
+                      className="w-1/2 p-2 bg-teal-50/50 border border-teal-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#528771]" 
                     />
                   )}
                 </div>
@@ -335,7 +339,7 @@ export default function PurchasesPage() {
                       <div className="w-[30px]"></div>
                     </div>
                   )}
-                  <div className="space-y-0.5 max-h-[260px] overflow-y-auto pr-1 hide-scrollbar">
+                  <div className="space-y-0.5 max-h-[250px] overflow-y-auto pr-1 hide-scrollbar">
                     {selectedProducts.map(p => {
                       const margin = calculateMargin(p.original_price, p.purchase_price);
 
@@ -346,7 +350,6 @@ export default function PurchasesPage() {
                             <span className="text-[9px] font-bold text-slate-400 truncate">판매: {p.original_price?.toLocaleString()}원</span>
                           </div>
                           
-                          {/* 매입가 고정(Read-only) */}
                           <div className="w-[80px] flex-shrink-0 text-right pr-2">
                             <span className="font-extrabold text-slate-700 text-[11px]">{p.purchase_price?.toLocaleString() || "0"}</span>
                           </div>
@@ -387,8 +390,8 @@ export default function PurchasesPage() {
               </div>
 
               <div>
-                <textarea value={memo} onChange={e => setMemo(e.target.value)} rows={3} 
-                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold resize-none focus:outline-none focus:border-[#528771]" 
+                <textarea value={memo} onChange={e => setMemo(e.target.value)} rows={2} 
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold resize-none focus:outline-none focus:border-[#528771]" 
                   placeholder="특이사항 입력..." 
                 />
               </div>
@@ -464,7 +467,6 @@ export default function PurchasesPage() {
                       </div>
                     </div>
                     
-                    {/* 🟢 아코디언 UI 적용 (기본 요약 + 펼치기 버튼) */}
                     <div className="flex justify-between items-center mt-1">
                       <span className="font-extrabold text-slate-800 text-[11px] truncate">
                         {getSummaryText(p.items)}
@@ -482,7 +484,6 @@ export default function PurchasesPage() {
                       </div>
                     </div>
 
-                    {/* 🟢 아코디언 펼침 내용 (상세 리스트) */}
                     {isExpanded && (
                       <div className="mt-1 pt-2 border-t border-slate-100">
                         <div className="bg-slate-50 rounded-lg p-2 space-y-1">
@@ -563,7 +564,6 @@ export default function PurchasesPage() {
                           <span className="bg-white border border-slate-200 px-2 py-1 rounded-lg shadow-sm">{p.manufacturer}</span>
                         </td>
                         <td className="py-3 px-4 align-top">
-                          {/* 🟢 히스토리 테이블에도 아코디언 적용 */}
                           <div className="flex items-center gap-3">
                             <span className="font-extrabold text-slate-800 flex-1">
                               {getSummaryText(p.items)}
@@ -576,7 +576,6 @@ export default function PurchasesPage() {
                             </button>
                           </div>
                           
-                          {/* 🟢 아코디언 펼침 시 미니 테이블 렌더링 */}
                           {isExpanded && (
                             <div className="mt-3 bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs">
                               <table className="w-full text-left">
@@ -623,36 +622,41 @@ export default function PurchasesPage() {
       {isEditModalOpen && (
         <div onClick={() => setIsEditModalOpen(false)} className="fixed inset-0 z-[120] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-2xl max-h-[90vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col cursor-default" onClick={e => e.stopPropagation()}>
+            
+            {/* 🟢 수정 팝업 헤더 영역에도 사입일자 압축 배치 */}
             <div className="flex justify-between items-center border-b pb-3 mb-4 shrink-0">
-              <h3 className="text-base font-bold text-slate-900">사입 내역 수정</h3>
+              <div className="flex items-center gap-3">
+                <h3 className="text-base font-bold text-slate-900">사입 내역 수정</h3>
+                <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2 py-1 rounded-lg">
+                  <span className="text-[10px] font-bold text-slate-500">사입일자</span>
+                  <input type="date" value={editPurchaseDate} onChange={e => setEditPurchaseDate(e.target.value)} required 
+                    className="bg-transparent text-[10px] font-extrabold text-slate-700 focus:outline-none" 
+                  />
+                </div>
+              </div>
               <button onClick={() => setIsEditModalOpen(false)} className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
             </div>
 
             <form onSubmit={handleUpdateSubmit} className="flex-1 overflow-y-auto pr-2 space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">사입일자 *</label>
-                  <input type="date" value={editPurchaseDate} onChange={e => setEditPurchaseDate(e.target.value)} required 
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" 
-                  />
-                </div>
-                
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">거래처(제조사) *</label>
+              
+              {/* 🟢 수정 팝업 제조사 가로 배치 */}
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">거래처(제조사) *</label>
+                <div className="flex gap-2">
                   <select 
                     value={editIsCustomManufacturer ? "직접입력" : editManufacturer}
                     onChange={e => {
                       if (e.target.value === "직접입력") { setEditIsCustomManufacturer(true); setEditCustomManufacturerInput(""); } 
                       else { setEditIsCustomManufacturer(false); setEditManufacturer(e.target.value); }
                     }}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771] mb-1"
+                    className={`p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771] ${editIsCustomManufacturer ? "w-1/2" : "w-full"}`}
                   >
                     <option value="직접입력">직접 입력</option>
                     {allManufacturers.map(m => <option key={m} value={m}>{m}</option>)}
                   </select>
                   {editIsCustomManufacturer && (
                     <input type="text" value={editCustomManufacturerInput} onChange={e => setEditCustomManufacturerInput(e.target.value)} placeholder="거래처명 직접 입력..." required 
-                      className="w-full p-2.5 bg-teal-50/50 border border-teal-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" 
+                      className="w-1/2 p-2.5 bg-teal-50/50 border border-teal-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" 
                     />
                   )}
                 </div>
@@ -697,7 +701,6 @@ export default function PurchasesPage() {
                             <span className="text-[9px] font-bold text-slate-400 truncate">판매: {p.original_price?.toLocaleString()}원</span>
                           </div>
                           
-                          {/* 매입가 고정 */}
                           <div className="w-[80px] flex-shrink-0 text-right pr-2">
                             <span className="font-extrabold text-slate-700 text-[11px]">{p.purchase_price?.toLocaleString() || "0"}</span>
                           </div>
