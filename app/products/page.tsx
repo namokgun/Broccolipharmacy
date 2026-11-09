@@ -251,7 +251,7 @@ export default function ProductsPage() {
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-100/80 text-slate-600 sticky top-0 backdrop-blur-md z-10 border-b border-slate-200">
                 <tr>
-                  <th className="py-2.5 px-4 font-bold w-16">이미지</th>
+                  <th className="py-2.5 px-4 font-bold w-20 whitespace-nowrap">이미지</th>
                   <th className="py-2.5 px-4 font-bold">제품명</th>
                   <th className="py-2.5 px-4 font-bold text-center">분류</th>
                   <th className="py-2.5 px-4 font-bold text-center">옵션수</th>
