@@ -15,7 +15,7 @@ export default function PurchasesPage() {
   const [historySearch, setHistorySearch] = useState("");
 
   const [purchaseDate, setPurchaseDate] = useState("");
-  const [currentMonth, setCurrentMonth] = useState("");
+  const [viewMonth, setViewMonth] = useState(""); // 🟢 통계용 월 상태
   const [manufacturer, setManufacturer] = useState("직접입력");
   const [isCustomManufacturer, setIsCustomManufacturer] = useState(true);
   const [customManufacturerInput, setCustomManufacturerInput] = useState("");
@@ -46,7 +46,7 @@ export default function PurchasesPage() {
   useEffect(() => {
     const now = new Date();
     setPurchaseDate(now.toISOString().split('T')[0]);
-    setCurrentMonth(now.toISOString().slice(0, 7));
+    setViewMonth(now.toISOString().slice(0, 7));
     fetchData();
   }, []);
 
@@ -210,17 +210,36 @@ export default function PurchasesPage() {
     }
   };
 
-  const thisMonthPurchases = purchases.filter(p => currentMonth && p.purchase_date?.startsWith(currentMonth));
-  const thisMonthCount = thisMonthPurchases.length;
-  const thisMonthSum = thisMonthPurchases.reduce((sum, p) => sum + (p.total_amount || 0), 0);
+  // 🟢 이전/다음 달 이동 핸들러
+  const handlePrevMonth = () => {
+    if (!viewMonth) return;
+    const [year, month] = viewMonth.split("-").map(Number);
+    const date = new Date(year, month - 2, 1);
+    setViewMonth(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`);
+  };
+
+  const handleNextMonth = () => {
+    if (!viewMonth) return;
+    const [year, month] = viewMonth.split("-").map(Number);
+    const date = new Date(year, month, 1);
+    setViewMonth(`${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`);
+  };
+
+  // 🟢 월별 통계 계산
+  const monthlyPurchases = useMemo(() => {
+    return purchases.filter(p => viewMonth && p.purchase_date?.startsWith(viewMonth));
+  }, [purchases, viewMonth]);
+
+  const thisMonthCount = monthlyPurchases.length;
+  const thisMonthSum = monthlyPurchases.reduce((sum, p) => sum + (p.total_amount || 0), 0);
 
   const manufacturerStats = useMemo(() => {
     const stats: Record<string, number> = {};
-    purchases.forEach(p => {
-      stats[p.manufacturer] = (stats[p.manufacturer] || 0) + p.total_amount;
+    monthlyPurchases.forEach(p => {
+      stats[p.manufacturer] = (stats[p.manufacturer] || 0) + (p.total_amount || 0);
     });
     return Object.entries(stats).sort((a, b) => b[1] - a[1]);
-  }, [purchases]);
+  }, [monthlyPurchases]);
 
   const filteredHistoryPurchases = useMemo(() => {
     let list = [...purchases];
@@ -404,13 +423,22 @@ export default function PurchasesPage() {
 
           <div className="lg:col-span-2 flex flex-col gap-3 overflow-hidden">
             <div className="bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col flex-1 p-4 overflow-hidden">
-              <h3 className="text-xs font-extrabold text-slate-900 mb-3 flex items-center gap-1.5">
-                🏢 제조사별 매입액
-              </h3>
+              
+              {/* 🟢 월별 이동 컨트롤 (이전/다음 달) */}
+              <div className="flex justify-between items-center mb-3 shrink-0">
+                <h3 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                  🏢 제조사별 매입액
+                </h3>
+                <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded-lg">
+                  <button onClick={handlePrevMonth} className="text-[10px] px-1 text-slate-400 hover:text-slate-800 font-bold">&lt;</button>
+                  <span className="text-[10px] font-extrabold text-slate-700 w-[42px] text-center">{viewMonth}</span>
+                  <button onClick={handleNextMonth} className="text-[10px] px-1 text-slate-400 hover:text-slate-800 font-bold">&gt;</button>
+                </div>
+              </div>
+
               <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 hide-scrollbar">
                 {manufacturerStats.map(([mfg, amt], idx) => {
-                  const totalAllSum = purchases.reduce((sum, p) => sum + (p.total_amount || 0), 0);
-                  const percent = Math.round((amt / totalAllSum) * 100) || 0;
+                  const percent = Math.round((amt / thisMonthSum) * 100) || 0;
                   return (
                     <div key={mfg} className="text-[10px] bg-slate-50 p-2 rounded-lg border border-slate-100">
                       <div className="flex justify-between font-bold mb-1">
@@ -431,43 +459,41 @@ export default function PurchasesPage() {
 
             <div className="grid grid-cols-1 gap-2 bg-white p-3 rounded-3xl shadow-sm border border-slate-200 flex-shrink-0">
               <div className="flex flex-col p-2 bg-slate-50 rounded-xl border border-slate-100 text-center">
-                <span className="text-[10px] font-bold text-slate-500 mb-0.5">이번 달 사입 건수</span>
+                <span className="text-[10px] font-bold text-slate-500 mb-0.5">{viewMonth.split('-')[1]?.replace(/^0/, '')}월 사입 건수</span>
                 <span className="text-sm font-black text-slate-900">{thisMonthCount}건</span>
               </div>
               <div className="flex flex-col p-2 bg-slate-50 rounded-xl border border-slate-100 text-center">
-                <span className="text-[10px] font-bold text-slate-500 mb-0.5">이번 달 총 사입액</span>
+                <span className="text-[10px] font-bold text-slate-500 mb-0.5">{viewMonth.split('-')[1]?.replace(/^0/, '')}월 총 사입액</span>
                 <span className="text-sm font-black text-[#528771]">{thisMonthSum.toLocaleString()}원</span>
               </div>
             </div>
           </div>
 
-          {/* 🟢 최근 사입 내역 카드 압축 UI */}
           <div className="lg:col-span-4 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col p-4 overflow-hidden">
             <h3 className="text-xs font-extrabold text-slate-900 mb-2.5 flex items-center justify-between">
               <span>최근 사입 내역</span>
               <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">총 {purchases.length}건</span>
             </h3>
             
-            <div className="flex-1 overflow-y-auto space-y-2 pr-1 hide-scrollbar">
+            {/* 🟢 여백 초압축 UI 적용: space-y-1, p-2, gap-1 */}
+            <div className="flex-1 overflow-y-auto space-y-1 pr-1 hide-scrollbar">
               {purchases.map(p => {
                 const totalQty = p.items?.reduce((sum: number, i: any) => sum + i.quantity, 0) || 0;
                 const isExpanded = expandedRecentIds.includes(p.id);
 
                 return (
-                  <div key={p.id} className="p-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors cursor-default relative flex flex-col gap-1.5">
+                  <div key={p.id} className="p-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors cursor-default relative flex flex-col gap-1">
                     
-                    {/* 1줄: 가장 중요한 제품명과 총 금액을 최상단 배치 */}
                     <div className="flex justify-between items-center">
                       <span className="font-extrabold text-slate-900 text-[11.5px] truncate pr-2">
                         {getSummaryText(p.items)}
                       </span>
-                      <span className="font-black text-[#528771] text-xs flex-shrink-0">
+                      <span className="font-black text-[#528771] text-[11.5px] flex-shrink-0">
                         {p.total_amount?.toLocaleString()}원
                       </span>
                     </div>
                     
-                    {/* 2줄: 날짜, 제조사(매입사), 수량을 작게 한 줄로 압축 + 버튼들 */}
-                    <div className="flex justify-between items-center">
+                    <div className="flex justify-between items-center mt-0.5">
                       <div className="text-[9px] font-bold text-slate-400 flex items-center gap-1.5 truncate pr-2">
                         <span className="text-slate-500">{p.purchase_date}</span>
                         <span className="w-0.5 h-2 bg-slate-200 rounded-full flex-shrink-0"></span>
@@ -476,33 +502,32 @@ export default function PurchasesPage() {
                         <span className="flex-shrink-0">총 {totalQty}개</span>
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
-                        <button onClick={() => handleOpenEditModal(p)} className="text-[9px] font-bold text-slate-500 bg-white border border-slate-200 hover:bg-slate-100 px-2 py-1 rounded transition">
+                        <button onClick={() => handleOpenEditModal(p)} className="text-[9px] font-bold text-slate-500 bg-white border border-slate-200 hover:bg-slate-100 px-1.5 py-0.5 rounded transition">
                           수정
                         </button>
                         <button 
                           onClick={() => toggleRecent(p.id)}
-                          className="text-[9px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded transition w-12 text-center"
+                          className="text-[9px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-1.5 py-0.5 rounded transition w-10 text-center"
                         >
-                          {isExpanded ? "▲ 닫기" : "▼ 상세"}
+                          {isExpanded ? "닫기" : "상세"}
                         </button>
                       </div>
                     </div>
 
-                    {/* 아코디언 상세 내역 (단가 x 수량 = 합계 표시) */}
                     {isExpanded && (
-                      <div className="mt-1 pt-2 border-t border-slate-100">
-                        <div className="bg-slate-50 rounded-lg p-2 space-y-1.5">
+                      <div className="mt-0.5 pt-1.5 border-t border-slate-100">
+                        <div className="bg-slate-50 rounded-lg p-1.5 space-y-1">
                           {p.items?.map((i:any, idx:number) => {
                             const subTotal = (i.purchase_price || 0) * (i.quantity || 0);
                             return (
-                              <div key={idx} className="flex justify-between items-center text-[10px]">
+                              <div key={idx} className="flex justify-between items-center text-[9px]">
                                 <span className="font-bold text-slate-700 truncate mr-2">{i.name}</span>
                                 <div className="flex items-center gap-1 flex-shrink-0">
                                   <span className="text-slate-400">{i.purchase_price?.toLocaleString()}</span>
-                                  <span className="text-slate-300 text-[9px]">×</span>
-                                  <span className="font-black text-teal-700 w-4 text-center">{i.quantity}</span>
-                                  <span className="text-slate-300 text-[9px]">=</span>
-                                  <span className="font-extrabold text-slate-800 w-12 text-right">{subTotal.toLocaleString()}</span>
+                                  <span className="text-slate-300">×</span>
+                                  <span className="font-black text-teal-700 w-3 text-center">{i.quantity}</span>
+                                  <span className="text-slate-300">=</span>
+                                  <span className="font-extrabold text-slate-800 w-11 text-right">{subTotal.toLocaleString()}</span>
                                 </div>
                               </div>
                             );
@@ -587,7 +612,6 @@ export default function PurchasesPage() {
                             </button>
                           </div>
                           
-                          {/* 🟢 히스토리 테이블 상세 내역도 단가x수량 포맷 반영 */}
                           {isExpanded && (
                             <div className="mt-3 bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs">
                               <table className="w-full text-left">
@@ -679,7 +703,7 @@ export default function PurchasesPage() {
 
               <div className="relative">
                 <label className="block font-bold text-slate-700 mb-1">매입 제품 선택 *</label>
-                <input type="text" placeholder="+ 제품명 검색하여 추가..." value={editProductSearch} onChange={e => setEditProductSearch(e.target.value)} 
+                <input type="text" placeholder="+ 제품명 검색하여 추가..." value={editProductSearch} onChange={e => setProductSearch(e.target.value)} 
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" 
                 />
                 {editProductSearch && (
