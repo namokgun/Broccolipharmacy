@@ -15,7 +15,7 @@ export default function PurchasesPage() {
   const [historySearch, setHistorySearch] = useState("");
 
   const [purchaseDate, setPurchaseDate] = useState("");
-  const [viewMonth, setViewMonth] = useState(""); // 🟢 통계용 월 상태
+  const [viewMonth, setViewMonth] = useState(""); // 통계용 월 상태
   const [manufacturer, setManufacturer] = useState("직접입력");
   const [isCustomManufacturer, setIsCustomManufacturer] = useState(true);
   const [customManufacturerInput, setCustomManufacturerInput] = useState("");
@@ -424,15 +424,15 @@ export default function PurchasesPage() {
           <div className="lg:col-span-2 flex flex-col gap-3 overflow-hidden">
             <div className="bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col flex-1 p-4 overflow-hidden">
               
-              {/* 🟢 월별 이동 컨트롤 (이전/다음 달) */}
-              <div className="flex justify-between items-center mb-3 shrink-0">
-                <h3 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
-                  🏢 제조사별 매입액
+              {/* 🟢 월별 이동 컨트롤 (이전/다음 달) - 초압축 및 이모티콘 제거 */}
+              <div className="flex justify-between items-center mb-3 shrink-0 gap-1">
+                <h3 className="text-[11px] font-extrabold text-slate-900 whitespace-nowrap">
+                  제조사별 매입액
                 </h3>
-                <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded-lg">
-                  <button onClick={handlePrevMonth} className="text-[10px] px-1 text-slate-400 hover:text-slate-800 font-bold">&lt;</button>
-                  <span className="text-[10px] font-extrabold text-slate-700 w-[42px] text-center">{viewMonth}</span>
-                  <button onClick={handleNextMonth} className="text-[10px] px-1 text-slate-400 hover:text-slate-800 font-bold">&gt;</button>
+                <div className="flex items-center gap-1 bg-slate-50 border border-slate-200 px-1 py-0.5 rounded-md flex-shrink-0">
+                  <button onClick={handlePrevMonth} className="text-[9px] px-1 text-slate-400 hover:text-slate-800 font-bold">&lt;</button>
+                  <span className="text-[9px] font-extrabold text-slate-700 whitespace-nowrap">{viewMonth}</span>
+                  <button onClick={handleNextMonth} className="text-[9px] px-1 text-slate-400 hover:text-slate-800 font-bold">&gt;</button>
                 </div>
               </div>
 
@@ -475,7 +475,6 @@ export default function PurchasesPage() {
               <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">총 {purchases.length}건</span>
             </h3>
             
-            {/* 🟢 여백 초압축 UI 적용: space-y-1, p-2, gap-1 */}
             <div className="flex-1 overflow-y-auto space-y-1 pr-1 hide-scrollbar">
               {purchases.map(p => {
                 const totalQty = p.items?.reduce((sum: number, i: any) => sum + i.quantity, 0) || 0;
