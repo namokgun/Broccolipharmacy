@@ -38,9 +38,10 @@ export default function PatientsPage() {
   const [photosModalPatient, setPhotosModalPatient] = useState<any | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
-  // 폼 필드
+  // 폼 필드 (연락처 필드 추가)
   const [name, setName] = useState("");
   const [customId, setCustomId] = useState("");
+  const [phone, setPhone] = useState(""); // 🟢 연락처 필드 복구
   const [address, setAddress] = useState("");
   const [gender, setGender] = useState("남");
   const [birthYear, setBirthYear] = useState("");
@@ -54,7 +55,7 @@ export default function PatientsPage() {
 
   const [activeCount, setActiveCount] = useState(0);
 
-  // 3개월 통계 상태값 (빌드 에러 방지용 client-side 계산)
+  // 3개월 통계 상태값
   const [customerSalesRanking3Months, setCustomerSalesRanking3Months] = useState<any[]>([]);
   const [totalSalesSum3Months, setTotalSalesSum3Months] = useState(0);
 
@@ -77,7 +78,6 @@ export default function PatientsPage() {
     }
   }, [consultations]);
 
-  // 3개월 판매 통계 계산 (클라이언트 안전 실행)
   useEffect(() => {
     if (sales.length > 0) {
       const threeMonthsAgo = new Date();
@@ -172,7 +172,6 @@ export default function PatientsPage() {
   });
   const returningCount = Object.values(patientConsultCounts).filter(cnt => cnt >= 2).length;
 
-  // 우측 통계: 전체 누적 TOP 산출
   const customerSalesRankingAll = useMemo(() => {
     const stats: Record<string, { name: string, totalAmt: number, count: number }> = {};
     sales.forEach(s => {
@@ -188,7 +187,7 @@ export default function PatientsPage() {
 
   const handleOpenRegister = () => {
     setEditingPatientId(null);
-    setName(""); setCustomId(""); setAddress(""); setGender("남"); setBirthYear(""); setBodyType("선택 안함");
+    setName(""); setCustomId(""); setPhone(""); setAddress(""); setGender("남"); setBirthYear(""); setBodyType("선택 안함");
     setTagsInput(""); setMemo(""); setRepresentativeId(""); setRepSearch("");
     setIsModalOpen(true);
   };
@@ -197,6 +196,7 @@ export default function PatientsPage() {
     setEditingPatientId(p.id);
     setName(p.name || "");
     setCustomId(p.custom_id || "");
+    setPhone(p.phone || ""); // 🟢 폼 편집 시 연락처 세팅
     setAddress(p.address || "");
     setGender(p.gender || "남");
     setBirthYear(p.birth_year ? p.birth_year.toString() : "");
@@ -228,7 +228,7 @@ export default function PatientsPage() {
       .filter(t => t.length > 0);
 
     const payload = {
-      name, custom_id: customId, address, gender,
+      name, custom_id: customId, phone, address, gender, // 🟢 페이로드에 phone 추가
       birth_year: birthYear ? parseInt(birthYear) : null,
       body_type: bodyType === "선택 안함" ? null : bodyType,
       tags: tagsArray, 
@@ -263,7 +263,7 @@ export default function PatientsPage() {
 
   const filteredPatients = enrichedPatients.filter(p => {
     const term = searchTerm.toLowerCase();
-    const matchNameOrId = p.name?.toLowerCase().includes(term) || p.custom_id?.toLowerCase().includes(term);
+    const matchNameOrId = p.name?.toLowerCase().includes(term) || p.custom_id?.toLowerCase().includes(term) || p.phone?.includes(term); // 검색에 번호 추가
     const matchTag = p.tags?.some((t: string) => t.toLowerCase().includes(term));
     const matchAddress = p.address?.toLowerCase().includes(term);
     return matchNameOrId || matchTag || matchAddress;
@@ -319,7 +319,7 @@ export default function PatientsPage() {
           <div className="flex-shrink-0">
             <input 
               type="text" 
-              placeholder="이름, ID, 주소, 태그 검색..." 
+              placeholder="이름, 번호, ID, 주소, 태그 검색..." 
               value={searchTerm} 
               onChange={(e) => setSearchTerm(e.target.value)} 
               className="w-full px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#528771] transition"
@@ -347,23 +347,25 @@ export default function PatientsPage() {
                     }`}
                   >
                     <div className="grid grid-cols-12 items-center w-full gap-1.5 text-center text-[11px]">
-                      <div className="col-span-4 text-left truncate pr-1">
+                      {/* 🟢 이름 및 연락처 복구 (세로 배치로 최적화) */}
+                      <div className="col-span-4 text-left truncate pr-1 flex flex-col justify-center">
                         <span className="font-extrabold text-slate-900 truncate" title={p.custom_id ? `${p.name} (${p.custom_id})` : p.name}>
-                          {p.name} {p.custom_id && <span className="text-[10px] font-semibold text-slate-400 ml-0.5">({p.custom_id})</span>}
+                          {p.name} {p.custom_id && <span className="text-[9px] font-semibold text-slate-400 ml-0.5">({p.custom_id})</span>}
                         </span>
+                        {p.phone && <span className="text-[9px] font-bold text-slate-500 truncate">{p.phone}</span>}
                       </div>
                       
-                      <div className="col-span-3 text-slate-600 font-semibold truncate">
-                        {ageText} / {p.gender || "-"}
+                      <div className="col-span-3 text-slate-600 font-semibold truncate flex flex-col justify-center">
+                        <span>{ageText} / {p.gender || "-"}</span>
                       </div>
                       
-                      <div className="col-span-2">
+                      <div className="col-span-2 flex flex-col justify-center items-center">
                         {p.body_type && p.body_type !== "선택 안함" ? (
                           <span className="bg-teal-50 text-teal-800 px-1.5 py-0.2 rounded font-bold whitespace-nowrap">{p.body_type}</span>
                         ) : <span className="text-slate-300">-</span>}
                       </div>
 
-                      <div className="col-span-3 flex flex-wrap justify-end gap-1 truncate">
+                      <div className="col-span-3 flex flex-wrap justify-end gap-1 truncate items-center">
                         {p.tags && p.tags.slice(0, 1).map((tag: string, idx: number) => (
                           <span key={idx} className={`text-[9px] font-bold px-1.5 py-0.2 rounded border whitespace-nowrap ${getTagColor(tag)}`}>{tag}</span>
                         ))}
@@ -400,6 +402,14 @@ export default function PatientsPage() {
                   <span>·</span>
                   <span>{selectedPatient.birth_year ? `${new Date().getFullYear() - selectedPatient.birth_year + 1}세` : "-"} / {selectedPatient.gender || "-"}</span>
                   
+                  {/* 🟢 상세 정보에 연락처 표시 추가 */}
+                  {selectedPatient.phone && (
+                    <>
+                      <span>·</span>
+                      <span className="font-bold">{selectedPatient.phone}</span>
+                    </>
+                  )}
+
                   {selectedPatient.tags && selectedPatient.tags.length > 0 && (
                     <>
                       <span>·</span>
@@ -583,38 +593,44 @@ export default function PatientsPage() {
                   <input type="text" value={name} onChange={(e) => setName(e.target.value)} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold" required />
                 </div>
                 <div>
+                  <label className="block font-bold text-slate-700 mb-1">전화번호</label>
+                  <input type="text" placeholder="010-0000-0000" value={phone} onChange={(e) => setPhone(e.target.value)} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold" />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2">
+                <div>
                   <label className="block font-bold text-slate-700 mb-1">아이디</label>
                   <input type="text" value={customId} onChange={(e) => setCustomId(e.target.value)} className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold" />
                 </div>
-              </div>
-
-              <div className="relative">
-                <label className="block font-bold text-teal-800 mb-1">대표 고객 (가족 환자 연결)</label>
-                <input 
-                  type="text" 
-                  placeholder="대표 고객 이름 검색..." 
-                  value={repSearch} 
-                  onChange={(e) => setRepSearch(e.target.value)} 
-                  className="w-full p-2 bg-teal-50/50 border border-teal-100 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" 
-                />
-                {representativeId && (
-                  <div className="mt-1 flex items-center justify-between bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-200 text-[11px]">
-                    <span className="font-bold text-teal-900">선택됨: {patients.find(p => p.id === representativeId)?.name}</span>
-                    <button type="button" onClick={() => { setRepresentativeId(""); setRepSearch(""); }} className="text-red-500 font-bold hover:underline">해제</button>
-                  </div>
-                )}
-                {repSearch && !representativeId && (
-                  <div className="absolute z-30 w-full max-h-36 overflow-y-auto border border-slate-200 rounded-xl bg-white shadow-xl mt-1">
-                    {patients.filter(p => p.id !== editingPatientId && p.name.includes(repSearch)).map(p => (
-                      <div key={p.id} onClick={() => { setRepresentativeId(p.id); setRepSearch(p.name); }} 
-                        className="p-2 hover:bg-teal-50 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none"
-                      >
-                        <span className="font-extrabold text-slate-900">{p.name}</span>
-                        <span className="font-bold text-slate-400 text-[10px]">{p.custom_id || ""}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <div className="relative">
+                  <label className="block font-bold text-teal-800 mb-1">대표 고객 연결</label>
+                  <input 
+                    type="text" 
+                    placeholder="이름 검색..." 
+                    value={repSearch} 
+                    onChange={(e) => setRepSearch(e.target.value)} 
+                    className="w-full p-2 bg-teal-50/50 border border-teal-100 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" 
+                  />
+                  {representativeId && (
+                    <div className="mt-1 flex items-center justify-between bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-200 text-[11px]">
+                      <span className="font-bold text-teal-900">선택: {patients.find(p => p.id === representativeId)?.name}</span>
+                      <button type="button" onClick={() => { setRepresentativeId(""); setRepSearch(""); }} className="text-red-500 font-bold hover:underline">해제</button>
+                    </div>
+                  )}
+                  {repSearch && !representativeId && (
+                    <div className="absolute z-30 w-full max-h-36 overflow-y-auto border border-slate-200 rounded-xl bg-white shadow-xl mt-1">
+                      {patients.filter(p => p.id !== editingPatientId && p.name.includes(repSearch)).map(p => (
+                        <div key={p.id} onClick={() => { setRepresentativeId(p.id); setRepSearch(p.name); }} 
+                          className="p-2 hover:bg-teal-50 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none"
+                        >
+                          <span className="font-extrabold text-slate-900">{p.name}</span>
+                          <span className="font-bold text-slate-400 text-[10px]">{p.custom_id || ""}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="grid grid-cols-3 gap-2">
@@ -643,7 +659,7 @@ export default function PatientsPage() {
               </div>
 
               <div>
-                <label className="block font-bold text-teal-800 mb-1">텍스트 메모</label>
+                <label className="block font-bold text-teal-800 mb-1">메모</label>
                 <textarea value={memo} onChange={(e) => setMemo(e.target.value)} rows={2} className="w-full p-2 bg-teal-50/50 border border-teal-100 rounded-xl text-xs font-semibold resize-none" />
               </div>
 
