@@ -22,7 +22,7 @@ const THEME_CLASSES: Record<string, { bg: string, text: string }> = {
 export default function SchedulesPage() {
   const [schedules, setSchedules] = useState<any[]>([]);
   const [consultations, setConsultations] = useState<any[]>([]); 
-  const [feedbacks, setFeedbacks] = useState<any[]>([]);
+  const [feedbacks, setFeedbacks] = useState<any[]>([]); // 🟢 상담 + 판매 통합 피드백
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   
   const [selectedDetailSchedule, setSelectedDetailSchedule] = useState<any | null>(null);
@@ -50,9 +50,15 @@ export default function SchedulesPage() {
     const { data: sData } = await supabase.from("schedules").select("*").order("schedule_date", { ascending: true }).order("time", { ascending: true });
     if (sData) setSchedules(sData);
 
-    // 2. 상담 및 피드백 대상 데이터 로드
+    // 2. 상담 데이터 로드
     const { data: cData } = await supabase.from("consultations").select("*, patients(name, phone, custom_id)").order("created_at", { ascending: false });
     
+    // 🟢 3. 판매(Sales) 피드백 데이터 로드 (feedback_day가 있는 것만)
+    const { data: salesData } = await supabase.from("sales").select("*, patients(name, phone, custom_id)").not("feedback_day", "is", null);
+
+    let consultFeedbacks: any[] = [];
+    let saleFeedbacks: any[] = [];
+
     if (cData) {
       const withSignedUrls = await Promise.all(
         cData.map(async (c) => {
@@ -71,36 +77,74 @@ export default function SchedulesPage() {
       );
       setConsultations(withSignedUrls);
 
-      // 3. 기존 피드백 캘린더 target_date 연산 로직 그대로 적용
-      const feedbackFiltered = withSignedUrls
+      // 상담 피드백 연산
+      consultFeedbacks = withSignedUrls
         .filter((c: any) => c.feedback_days !== null && c.feedback_days !== undefined && c.feedback_days > 0)
         .map((c: any) => {
           const createdDate = new Date(c.consultation_date || c.created_at);
           const targetDate = new Date(createdDate.getFullYear(), createdDate.getMonth(), createdDate.getDate() + c.feedback_days);
           const dateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
-          return { ...c, target_date: dateStr };
+          return { 
+            ...c, 
+            target_date: dateStr, 
+            source: 'consultation', // 출처 구분자
+            display_title: c.prescription || "상담",
+            display_memo: c.follow_up || "내용 없음"
+          };
         });
-      setFeedbacks(feedbackFiltered);
     }
+
+    // 🟢 판매 피드백 연산
+    if (salesData) {
+      saleFeedbacks = salesData.map((s: any) => {
+        // 이미 feedback_date가 DB에 저장되어 있으면 그것을 쓰고, 없으면 계산
+        let dateStr = s.feedback_date;
+        if (!dateStr) {
+          const createdDate = new Date(s.sale_date);
+          const targetDate = new Date(createdDate.getFullYear(), createdDate.getMonth(), createdDate.getDate() + s.feedback_day);
+          dateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
+        }
+        
+        const itemNames = s.items?.map((i:any) => i.name).join(', ') || "판매상품";
+
+        return {
+          ...s,
+          target_date: dateStr,
+          source: 'sale', // 출처 구분자
+          display_title: itemNames,
+          display_memo: s.memo || "내용 없음"
+        };
+      });
+    }
+
+    // 통합 피드백 세팅
+    setFeedbacks([...consultFeedbacks, ...saleFeedbacks]);
   };
 
-  // 🟢 기존 피드백 토글 및 저장 로직 그대로 적용
-  const handleToggleFeedbackComplete = async (e: any, consultationId: string, currentStatus: boolean) => {
+  // 🟢 통합 피드백 토글 및 저장 로직 (출처에 따라 다른 테이블 업데이트)
+  const handleToggleFeedbackComplete = async (e: any, item: any) => {
     if (e) e.stopPropagation();
-    const newStatus = !currentStatus;
+    const newStatus = !item.is_feedback_completed;
+    
+    // 테이블 동적 선택
+    const tableName = item.source === 'sale' ? 'sales' : 'consultations';
 
     const { error } = await supabase
-      .from("consultations")
+      .from(tableName)
       .update({ is_feedback_completed: newStatus })
-      .eq("id", consultationId);
+      .eq("id", item.id);
 
     if (error) {
       alert("상태 변경 실패: " + error.message);
     } else {
-      setFeedbacks(prev => prev.map(f => f.id === consultationId ? { ...f, is_feedback_completed: newStatus } : f));
-      setConsultations(prev => prev.map(c => c.id === consultationId ? { ...c, is_feedback_completed: newStatus } : c));
+      setFeedbacks(prev => prev.map(f => f.id === item.id ? { ...f, is_feedback_completed: newStatus } : f));
       
-      if (selectedDetailFeedback && selectedDetailFeedback.id === consultationId) {
+      // 상태값 동기화 (상담 테이블인 경우에만 캘린더 좌측도 반영)
+      if (item.source === 'consultation') {
+        setConsultations(prev => prev.map(c => c.id === item.id ? { ...c, is_feedback_completed: newStatus } : c));
+      }
+      
+      if (selectedDetailFeedback && selectedDetailFeedback.id === item.id) {
         setSelectedDetailFeedback((prev: any) => ({ ...prev, is_feedback_completed: newStatus }));
       }
     }
@@ -260,13 +304,13 @@ export default function SchedulesPage() {
           </div>
         </div>
 
-        {/* 2. 우측: 기존 피드백 모니터링 캘린더 (원본 시스템 구조 반영) */}
+        {/* 2. 우측: 통합 피드백 모니터링 캘린더 (상담+판매 통합) */}
         <div className="bg-white rounded-3xl shadow-sm border border-purple-200/80 flex flex-col p-3 md:p-4">
           <div className="flex justify-between items-center mb-2 pb-2 border-b border-purple-100 flex-shrink-0">
             <h2 className="text-sm font-extrabold text-purple-950 flex items-center gap-1.5">
-              <span>📌</span> 피드백 모니터링 캘린더
+              <span>📌</span> 통합 피드백 캘린더
             </h2>
-            <span className="text-[10px] text-purple-500 font-semibold">피드백 도달 예정일</span>
+            <span className="text-[10px] text-purple-500 font-semibold">상담 및 판매 도달 예정일</span>
           </div>
 
           <div className="grid grid-cols-7 text-center text-[10px] font-bold text-slate-400 mb-1.5 pb-1 border-b border-slate-100 flex-shrink-0">
@@ -299,6 +343,7 @@ export default function SchedulesPage() {
                   <div className="w-full space-y-0.5 text-left flex-1">
                     {visibleFeedbacks.map((f, idx) => {
                       const isCompleted = f.is_feedback_completed;
+                      const badge = f.source === 'sale' ? "[판매]" : "[상담]";
                       return (
                         <div 
                           key={idx} 
@@ -309,7 +354,7 @@ export default function SchedulesPage() {
                               : "bg-purple-50 text-purple-900 border-purple-200 hover:bg-purple-100"
                           }`}
                         >
-                          📌 {formatName(f.patients)} / {f.prescription}
+                          📌 {badge} {formatName(f.patients)}
                         </div>
                       );
                     })}
@@ -385,7 +430,7 @@ export default function SchedulesPage() {
                       f.is_feedback_completed ? "bg-slate-100 border-slate-300 text-slate-400 line-through" : "bg-purple-50 border-purple-200 text-purple-900 hover:bg-purple-100"
                     }`}
                   >
-                    <span className="truncate">{formatName(f.patients)} / {f.prescription}</span>
+                    <span className="truncate">[{f.source === 'sale' ? '판매' : '상담'}] {formatName(f.patients)} / {f.display_title}</span>
                   </div>
                 ))
               )}
@@ -394,14 +439,16 @@ export default function SchedulesPage() {
         </div>
       )}
 
-      {/* 피드백 전용 상세 모달 (기존 피드백 모니터링 시스템 동일 구조) */}
+      {/* 통합 피드백 전용 상세 모달 */}
       {selectedDetailFeedback && (
         <div className="fixed inset-0 z-[110] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-4" onClick={() => setSelectedDetailFeedback(null)}>
           <div className="bg-white w-full max-w-md p-6 rounded-3xl shadow-2xl border border-slate-100 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-start border-b pb-4">
               <div className="flex items-center gap-2">
                 <span className="w-3.5 h-3.5 rounded-full bg-purple-500"></span>
-                <h3 className="font-bold text-xl text-slate-900">피드백 모니터링</h3>
+                <h3 className="font-bold text-xl text-slate-900">
+                  {selectedDetailFeedback.source === 'sale' ? '판매' : '상담'} 피드백 모니터링
+                </h3>
               </div>
               <button onClick={() => setSelectedDetailFeedback(null)} className="text-slate-400 bg-slate-100 w-8 h-8 rounded-full flex justify-center items-center font-bold">✕</button>
             </div>
@@ -412,7 +459,7 @@ export default function SchedulesPage() {
                 <input 
                   type="checkbox" 
                   checked={selectedDetailFeedback.is_feedback_completed || false}
-                  onChange={(e) => handleToggleFeedbackComplete(e, selectedDetailFeedback.id, selectedDetailFeedback.is_feedback_completed)}
+                  onChange={(e) => handleToggleFeedbackComplete(e, selectedDetailFeedback)}
                   className="w-4 h-4 accent-purple-800 cursor-pointer"
                 />
                 <span className={`text-xs font-extrabold ${selectedDetailFeedback.is_feedback_completed ? "text-slate-400 line-through" : "text-purple-900"}`}>
@@ -422,12 +469,12 @@ export default function SchedulesPage() {
             </div>
 
             <div className="space-y-3 text-sm">
-              <div className="p-3.5 bg-slate-50 rounded-xl border"><span className="text-xs text-slate-400 font-bold block mb-1">환자명</span><p className="font-bold text-slate-900">{formatName(selectedDetailFeedback.patients)} ({selectedDetailFeedback.patients?.phone || "연락처 없음"})</p></div>
-              <div className="p-3.5 bg-teal-50/50 rounded-xl border border-teal-100"><span className="text-xs text-teal-700 font-bold block mb-1">처방 내용</span><p className="font-bold text-teal-950">{selectedDetailFeedback.prescription || "없음"}</p></div>
-              <div className="p-3.5 bg-purple-50/50 rounded-xl border border-purple-100"><span className="text-xs text-purple-700 font-bold block mb-1">모니터링 체크사항 (추후관리)</span><p className="font-bold text-purple-950 whitespace-pre-line">{selectedDetailFeedback.follow_up || "내용 없음"}</p></div>
+              <div className="p-3.5 bg-slate-50 rounded-xl border"><span className="text-xs text-slate-400 font-bold block mb-1">환자/고객명</span><p className="font-bold text-slate-900">{formatName(selectedDetailFeedback.patients)} ({selectedDetailFeedback.patients?.phone || "연락처 없음"})</p></div>
+              <div className="p-3.5 bg-teal-50/50 rounded-xl border border-teal-100"><span className="text-xs text-teal-700 font-bold block mb-1">{selectedDetailFeedback.source === 'sale' ? '판매 제품' : '처방 내용'}</span><p className="font-bold text-teal-950">{selectedDetailFeedback.display_title || "없음"}</p></div>
+              <div className="p-3.5 bg-purple-50/50 rounded-xl border border-purple-100"><span className="text-xs text-purple-700 font-bold block mb-1">체크사항 (추후관리/메모)</span><p className="font-bold text-purple-950 whitespace-pre-line">{selectedDetailFeedback.display_memo || "내용 없음"}</p></div>
             </div>
 
-            <button onClick={() => setSelectedDetailFeedback(null)} className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition">확인 완료</button>
+            <button onClick={() => setSelectedDetailFeedback(null)} className="w-full py-3 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800 transition">닫기</button>
           </div>
         </div>
       )}
