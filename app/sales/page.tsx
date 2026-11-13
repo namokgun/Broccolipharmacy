@@ -21,6 +21,7 @@ export default function SalesPage() {
 
   // 등록 폼 상태
   const [saleDate, setSaleDate] = useState("");
+  const [feedbackDay, setFeedbackDay] = useState(""); // 🟢 피드백 알림 (Day)
   const [currentMonth, setCurrentMonth] = useState("");
   const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS[0]);
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
@@ -31,6 +32,7 @@ export default function SalesPage() {
 
   // 수정 모달 폼 상태
   const [editSaleDate, setEditSaleDate] = useState("");
+  const [editFeedbackDay, setEditFeedbackDay] = useState(""); // 🟢 피드백 알림 (Day)
   const [editPaymentMethod, setEditPaymentMethod] = useState(PAYMENT_METHODS[0]);
   const [editSelectedPatient, setEditSelectedPatient] = useState<any | null>(null);
   const [editPatientSearch, setEditPatientSearch] = useState("");
@@ -56,6 +58,7 @@ export default function SalesPage() {
 
   const resetForm = () => {
     setSaleDate(new Date().toISOString().split('T')[0]);
+    setFeedbackDay(""); // 🟢 초기화
     setPaymentMethod(PAYMENT_METHODS[0]);
     setSelectedPatient(null);
     setSelectedProducts([]);
@@ -73,12 +76,16 @@ export default function SalesPage() {
   const handleOpenEditModal = (sale: any) => {
     setEditingSaleId(sale.id);
     setEditSaleDate(sale.sale_date || new Date().toISOString().split('T')[0]);
+    setEditFeedbackDay(sale.feedback_day ? sale.feedback_day.toString() : ""); // 🟢 수정 시 불러오기
     setEditPaymentMethod(sale.payment_method);
     
     const pt = patients.find(p => p.id === sale.patient_id);
     setEditSelectedPatient(pt || { id: sale.patient_id, name: sale.patient_name });
     
-    setEditSelectedProducts(sale.items || []);
+    // 기존 아이템의 고유 ID 부여 (옵션 호환)
+    const itemsWithUniqueId = (sale.items || []).map((i: any) => ({ ...i, uniqueId: i.uniqueId || i.id }));
+    setEditSelectedProducts(itemsWithUniqueId);
+    
     setEditMemo(sale.memo || "");
     setEditPatientSearch("");
     setEditProductSearch("");
@@ -92,39 +99,54 @@ export default function SalesPage() {
     else { alert("삭제되었습니다."); fetchData(); }
   };
 
-  const handleAddProduct = (product: any) => {
-    const existing = selectedProducts.find(p => p.id === product.id);
-    if (existing) setSelectedProducts(selectedProducts.map(p => p.id === product.id ? { ...p, quantity: p.quantity + 1 } : p));
-    else setSelectedProducts([...selectedProducts, { ...product, quantity: 1 }]);
+  // 🟢 옵션 지원 제품 추가 로직
+  const handleAddProduct = (product: any, option: any = null) => {
+    const uniqueId = option ? `${product.id}-${option.name}` : product.id;
+    const displayName = option ? `${product.name} [${option.name}]` : product.name;
+    const price = option ? option.price : product.price;
+
+    const existing = selectedProducts.find(p => p.uniqueId === uniqueId);
+    if (existing) {
+      setSelectedProducts(selectedProducts.map(p => p.uniqueId === uniqueId ? { ...p, quantity: p.quantity + 1 } : p));
+    } else {
+      setSelectedProducts([...selectedProducts, { ...product, uniqueId, name: displayName, price, quantity: 1, original_product_id: product.id, option_name: option?.name }]);
+    }
     setProductSearch("");
   };
 
-  const handleQuantity = (id: string, d: number) => {
-    setSelectedProducts(selectedProducts.map(p => p.id === id ? { ...p, quantity: Math.max(1, p.quantity + d) } : p));
+  const handleQuantity = (uniqueId: string, d: number) => {
+    setSelectedProducts(selectedProducts.map(p => p.uniqueId === uniqueId ? { ...p, quantity: Math.max(1, p.quantity + d) } : p));
   };
 
-  const handleManualQuantity = (id: string, val: string, isEdit: boolean) => {
+  const handleManualQuantity = (uniqueId: string, val: string, isEdit: boolean) => {
     const qty = parseInt(val, 10);
     const validQty = isNaN(qty) || qty < 1 ? 1 : qty;
     
     if (isEdit) {
-      setEditSelectedProducts(editSelectedProducts.map(p => p.id === id ? { ...p, quantity: validQty } : p));
+      setEditSelectedProducts(editSelectedProducts.map(p => p.uniqueId === uniqueId ? { ...p, quantity: validQty } : p));
     } else {
-      setSelectedProducts(selectedProducts.map(p => p.id === id ? { ...p, quantity: validQty } : p));
+      setSelectedProducts(selectedProducts.map(p => p.uniqueId === uniqueId ? { ...p, quantity: validQty } : p));
     }
   };
 
   const totalAmount = selectedProducts.reduce((sum, p) => sum + (p.price || 0) * p.quantity, 0);
 
-  const handleEditAddProduct = (product: any) => {
-    const existing = editSelectedProducts.find(p => p.id === product.id);
-    if (existing) setEditSelectedProducts(editSelectedProducts.map(p => p.id === product.id ? { ...p, quantity: p.quantity + 1 } : p));
-    else setEditSelectedProducts([...editSelectedProducts, { ...product, quantity: 1 }]);
+  const handleEditAddProduct = (product: any, option: any = null) => {
+    const uniqueId = option ? `${product.id}-${option.name}` : product.id;
+    const displayName = option ? `${product.name} [${option.name}]` : product.name;
+    const price = option ? option.price : product.price;
+
+    const existing = editSelectedProducts.find(p => p.uniqueId === uniqueId);
+    if (existing) {
+      setEditSelectedProducts(editSelectedProducts.map(p => p.uniqueId === uniqueId ? { ...p, quantity: p.quantity + 1 } : p));
+    } else {
+      setEditSelectedProducts([...editSelectedProducts, { ...product, uniqueId, name: displayName, price, quantity: 1, original_product_id: product.id, option_name: option?.name }]);
+    }
     setEditProductSearch("");
   };
 
-  const handleEditQuantity = (id: string, d: number) => {
-    setEditSelectedProducts(editSelectedProducts.map(p => p.id === id ? { ...p, quantity: Math.max(1, p.quantity + d) } : p));
+  const handleEditQuantity = (uniqueId: string, d: number) => {
+    setEditSelectedProducts(editSelectedProducts.map(p => p.uniqueId === uniqueId ? { ...p, quantity: Math.max(1, p.quantity + d) } : p));
   };
 
   const editTotalAmount = editSelectedProducts.reduce((sum, p) => sum + (p.price || 0) * p.quantity, 0);
@@ -134,6 +156,14 @@ export default function SalesPage() {
     if (!saleDate) return alert("판매일자를 입력해주세요.");
     if (!selectedPatient) return alert("고객을 선택해주세요.");
     if (selectedProducts.length === 0) return alert("판매할 제품을 선택해주세요.");
+
+    // 🟢 피드백 날짜 계산
+    let feedback_date = null;
+    if (feedbackDay && !isNaN(Number(feedbackDay))) {
+      const fd = new Date(saleDate);
+      fd.setDate(fd.getDate() + Number(feedbackDay));
+      feedback_date = fd.toISOString().split('T')[0];
+    }
 
     const { data: { user } } = await supabase.auth.getUser();
     
@@ -145,7 +175,9 @@ export default function SalesPage() {
       total_amount: totalAmount, 
       memo, 
       user_id: user?.id, 
-      sale_date: saleDate
+      sale_date: saleDate,
+      feedback_day: feedbackDay ? Number(feedbackDay) : null, // 🟢 DB 추가 항목
+      feedback_date: feedback_date // 🟢 DB 추가 항목
     };
 
     const { error } = await supabase.from("sales").insert([payload]);
@@ -159,6 +191,14 @@ export default function SalesPage() {
     if (!editSelectedPatient) return alert("고객을 선택해주세요.");
     if (editSelectedProducts.length === 0) return alert("판매할 제품을 선택해주세요.");
 
+    // 🟢 피드백 날짜 계산
+    let feedback_date = null;
+    if (editFeedbackDay && !isNaN(Number(editFeedbackDay))) {
+      const fd = new Date(editSaleDate);
+      fd.setDate(fd.getDate() + Number(editFeedbackDay));
+      feedback_date = fd.toISOString().split('T')[0];
+    }
+
     const payload = {
       patient_id: editSelectedPatient.id, 
       patient_name: editSelectedPatient.name, 
@@ -166,7 +206,9 @@ export default function SalesPage() {
       items: editSelectedProducts, 
       total_amount: editTotalAmount, 
       memo: editMemo, 
-      sale_date: editSaleDate
+      sale_date: editSaleDate,
+      feedback_day: editFeedbackDay ? Number(editFeedbackDay) : null,
+      feedback_date: feedback_date
     };
 
     const { error } = await supabase.from("sales").update(payload).eq("id", editingSaleId);
@@ -257,14 +299,21 @@ export default function SalesPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
+              {/* 🟢 피드백 입력란이 포함된 그리드 (공간 최적화) */}
+              <div className="grid grid-cols-12 gap-3">
+                <div className="col-span-4">
                   <label className="block font-bold text-slate-700 text-xs mb-1">판매일자 *</label>
                   <input type="date" value={saleDate} onChange={e => setSaleDate(e.target.value)} required 
                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#528771]" 
                   />
                 </div>
-                <div className="relative">
+                <div className="col-span-3">
+                  <label className="block font-bold text-slate-700 text-xs mb-1 text-teal-800">피드백(일뒤)</label>
+                  <input type="number" placeholder="예: 7" value={feedbackDay} onChange={e => setFeedbackDay(e.target.value)} 
+                    className="w-full p-2.5 bg-teal-50 border border-teal-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#528771]" 
+                  />
+                </div>
+                <div className="col-span-5 relative">
                   <label className="block font-bold text-slate-700 text-xs mb-1">고객 선택 *</label>
                   <input type="text" placeholder="이름/ID/전화번호 검색..." value={patientSearch} onChange={e => setPatientSearch(e.target.value)} 
                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#528771]" 
@@ -292,43 +341,58 @@ export default function SalesPage() {
               )}
 
               <div className="relative">
-                <label className="block font-bold text-slate-700 text-xs mb-1">제품 선택 *</label>
+                <label className="block font-bold text-slate-700 text-xs mb-1">제품/옵션 선택 *</label>
                 <input type="text" placeholder="+ 제품명 검색하여 추가..." value={productSearch} onChange={e => setProductSearch(e.target.value)} 
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#528771]" 
                 />
+                
+                {/* 🟢 다중 옵션 드롭다운 렌더링 */}
                 {productSearch && (
                   <div className="absolute z-10 w-full max-h-40 overflow-y-auto border border-slate-200 rounded-xl bg-white shadow-xl mt-1">
-                    {products.filter(pr => pr.name.includes(productSearch)).map(pr => (
-                      <div key={pr.id} onClick={() => handleAddProduct(pr)} 
-                        className="p-2.5 hover:bg-teal-50 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none"
-                      >
-                        <span className="font-extrabold text-slate-900 text-xs">{pr.name}</span>
-                        <span className="font-extrabold text-teal-800 text-xs">{pr.price?.toLocaleString()}원</span>
-                      </div>
-                    ))}
+                    {products.filter(pr => pr.name.includes(productSearch)).flatMap(pr => {
+                      if (pr.options && pr.options.length > 0) {
+                        return pr.options.map((opt: any, idx: number) => (
+                          <div key={`${pr.id}-${idx}`} onClick={() => handleAddProduct(pr, opt)} 
+                            className="p-2.5 hover:bg-teal-50 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none"
+                          >
+                            <span className="font-extrabold text-slate-900 text-xs">{pr.name} <span className="text-teal-700 bg-teal-100/50 px-1 rounded">[{opt.name}]</span></span>
+                            <span className="font-extrabold text-teal-800 text-xs">{opt.price?.toLocaleString()}원</span>
+                          </div>
+                        ));
+                      } else {
+                        return (
+                          <div key={pr.id} onClick={() => handleAddProduct(pr)} 
+                            className="p-2.5 hover:bg-teal-50 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none"
+                          >
+                            <span className="font-extrabold text-slate-900 text-xs">{pr.name}</span>
+                            <span className="font-extrabold text-teal-800 text-xs">{pr.price?.toLocaleString()}원</span>
+                          </div>
+                        );
+                      }
+                    })}
                   </div>
                 )}
                 
                 <div className="space-y-1.5 mt-2">
                   {selectedProducts.map(p => (
-                    <div key={p.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-white border border-slate-200 shadow-sm rounded-xl gap-1.5">
+                    <div key={p.uniqueId} className="flex flex-col sm:flex-row sm:items-center justify-between p-2.5 bg-white border border-slate-200 shadow-sm rounded-xl gap-1.5">
                       <div className="flex flex-col">
                         <span className="font-extrabold text-slate-900 text-xs">{p.name}</span>
                         <span className="text-[10px] font-bold text-slate-500">{p.price?.toLocaleString()}원</span>
                       </div>
                       <div className="flex items-center gap-1.5 self-end sm:self-auto">
-                        <button type="button" onClick={() => handleQuantity(p.id, -1)} className="w-6 h-6 bg-slate-50 border border-slate-200 rounded text-xs font-black text-slate-700 hover:bg-slate-100">-</button>
+                        <button type="button" onClick={() => handleQuantity(p.uniqueId, -1)} className="w-6 h-6 bg-slate-50 border border-slate-200 rounded text-xs font-black text-slate-700 hover:bg-slate-100">-</button>
                         
                         <input 
                           type="number" 
                           value={p.quantity === 0 ? "" : p.quantity}
-                          onChange={(e) => handleManualQuantity(p.id, e.target.value, false)}
+                          onChange={(e) => handleManualQuantity(p.uniqueId, e.target.value, false)}
                           className="w-10 h-6 text-center text-xs font-extrabold text-slate-900 border border-slate-200 rounded focus:outline-none focus:border-[#528771] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
                         />
                         
-                        <button type="button" onClick={() => handleQuantity(p.id, 1)} className="w-6 h-6 bg-slate-50 border border-slate-200 rounded text-xs font-black text-slate-700 hover:bg-slate-100">+</button>
+                        <button type="button" onClick={() => handleQuantity(p.uniqueId, 1)} className="w-6 h-6 bg-slate-50 border border-slate-200 rounded text-xs font-black text-slate-700 hover:bg-slate-100">+</button>
                         <span className="font-extrabold text-[#528771] ml-1 w-16 text-right text-xs">{(p.price * p.quantity).toLocaleString()}원</span>
-                        <button type="button" onClick={() => setSelectedProducts(selectedProducts.filter(x => x.id !== p.id))} className="text-red-400 ml-1 hover:text-red-600 font-bold p-1 text-[10px]">✕</button>
+                        <button type="button" onClick={() => setSelectedProducts(selectedProducts.filter(x => x.uniqueId !== p.uniqueId))} className="text-red-400 ml-1 hover:text-red-600 font-bold p-1 text-[10px]">✕</button>
                       </div>
                     </div>
                   ))}
@@ -343,7 +407,7 @@ export default function SalesPage() {
               </div>
 
               <div>
-                <textarea value={memo} onChange={e => setMemo(e.target.value)} rows={5} 
+                <textarea value={memo} onChange={e => setMemo(e.target.value)} rows={3} 
                   className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold resize-none focus:outline-none focus:border-[#528771]" 
                   placeholder="특이사항 입력..." 
                 />
@@ -415,8 +479,11 @@ export default function SalesPage() {
                     </div>
                     <span className="font-black text-[#528771] text-xs whitespace-nowrap ml-2">{s.total_amount?.toLocaleString()}원</span>
                   </div>
-                  <div className="text-[10px] font-bold text-slate-600 truncate mt-0.5">
-                    {s.items?.map((i:any) => `${i.name}(${i.quantity})`).join(', ')}
+                  <div className="text-[10px] font-bold text-slate-600 truncate mt-0.5 flex justify-between">
+                    <span>{s.items?.map((i:any) => `${i.name}(${i.quantity})`).join(', ')}</span>
+                    {s.feedback_day && (
+                      <span className="text-teal-600 bg-teal-50 px-1 rounded ml-1">+{s.feedback_day}일</span>
+                    )}
                   </div>
                   
                   <button onClick={() => handleOpenEditModal(s)} className="absolute top-2 right-2 text-[10px] font-bold text-white bg-slate-800 px-2 py-0.5 rounded shadow-md opacity-0 group-hover:opacity-100 transition-opacity">
@@ -465,14 +532,12 @@ export default function SalesPage() {
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-100/80 text-slate-600 sticky top-0 backdrop-blur-md z-10 border-b border-slate-200">
                 <tr>
-                  {/* 🟢 [수정됨] 간격 늘리고 줄바꿈 방지 적용 */}
                   <th className="py-3 px-4 font-bold whitespace-nowrap w-[110px]">판매일자</th>
                   <th className="py-3 px-4 font-bold whitespace-nowrap w-[90px]">고객명</th>
                   <th className="py-3 px-4 font-bold whitespace-nowrap w-[100px]">ID</th>
                   <th className="py-3 px-4 font-bold w-[220px]">판매 상품 내역</th>
-                  
                   <th className="py-3 px-4 font-extrabold w-auto min-w-[250px] text-slate-800">코멘트</th>
-                  
+                  <th className="py-3 px-4 font-bold text-center whitespace-nowrap w-[80px]">피드백</th>
                   <th className="py-3 px-4 font-bold text-center whitespace-nowrap w-[90px]">결제수단</th>
                   <th className="py-3 px-4 font-bold text-right whitespace-nowrap w-[110px]">총 결제금액</th>
                   <th className="py-3 px-4 font-bold text-center whitespace-nowrap w-[90px]">관리</th>
@@ -480,7 +545,7 @@ export default function SalesPage() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredHistorySales.length === 0 ? (
-                  <tr><td colSpan={8} className="py-12 text-center text-slate-400 font-bold">검색된 판매 내역이 없습니다.</td></tr>
+                  <tr><td colSpan={9} className="py-12 text-center text-slate-400 font-bold">검색된 판매 내역이 없습니다.</td></tr>
                 ) : (
                   filteredHistorySales.map((s) => {
                     const pt = patients.find(p => p.id === s.patient_id);
@@ -488,7 +553,6 @@ export default function SalesPage() {
 
                     return (
                       <tr key={s.id} className="hover:bg-slate-50 transition-colors">
-                        {/* 🟢 [수정됨] 데이터 셀에도 whitespace-nowrap 강제 적용 */}
                         <td className="py-3 px-4 font-extrabold text-slate-800 whitespace-nowrap">{s.sale_date}</td>
                         <td className="py-3 px-4 font-extrabold text-slate-900 whitespace-nowrap">{s.patient_name}</td>
                         <td className="py-3 px-4 font-bold text-slate-600 whitespace-nowrap">{ptId}</td>
@@ -501,6 +565,10 @@ export default function SalesPage() {
                         
                         <td className="py-3 px-4 text-slate-600 font-medium whitespace-normal break-words max-w-md">
                           {s.memo || "-"}
+                        </td>
+
+                        <td className="py-3 px-4 font-bold text-teal-700 text-center whitespace-nowrap">
+                          {s.feedback_day ? `+${s.feedback_day}일` : "-"}
                         </td>
                         
                         <td className="py-3 px-4 font-bold text-slate-600 text-center whitespace-nowrap">{s.payment_method}</td>
@@ -548,16 +616,22 @@ export default function SalesPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
+              <div className="grid grid-cols-12 gap-3">
+                <div className="col-span-4">
                   <label className="block font-bold text-slate-700 mb-1">판매일자 *</label>
                   <input type="date" value={editSaleDate} onChange={e => setEditSaleDate(e.target.value)} required 
                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" 
                   />
                 </div>
-                <div className="relative">
+                <div className="col-span-3">
+                  <label className="block font-bold text-teal-800 mb-1">피드백(일뒤)</label>
+                  <input type="number" placeholder="예: 7" value={editFeedbackDay} onChange={e => setEditFeedbackDay(e.target.value)} 
+                    className="w-full p-2.5 bg-teal-50 border border-teal-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" 
+                  />
+                </div>
+                <div className="col-span-5 relative">
                   <label className="block font-bold text-slate-700 mb-1">고객 선택 *</label>
-                  <input type="text" placeholder="이름/ID/전화번호 검색..." value={editPatientSearch} onChange={e => setEditPatientSearch(e.target.value)} 
+                  <input type="text" placeholder="검색..." value={editPatientSearch} onChange={e => setEditPatientSearch(e.target.value)} 
                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" 
                   />
                   {editPatientSearch && (
@@ -583,43 +657,57 @@ export default function SalesPage() {
               )}
 
               <div className="relative">
-                <label className="block font-bold text-slate-700 mb-1">제품 선택 *</label>
+                <label className="block font-bold text-slate-700 mb-1">제품/옵션 선택 *</label>
                 <input type="text" placeholder="+ 제품명 검색하여 추가..." value={editProductSearch} onChange={e => setEditProductSearch(e.target.value)} 
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" 
                 />
+                
                 {editProductSearch && (
                   <div className="absolute z-10 w-full max-h-40 overflow-y-auto border border-slate-200 rounded-xl bg-white shadow-xl mt-1">
-                    {products.filter(pr => pr.name.includes(editProductSearch)).map(pr => (
-                      <div key={pr.id} onClick={() => handleEditAddProduct(pr)} 
-                        className="p-2.5 hover:bg-teal-50 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none"
-                      >
-                        <span className="font-extrabold text-slate-900">{pr.name}</span>
-                        <span className="font-extrabold text-teal-800">{pr.price?.toLocaleString()}원</span>
-                      </div>
-                    ))}
+                    {products.filter(pr => pr.name.includes(editProductSearch)).flatMap(pr => {
+                      if (pr.options && pr.options.length > 0) {
+                        return pr.options.map((opt: any, idx: number) => (
+                          <div key={`${pr.id}-${idx}`} onClick={() => handleEditAddProduct(pr, opt)} 
+                            className="p-2.5 hover:bg-teal-50 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none"
+                          >
+                            <span className="font-extrabold text-slate-900">{pr.name} <span className="text-teal-700 bg-teal-100/50 px-1 rounded">[{opt.name}]</span></span>
+                            <span className="font-extrabold text-teal-800">{opt.price?.toLocaleString()}원</span>
+                          </div>
+                        ));
+                      } else {
+                        return (
+                          <div key={pr.id} onClick={() => handleEditAddProduct(pr)} 
+                            className="p-2.5 hover:bg-teal-50 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none"
+                          >
+                            <span className="font-extrabold text-slate-900">{pr.name}</span>
+                            <span className="font-extrabold text-teal-800">{pr.price?.toLocaleString()}원</span>
+                          </div>
+                        );
+                      }
+                    })}
                   </div>
                 )}
                 
                 <div className="space-y-2 mt-2">
                   {editSelectedProducts.map(p => (
-                    <div key={p.id} className="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-100 rounded-xl">
+                    <div key={p.uniqueId} className="flex items-center justify-between p-2.5 bg-slate-50 border border-slate-100 rounded-xl">
                       <div className="flex flex-col">
                         <span className="font-extrabold text-slate-900">{p.name}</span>
                         <span className="text-slate-500">{p.price?.toLocaleString()}원</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <button type="button" onClick={() => handleEditQuantity(p.id, -1)} className="w-6 h-6 bg-white border rounded font-bold">-</button>
+                        <button type="button" onClick={() => handleEditQuantity(p.uniqueId, -1)} className="w-6 h-6 bg-white border rounded font-bold">-</button>
                         
                         <input 
                           type="number" 
                           value={p.quantity === 0 ? "" : p.quantity}
-                          onChange={(e) => handleManualQuantity(p.id, e.target.value, true)}
+                          onChange={(e) => handleManualQuantity(p.uniqueId, e.target.value, true)}
                           className="w-10 h-6 text-center font-extrabold text-slate-900 border border-slate-200 rounded focus:outline-none focus:border-[#528771] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" 
                         />
                         
-                        <button type="button" onClick={() => handleEditQuantity(p.id, 1)} className="w-6 h-6 bg-white border rounded font-bold">+</button>
+                        <button type="button" onClick={() => handleEditQuantity(p.uniqueId, 1)} className="w-6 h-6 bg-white border rounded font-bold">+</button>
                         <span className="font-extrabold text-teal-900 ml-2">{(p.price * p.quantity).toLocaleString()}원</span>
-                        <button type="button" onClick={() => setEditSelectedProducts(editSelectedProducts.filter(x => x.id !== p.id))} className="text-red-400 ml-2 hover:text-red-600 font-bold">✕</button>
+                        <button type="button" onClick={() => setEditSelectedProducts(editSelectedProducts.filter(x => x.uniqueId !== p.uniqueId))} className="text-red-400 ml-2 hover:text-red-600 font-bold">✕</button>
                       </div>
                     </div>
                   ))}
@@ -641,7 +729,7 @@ export default function SalesPage() {
 
               <div className="flex justify-end gap-2 pt-4 border-t border-slate-100 shrink-0">
                 <button type="button" onClick={() => setIsEditModalOpen(false)} className="px-4 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition">취소</button>
-                <button type="submit" className="px-6 py-2.5 bg-rose-600 text-white font-bold rounded-xl hover:bg-rose-700 transition shadow-sm">
+                <button type="submit" className="px-6 py-2.5 bg-[#528771] text-white font-bold rounded-xl hover:bg-[#3d6856] transition shadow-sm">
                   수정 완료
                 </button>
               </div>
