@@ -22,13 +22,13 @@ export default function ProductsPage() {
   const [isCustomManufacturer, setIsCustomManufacturer] = useState(true);
   const [customManufacturerInput, setCustomManufacturerInput] = useState("");
 
-  const [purchasePrice, setPurchasePrice] = useState(""); // 🟢 매입가 추가
+  const [purchasePrice, setPurchasePrice] = useState("");
   const [price, setPrice] = useState("");
   const [stock, setStock] = useState("");
   const [status, setStatus] = useState("판매중");
   const [description, setDescription] = useState("");
 
-  // 🟢 다중 수량 판매 옵션 상태
+  // 다중 수량 판매 옵션 상태
   const [options, setOptions] = useState<{ id: string, name: string, price: string, unit: string }[]>([]);
   
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -38,6 +38,31 @@ export default function ProductsPage() {
   useEffect(() => {
     fetchProducts();
   }, []);
+
+  // 모달이 열려 있을 때 전역 Ctrl+V 이미지 붙여넣기 감지
+  useEffect(() => {
+    if (!isModalOpen) return;
+
+    const handleWindowPaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith("image/")) {
+          const file = items[i].getAsFile();
+          if (file) {
+            e.preventDefault();
+            setImageFile(file);
+            setImagePreview(URL.createObjectURL(file));
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener("paste", handleWindowPaste);
+    return () => window.removeEventListener("paste", handleWindowPaste);
+  }, [isModalOpen]);
 
   const fetchProducts = async () => {
     const { data, error } = await supabase.from("products").select("*").order("created_at", { ascending: false });
@@ -78,7 +103,7 @@ export default function ProductsPage() {
     setStock(""); 
     setStatus("판매중"); 
     setDescription(""); 
-    setOptions([]); // 옵션 초기화
+    setOptions([]);
     setImageFile(null); 
     setImagePreview(null);
     setIsModalOpen(true);
@@ -105,7 +130,6 @@ export default function ProductsPage() {
     setStatus(p.status || "판매중");
     setDescription(p.description || "");
     
-    // 저장된 옵션 바인딩
     setOptions(p.options ? p.options.map((o: any) => ({ ...o, price: o.price.toString(), unit: o.unit.toString() })) : []);
 
     setImageFile(null);
@@ -121,9 +145,16 @@ export default function ProductsPage() {
     }
   };
 
+  const handleClearImage = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setImageFile(null);
+    setImagePreview(null);
+  };
+
   const uploadImageToStorage = async () => {
     if (!imageFile) return imagePreview;
-    const fileExt = imageFile.name.split('.').pop();
+    const fileExt = imageFile.name.split('.').pop() || imageFile.type.split('/')[1] || 'png';
     const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
     const { error: uploadError } = await supabase.storage.from("product-images").upload(fileName, imageFile);
     
@@ -135,7 +166,7 @@ export default function ProductsPage() {
     return data.publicUrl;
   };
 
-  // 🟢 옵션 조작 핸들러
+  // 옵션 조작 핸들러
   const handleAddOption = () => {
     setOptions([...options, { id: Date.now().toString(), name: "", price: "", unit: "1" }]);
   };
@@ -158,7 +189,6 @@ export default function ProductsPage() {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return alert("로그인 정보가 없습니다.");
 
-    // 옵션 데이터 정제
     const cleanedOptions = options
       .filter(o => o.name.trim() !== "")
       .map(o => ({
@@ -181,7 +211,7 @@ export default function ProductsPage() {
         purchase_price: purchasePrice ? parseInt(purchasePrice) : 0,
         price: price ? parseInt(price) : 0,
         stock: stock ? parseInt(stock) : 0,
-        options: cleanedOptions, // JSON 타입으로 옵션 저장
+        options: cleanedOptions,
         image_url: imageUrl,
         user_id: user.id
       };
@@ -358,7 +388,7 @@ export default function ProductsPage() {
                   </div>
                 </div>
 
-                {/* 🟢 다중 옵션 렌더링 영역 */}
+                {/* 다중 옵션 렌더링 영역 */}
                 {selectedProduct.options && selectedProduct.options.length > 0 && (
                   <div className="px-1 mt-2">
                     <h4 className="text-[11px] font-bold text-slate-700 mb-2 border-b border-slate-200 pb-1">판매 옵션 구성</h4>
@@ -385,7 +415,7 @@ export default function ProductsPage() {
         </div>
       </div>
 
-      {/* 🟢 제품 등록 / 수정 모달 */}
+      {/* 제품 등록 / 수정 모달 */}
       {isModalOpen && (
         <div onClick={() => setIsModalOpen(false)} className="fixed inset-0 z-[120] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-2xl max-h-[90vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col cursor-default" onClick={e => e.stopPropagation()}>
@@ -399,11 +429,24 @@ export default function ProductsPage() {
               <div className="flex gap-4">
                 <div className="w-24 flex flex-col gap-1.5 shrink-0">
                   <label className="block font-bold text-slate-700">제품 이미지</label>
-                  <label className="w-full aspect-square rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center cursor-pointer hover:bg-slate-100 overflow-hidden relative">
+                  <label className="w-full aspect-square rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 flex items-center justify-center cursor-pointer hover:bg-slate-100 hover:border-[#528771] transition overflow-hidden relative group">
                     {imagePreview ? (
-                      <img src={imagePreview} className="w-full h-full object-cover" />
+                      <>
+                        <img src={imagePreview} className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={handleClearImage}
+                          title="이미지 제거"
+                          className="absolute top-1 right-1 w-5 h-5 rounded-full bg-slate-900/75 hover:bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center transition"
+                        >
+                          ✕
+                        </button>
+                      </>
                     ) : (
-                      <span className="text-[10px] text-slate-400 font-bold text-center px-1">클릭 등록</span>
+                      <div className="flex flex-col items-center text-center px-1 leading-tight">
+                        <span className="text-[10px] text-slate-500 font-bold">클릭 등록</span>
+                        <span className="text-[9px] text-teal-700 font-semibold mt-0.5">또는 Ctrl+V</span>
+                      </div>
                     )}
                     <input type="file" accept="image/*" onChange={handleImageChange} className="hidden" />
                   </label>
@@ -486,7 +529,7 @@ export default function ProductsPage() {
                 </div>
               </div>
 
-              {/* 🟢 다중 판매 옵션 영역 (1박스, 10개 등) */}
+              {/* 다중 판매 옵션 영역 */}
               <div>
                 <div className="flex justify-between items-center mb-2">
                   <div>
