@@ -23,6 +23,16 @@ const getTagColor = (tag: string) => {
   return colors[Math.abs(hash) % colors.length];
 };
 
+// 판매관리 레코드 금액 계산 헬퍼
+const getSaleAmount = (s: any) => {
+  if (typeof s.total_amount === "number") return s.total_amount;
+  if (typeof s.amount === "number") return s.amount;
+  if (Array.isArray(s.items)) {
+    return s.items.reduce((sum: number, item: any) => sum + ((item.price || 0) * (item.quantity || 1)), 0);
+  }
+  return 0;
+};
+
 export default function PatientsPage() {
   const [patients, setPatients] = useState<any[]>([]);
   const [consultations, setConsultations] = useState<any[]>([]);
@@ -38,10 +48,10 @@ export default function PatientsPage() {
   const [photosModalPatient, setPhotosModalPatient] = useState<any | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
-  // 폼 필드 (연락처 필드 추가)
+  // 폼 필드
   const [name, setName] = useState("");
   const [customId, setCustomId] = useState("");
-  const [phone, setPhone] = useState(""); // 🟢 연락처 필드 복구
+  const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [gender, setGender] = useState("남");
   const [birthYear, setBirthYear] = useState("");
@@ -54,10 +64,6 @@ export default function PatientsPage() {
   const [repSearch, setRepSearch] = useState("");
 
   const [activeCount, setActiveCount] = useState(0);
-
-  // 3개월 통계 상태값
-  const [customerSalesRanking3Months, setCustomerSalesRanking3Months] = useState<any[]>([]);
-  const [totalSalesSum3Months, setTotalSalesSum3Months] = useState(0);
 
   useEffect(() => {
     fetchData();
@@ -78,34 +84,10 @@ export default function PatientsPage() {
     }
   }, [consultations]);
 
-  useEffect(() => {
-    if (sales.length > 0) {
-      const threeMonthsAgo = new Date();
-      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-
-      const stats: Record<string, { name: string, totalAmt: number, count: number }> = {};
-      sales.forEach(s => {
-        if (s.sale_date) {
-          const saleDateObj = new Date(s.sale_date);
-          if (!isNaN(saleDateObj.getTime()) && saleDateObj >= threeMonthsAgo) {
-            const name = s.patient_name || "미지정 고객";
-            if (!stats[name]) stats[name] = { name, totalAmt: 0, count: 0 };
-            stats[name].totalAmt += (s.total_amount || 0);
-            stats[name].count += 1;
-          }
-        }
-      });
-      const ranking = Object.values(stats).sort((a, b) => b.totalAmt - a.totalAmt);
-      setCustomerSalesRanking3Months(ranking);
-      setTotalSalesSum3Months(ranking.reduce((sum, c) => sum + c.totalAmt, 0));
-    } else {
-      setCustomerSalesRanking3Months([]);
-      setTotalSalesSum3Months(0);
-    }
-  }, [sales]);
-
   const fetchData = async () => {
-    const { data: pData } = await supabase.from("patients").select("*").order("name");
+    // 1. 고객 데이터 로딩
+    const { data: pData, error: pError } = await supabase.from("patients").select("*").order("name");
+    if (pError) console.error("고객 데이터 로딩 에러:", pError.message);
     if (pData) {
       setPatients(pData);
       if (pData.length > 0 && !selectedPatient) {
@@ -113,10 +95,26 @@ export default function PatientsPage() {
       }
     }
 
-    const { data: sData } = await supabase.from("sales").select("*").order("sale_date", { ascending: false });
-    if (sData) setSales(sData);
+    // 2. 판매관리 데이터 로딩
+    const { data: sData, error: sError } = await supabase
+      .from("sales")
+      .select("*")
+      .order("created_at", { ascending: false });
+    if (sError) console.error("판매 데이터 로딩 에러:", sError.message);
+    if (sData) {
+      const normalizedSales = sData
+        .map((s: any) => ({
+          ...s,
+          sale_date_str: s.sale_date || s.created_at?.split("T")[0] || "",
+          computed_amount: getSaleAmount(s),
+        }))
+        .sort((a: any, b: any) => (b.sale_date_str || "").localeCompare(a.sale_date_str || ""));
+      setSales(normalizedSales);
+    }
 
-    const { data: cData } = await supabase.from("consultations").select("*").order("created_at", { ascending: false });
+    // 3. 상담 데이터 로딩
+    const { data: cData, error: cError } = await supabase.from("consultations").select("*").order("created_at", { ascending: false });
+    if (cError) console.error("상담 데이터 로딩 에러:", cError.message);
     if (cData) {
       const withSignedUrls = await Promise.all(
         cData.map(async (c) => {
@@ -155,7 +153,7 @@ export default function PatientsPage() {
     const pSales = sales.filter(s => uniquePatientIds.includes(s.patient_id) || s.patient_name === patient.name);
 
     const count = pConsults.length;
-    const totalAmount = pSales.reduce((sum, s) => sum + (s.total_amount || 0), 0) + pConsults.reduce((sum, c) => sum + (c.amount || 0), 0);
+    const totalAmount = pSales.reduce((sum, s) => sum + (s.computed_amount ?? getSaleAmount(s)), 0);
     
     const lastDate = count > 0 ? (pConsults[0].consultation_date || pConsults[0].created_at.split('T')[0]) : "-";
     
@@ -172,18 +170,68 @@ export default function PatientsPage() {
   });
   const returningCount = Object.values(patientConsultCounts).filter(cnt => cnt >= 2).length;
 
+  // 🟢 판매관리 데이터 기반 전체 누적 판매 TOP
   const customerSalesRankingAll = useMemo(() => {
-    const stats: Record<string, { name: string, totalAmt: number, count: number }> = {};
+    const stats: Record<string, { key: string, patientId: string | null, name: string, customId?: string, totalAmt: number, count: number }> = {};
     sales.forEach(s => {
-      const name = s.patient_name || "미지정 고객";
-      if (!stats[name]) stats[name] = { name, totalAmt: 0, count: 0 };
-      stats[name].totalAmt += (s.total_amount || 0);
-      stats[name].count += 1;
+      const matchedPatient = s.patient_id ? patients.find(p => p.id === s.patient_id) : null;
+      const key = s.patient_id || s.patient_name || "미지정 고객";
+      const displayName = matchedPatient?.name || s.patient_name || "미지정 고객";
+      const customId = matchedPatient?.custom_id;
+
+      if (!stats[key]) {
+        stats[key] = { key, patientId: matchedPatient?.id || s.patient_id || null, name: displayName, customId, totalAmt: 0, count: 0 };
+      }
+      stats[key].totalAmt += (s.computed_amount ?? getSaleAmount(s));
+      stats[key].count += 1;
     });
     return Object.values(stats).sort((a, b) => b.totalAmt - a.totalAmt);
-  }, [sales]);
+  }, [sales, patients]);
 
-  const totalSalesSumAll = customerSalesRankingAll.reduce((sum, c) => sum + c.totalAmt, 0);
+  const totalSalesSumAll = useMemo(
+    () => customerSalesRankingAll.reduce((sum, c) => sum + c.totalAmt, 0),
+    [customerSalesRankingAll]
+  );
+
+  // 🟢 판매관리 데이터 기반 최근 3개월 누적 판매 TOP
+  const customerSalesRanking3Months = useMemo(() => {
+    const threeMonthsAgo = new Date();
+    threeMonthsAgo.setHours(0, 0, 0, 0);
+    threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
+
+    const stats: Record<string, { key: string, patientId: string | null, name: string, customId?: string, totalAmt: number, count: number }> = {};
+    sales.forEach(s => {
+      const dateStr = s.sale_date_str || s.sale_date || s.created_at?.split("T")[0];
+      if (!dateStr) return;
+
+      const saleDateObj = new Date(dateStr);
+      if (!isNaN(saleDateObj.getTime()) && saleDateObj >= threeMonthsAgo) {
+        const matchedPatient = s.patient_id ? patients.find(p => p.id === s.patient_id) : null;
+        const key = s.patient_id || s.patient_name || "미지정 고객";
+        const displayName = matchedPatient?.name || s.patient_name || "미지정 고객";
+        const customId = matchedPatient?.custom_id;
+
+        if (!stats[key]) {
+          stats[key] = { key, patientId: matchedPatient?.id || s.patient_id || null, name: displayName, customId, totalAmt: 0, count: 0 };
+        }
+        stats[key].totalAmt += (s.computed_amount ?? getSaleAmount(s));
+        stats[key].count += 1;
+      }
+    });
+    return Object.values(stats).sort((a, b) => b.totalAmt - a.totalAmt);
+  }, [sales, patients]);
+
+  const totalSalesSum3Months = useMemo(
+    () => customerSalesRanking3Months.reduce((sum, c) => sum + c.totalAmt, 0),
+    [customerSalesRanking3Months]
+  );
+
+  const handleSelectTopCustomer = (item: { patientId: string | null, name: string }) => {
+    const found = item.patientId
+      ? patients.find(p => p.id === item.patientId)
+      : patients.find(p => p.name === item.name);
+    if (found) setSelectedPatient(found);
+  };
 
   const handleOpenRegister = () => {
     setEditingPatientId(null);
@@ -196,7 +244,7 @@ export default function PatientsPage() {
     setEditingPatientId(p.id);
     setName(p.name || "");
     setCustomId(p.custom_id || "");
-    setPhone(p.phone || ""); // 🟢 폼 편집 시 연락처 세팅
+    setPhone(p.phone || "");
     setAddress(p.address || "");
     setGender(p.gender || "남");
     setBirthYear(p.birth_year ? p.birth_year.toString() : "");
@@ -228,7 +276,7 @@ export default function PatientsPage() {
       .filter(t => t.length > 0);
 
     const payload = {
-      name, custom_id: customId, phone, address, gender, // 🟢 페이로드에 phone 추가
+      name, custom_id: customId, phone, address, gender,
       birth_year: birthYear ? parseInt(birthYear) : null,
       body_type: bodyType === "선택 안함" ? null : bodyType,
       tags: tagsArray, 
@@ -263,7 +311,7 @@ export default function PatientsPage() {
 
   const filteredPatients = enrichedPatients.filter(p => {
     const term = searchTerm.toLowerCase();
-    const matchNameOrId = p.name?.toLowerCase().includes(term) || p.custom_id?.toLowerCase().includes(term) || p.phone?.includes(term); // 검색에 번호 추가
+    const matchNameOrId = p.name?.toLowerCase().includes(term) || p.custom_id?.toLowerCase().includes(term) || p.phone?.includes(term);
     const matchTag = p.tags?.some((t: string) => t.toLowerCase().includes(term));
     const matchAddress = p.address?.toLowerCase().includes(term);
     return matchNameOrId || matchTag || matchAddress;
@@ -347,7 +395,6 @@ export default function PatientsPage() {
                     }`}
                   >
                     <div className="grid grid-cols-12 items-center w-full gap-1.5 text-center text-[11px]">
-                      {/* 🟢 이름 및 연락처 복구 (세로 배치로 최적화) */}
                       <div className="col-span-4 text-left truncate pr-1 flex flex-col justify-center">
                         <span className="font-extrabold text-slate-900 truncate" title={p.custom_id ? `${p.name} (${p.custom_id})` : p.name}>
                           {p.name} {p.custom_id && <span className="text-[9px] font-semibold text-slate-400 ml-0.5">({p.custom_id})</span>}
@@ -402,7 +449,6 @@ export default function PatientsPage() {
                   <span>·</span>
                   <span>{selectedPatient.birth_year ? `${new Date().getFullYear() - selectedPatient.birth_year + 1}세` : "-"} / {selectedPatient.gender || "-"}</span>
                   
-                  {/* 🟢 상세 정보에 연락처 표시 추가 */}
                   {selectedPatient.phone && (
                     <>
                       <span>·</span>
@@ -450,12 +496,12 @@ export default function PatientsPage() {
                     selectedPatientStats.pSales.slice(0, 3).map(s => (
                       <div key={s.id} className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs flex justify-between items-center">
                         <div className="flex flex-col">
-                          <span className="text-[10px] font-bold text-slate-400">{s.sale_date} · {s.payment_method}</span>
+                          <span className="text-[10px] font-bold text-slate-400">{s.sale_date_str || s.sale_date} · {s.payment_method}</span>
                           <span className="font-extrabold text-slate-800 text-[11px]">
                             {s.items?.map((i: any) => `${i.name}(${i.quantity})`).join(", ")}
                           </span>
                         </div>
-                        <span className="font-black text-[#528771] text-[11px]">{s.total_amount?.toLocaleString()}원</span>
+                        <span className="font-black text-[#528771] text-[11px]">{(s.computed_amount ?? getSaleAmount(s)).toLocaleString()}원</span>
                       </div>
                     ))
                   )}
@@ -511,7 +557,7 @@ export default function PatientsPage() {
           )}
         </div>
 
-        {/* 3열: 우측 통계 */}
+        {/* 3열: 우측 통계 (판매관리 데이터 기준) */}
         <div className="lg:col-span-3 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-3.5 space-y-3">
           
           <div className="flex flex-col flex-1 overflow-hidden space-y-1.5">
@@ -524,9 +570,13 @@ export default function PatientsPage() {
               {customerSalesRankingAll.slice(0, 5).map((c, idx) => {
                 const percent = Math.round((c.totalAmt / (totalSalesSumAll || 1)) * 100);
                 return (
-                  <div key={c.name} className="p-1.5 bg-slate-50 rounded-xl border border-slate-100 flex flex-col gap-0.5">
+                  <div 
+                    key={c.key} 
+                    onClick={() => handleSelectTopCustomer(c)}
+                    className="p-1.5 bg-slate-50 hover:bg-teal-50/60 rounded-xl border border-slate-100 flex flex-col gap-0.5 cursor-pointer transition"
+                  >
                     <div className="flex justify-between items-center text-[11px]">
-                      <span className="font-extrabold text-slate-800 truncate max-w-[100px]" title={c.name}>
+                      <span className="font-extrabold text-slate-800 truncate max-w-[115px]" title={c.customId ? `${c.name} (${c.customId})` : c.name}>
                         {idx + 1}. {c.name}
                       </span>
                       <span className="font-black text-[#528771]">{c.totalAmt.toLocaleString()}원</span>
@@ -555,9 +605,13 @@ export default function PatientsPage() {
               {customerSalesRanking3Months.slice(0, 5).map((c, idx) => {
                 const percent = Math.round((c.totalAmt / (totalSalesSum3Months || 1)) * 100);
                 return (
-                  <div key={c.name} className="p-1.5 bg-slate-50 rounded-xl border border-slate-100 flex flex-col gap-0.5">
+                  <div 
+                    key={c.key} 
+                    onClick={() => handleSelectTopCustomer(c)}
+                    className="p-1.5 bg-slate-50 hover:bg-amber-50/60 rounded-xl border border-slate-100 flex flex-col gap-0.5 cursor-pointer transition"
+                  >
                     <div className="flex justify-between items-center text-[11px]">
-                      <span className="font-extrabold text-slate-800 truncate max-w-[100px]" title={c.name}>
+                      <span className="font-extrabold text-slate-800 truncate max-w-[115px]" title={c.customId ? `${c.name} (${c.customId})` : c.name}>
                         {idx + 1}. {c.name}
                       </span>
                       <span className="font-black text-amber-700">{c.totalAmt.toLocaleString()}원</span>
