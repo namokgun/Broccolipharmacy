@@ -39,39 +39,79 @@ const getSaleAmount = (s: any) => {
   return 0;
 };
 
-// 동일 고객 기준 판매 금액 합산 헬퍼
-const buildCustomerSalesRanking = (salesList: any[], patientsList: any[]) => {
-  const stats: Record<string, { key: string; patientId: string | null; name: string; customId?: string; totalAmt: number; count: number }> = {};
+// 환자(및 대표 고객 연결 가족)별 누적 판매 금액 합산 헬퍼
+const calculatePatientCumulativeSales = (patientsList: any[], salesList: any[]) => {
+  if (patientsList.length === 0 || salesList.length === 0) return [];
 
-  salesList.forEach(s => {
-    const rawName = (s.patient_name || "").trim();
-    const matchedPatient =
-      (s.patient_id ? patientsList.find(p => String(p.id) === String(s.patient_id)) : null) ||
-      (rawName ? patientsList.find(p => (p.name || "").trim() === rawName) : null);
+  const patientIdSet = new Set(patientsList.map(p => String(p.id)));
 
-    const key = matchedPatient
-      ? `patient_${matchedPatient.id}`
-      : `name_${rawName || "미지정 고객"}`;
+  // 대표 고객(representative_id) 기준으로 환자별 누적 그룹 생성
+  const groups: Record<string, {
+    repPatient: any;
+    memberIds: Set<string>;
+    memberNames: Set<string>;
+    totalAmt: number;
+    count: number;
+  }> = {};
 
-    const displayName = (matchedPatient?.name || rawName || "미지정 고객").trim();
-    const customId = matchedPatient?.custom_id;
+  patientsList.forEach(p => {
+    const hasValidRep = p.representative_id && patientIdSet.has(String(p.representative_id));
+    const repId = hasValidRep ? String(p.representative_id) : String(p.id);
+    const repPatient = hasValidRep
+      ? patientsList.find(pt => String(pt.id) === repId) || p
+      : p;
 
-    if (!stats[key]) {
-      stats[key] = {
-        key,
-        patientId: matchedPatient?.id || s.patient_id || null,
-        name: displayName,
-        customId,
+    if (!groups[repId]) {
+      groups[repId] = {
+        repPatient,
+        memberIds: new Set<string>(),
+        memberNames: new Set<string>(),
         totalAmt: 0,
         count: 0,
       };
     }
 
-    stats[key].totalAmt += (s.computed_amount ?? getSaleAmount(s));
-    stats[key].count += 1;
+    groups[repId].memberIds.add(String(p.id));
+    if (p.name && p.name.trim()) {
+      groups[repId].memberNames.add(p.name.trim());
+    }
   });
 
-  return Object.values(stats).sort((a, b) => b.totalAmt - a.totalAmt);
+  const groupList = Object.values(groups);
+
+  // 모든 판매 기록을 해당 환자의 누적 판매 금액에 합산
+  salesList.forEach(s => {
+    const amt = s.computed_amount ?? getSaleAmount(s);
+    const sPatientId = s.patient_id ? String(s.patient_id) : null;
+    const sPatientName = (s.patient_name || "").trim();
+
+    let matchedGroup = sPatientId
+      ? groupList.find(g => g.memberIds.has(sPatientId))
+      : undefined;
+
+    // patient_id가 없거나 삭제 후 재등록된 고객은 이름으로 매칭
+    if (!matchedGroup && sPatientName && (!sPatientId || !patientIdSet.has(sPatientId))) {
+      matchedGroup = groupList.find(g => g.memberNames.has(sPatientName));
+    }
+
+    if (matchedGroup) {
+      matchedGroup.totalAmt += amt;
+      matchedGroup.count += 1;
+    }
+  });
+
+  return groupList
+    .filter(g => g.totalAmt > 0 || g.count > 0)
+    .map(g => ({
+      key: String(g.repPatient.id),
+      patient: g.repPatient,
+      patientId: g.repPatient.id,
+      name: g.repPatient.name,
+      customId: g.repPatient.custom_id,
+      totalAmt: g.totalAmt,
+      count: g.count,
+    }))
+    .sort((a, b) => b.totalAmt - a.totalAmt);
 };
 
 export default function PatientsPage() {
@@ -179,23 +219,31 @@ export default function PatientsPage() {
   };
 
   const getPatientStats = (patient: any) => {
-    const familyPatientIds = patients
-      .filter(p => p.id === patient.id || p.representative_id === patient.id || (patient.representative_id && p.representative_id === patient.representative_id))
-      .map(p => p.id);
-    familyPatientIds.push(patient.id);
-    const uniquePatientIds = Array.from(new Set(familyPatientIds));
+    const familyMembers = patients.filter(
+      p => p.id === patient.id || p.representative_id === patient.id || (patient.representative_id && p.representative_id === patient.representative_id)
+    );
+    const uniquePatientIds = Array.from(new Set([String(patient.id), ...familyMembers.map(p => String(p.id))]));
+    const familyNames = new Set(familyMembers.map(p => (p.name || "").trim()).filter(Boolean));
+    if (patient.name) familyNames.add(patient.name.trim());
+
+    const allPatientIds = new Set(patients.map(p => String(p.id)));
 
     const pConsults = consultations
-      .filter(c => uniquePatientIds.includes(c.patient_id))
+      .filter(c => uniquePatientIds.includes(String(c.patient_id)))
       .sort((a, b) => {
         const dateA = new Date(a.consultation_date || a.created_at).getTime();
         const dateB = new Date(b.consultation_date || b.created_at).getTime();
         return dateB - dateA; 
       });
 
-    const pSales = sales.filter(
-      s => uniquePatientIds.includes(s.patient_id) || (s.patient_name || "").trim() === (patient.name || "").trim()
-    );
+    const pSales = sales.filter(s => {
+      const sPatientId = s.patient_id ? String(s.patient_id) : null;
+      if (sPatientId && allPatientIds.has(sPatientId)) {
+        return uniquePatientIds.includes(sPatientId);
+      }
+      const sName = (s.patient_name || "").trim();
+      return sName !== "" && familyNames.has(sName);
+    });
 
     const count = pConsults.length;
     const totalAmount = pSales.reduce((sum, s) => sum + (s.computed_amount ?? getSaleAmount(s)), 0);
@@ -215,10 +263,10 @@ export default function PatientsPage() {
   });
   const returningCount = Object.values(patientConsultCounts).filter(cnt => cnt >= 2).length;
 
-  // 전체 누적 판매 TOP (사람별 합산)
+  // 전체 누적 판매 TOP (환자별 누적 판매 금액 순)
   const customerSalesRankingAll = useMemo(
-    () => buildCustomerSalesRanking(sales, patients),
-    [sales, patients]
+    () => calculatePatientCumulativeSales(patients, sales),
+    [patients, sales]
   );
 
   const totalSalesSumAll = useMemo(
@@ -226,7 +274,7 @@ export default function PatientsPage() {
     [customerSalesRankingAll]
   );
 
-  // 최근 3개월 누적 판매 TOP (currentDate 기반으로 계산하여 프리렌더 에러 방지)
+  // 최근 3개월 누적 판매 TOP (환자별 최근 3개월 누적 판매 금액 순)
   const customerSalesRanking3Months = useMemo(() => {
     if (!currentDate) return [];
 
@@ -242,15 +290,19 @@ export default function PatientsPage() {
       return !isNaN(saleDateObj.getTime()) && saleDateObj >= threeMonthsAgo;
     });
 
-    return buildCustomerSalesRanking(recentSales, patients);
-  }, [sales, patients, currentDate]);
+    return calculatePatientCumulativeSales(patients, recentSales);
+  }, [patients, sales, currentDate]);
 
   const totalSalesSum3Months = useMemo(
     () => customerSalesRanking3Months.reduce((sum, c) => sum + c.totalAmt, 0),
     [customerSalesRanking3Months]
   );
 
-  const handleSelectTopCustomer = (item: { patientId: string | null; name: string }) => {
+  const handleSelectTopCustomer = (item: { patient?: any; patientId: string | null; name: string }) => {
+    if (item.patient) {
+      setSelectedPatient(item.patient);
+      return;
+    }
     const found =
       (item.patientId ? patients.find(p => String(p.id) === String(item.patientId)) : null) ||
       patients.find(p => (p.name || "").trim() === item.name.trim());
@@ -581,7 +633,7 @@ export default function PatientsPage() {
           )}
         </div>
 
-        {/* 3열: 우측 통계 (판매관리 데이터 기준 사람별 합산) */}
+        {/* 3열: 우측 통계 (환자별 누적 판매 금액 TOP) */}
         <div className="lg:col-span-3 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-3.5 space-y-3">
           
           <div className="flex flex-col flex-1 overflow-hidden space-y-1.5">
@@ -600,8 +652,8 @@ export default function PatientsPage() {
                     className="p-1.5 bg-slate-50 hover:bg-teal-50/60 rounded-xl border border-slate-100 flex flex-col gap-0.5 cursor-pointer transition"
                   >
                     <div className="flex justify-between items-center text-[11px]">
-                      <span className="font-extrabold text-slate-800 truncate max-w-[115px]" title={c.customId ? `${c.name} (${c.customId})` : c.name}>
-                        {idx + 1}. {c.name}
+                      <span className="font-extrabold text-slate-800 truncate max-w-[125px]" title={c.customId ? `${c.name} (${c.customId})` : c.name}>
+                        {idx + 1}. {c.name} <span className="text-[9px] font-bold text-slate-400">({c.count}건)</span>
                       </span>
                       <span className="font-black text-[#528771]">{c.totalAmt.toLocaleString()}원</span>
                     </div>
@@ -635,8 +687,8 @@ export default function PatientsPage() {
                     className="p-1.5 bg-slate-50 hover:bg-amber-50/60 rounded-xl border border-slate-100 flex flex-col gap-0.5 cursor-pointer transition"
                   >
                     <div className="flex justify-between items-center text-[11px]">
-                      <span className="font-extrabold text-slate-800 truncate max-w-[115px]" title={c.customId ? `${c.name} (${c.customId})` : c.name}>
-                        {idx + 1}. {c.name}
+                      <span className="font-extrabold text-slate-800 truncate max-w-[125px]" title={c.customId ? `${c.name} (${c.customId})` : c.name}>
+                        {idx + 1}. {c.name} <span className="text-[9px] font-bold text-slate-400">({c.count}건)</span>
                       </span>
                       <span className="font-black text-amber-700">{c.totalAmt.toLocaleString()}원</span>
                     </div>
