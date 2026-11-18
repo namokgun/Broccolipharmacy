@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/app/lib/supabase";
 
 const PAYMENT_METHODS = ["카드", "링크", "홈피", "매장", "현영", "사업자", "입금", "지역상품", "기타"];
@@ -21,23 +21,27 @@ export default function SalesPage() {
 
   // 등록 폼 상태
   const [saleDate, setSaleDate] = useState("");
-  const [feedbackDay, setFeedbackDay] = useState(""); // 🟢 피드백 알림 (Day)
+  const [feedbackDay, setFeedbackDay] = useState("");
   const [currentMonth, setCurrentMonth] = useState("");
   const [paymentMethod, setPaymentMethod] = useState(PAYMENT_METHODS[0]);
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
   const [patientSearch, setPatientSearch] = useState("");
   const [selectedProducts, setSelectedProducts] = useState<any[]>([]);
   const [productSearch, setProductSearch] = useState("");
+  const [productHighlightIndex, setProductHighlightIndex] = useState(0);
+  const productDropdownRef = useRef<HTMLDivElement | null>(null);
   const [memo, setMemo] = useState("");
 
   // 수정 모달 폼 상태
   const [editSaleDate, setEditSaleDate] = useState("");
-  const [editFeedbackDay, setEditFeedbackDay] = useState(""); // 🟢 피드백 알림 (Day)
+  const [editFeedbackDay, setEditFeedbackDay] = useState("");
   const [editPaymentMethod, setEditPaymentMethod] = useState(PAYMENT_METHODS[0]);
   const [editSelectedPatient, setEditSelectedPatient] = useState<any | null>(null);
   const [editPatientSearch, setEditPatientSearch] = useState("");
   const [editSelectedProducts, setEditSelectedProducts] = useState<any[]>([]);
   const [editProductSearch, setEditProductSearch] = useState("");
+  const [editProductHighlightIndex, setEditProductHighlightIndex] = useState(0);
+  const editProductDropdownRef = useRef<HTMLDivElement | null>(null);
   const [editMemo, setEditMemo] = useState("");
 
   useEffect(() => { 
@@ -58,13 +62,14 @@ export default function SalesPage() {
 
   const resetForm = () => {
     setSaleDate(new Date().toISOString().split('T')[0]);
-    setFeedbackDay(""); // 🟢 초기화
+    setFeedbackDay("");
     setPaymentMethod(PAYMENT_METHODS[0]);
     setSelectedPatient(null);
     setSelectedProducts([]);
     setMemo("");
     setPatientSearch("");
     setProductSearch("");
+    setProductHighlightIndex(0);
   };
 
   const getCustomerDisplayInfo = (p: any) => {
@@ -73,22 +78,99 @@ export default function SalesPage() {
     return "번호 없음";
   };
 
+  // 🟢 등록 폼 제품/옵션 검색 결과 목록 (키보드 탐색 공용)
+  const filteredProductChoices = useMemo(() => {
+    const term = productSearch.trim().toLowerCase();
+    if (!term) return [];
+
+    return products
+      .filter(pr => (pr.name || "").toLowerCase().includes(term))
+      .flatMap(pr => {
+        if (pr.options && pr.options.length > 0) {
+          return pr.options.map((opt: any, idx: number) => ({
+            key: `${pr.id}-${idx}`,
+            product: pr,
+            option: opt,
+            productName: pr.name,
+            optionName: opt.name,
+            price: opt.price
+          }));
+        }
+        return [{
+          key: pr.id,
+          product: pr,
+          option: null,
+          productName: pr.name,
+          optionName: null,
+          price: pr.price
+        }];
+      });
+  }, [products, productSearch]);
+
+  // 🟢 수정 모달 제품/옵션 검색 결과 목록 (키보드 탐색 공용)
+  const editFilteredProductChoices = useMemo(() => {
+    const term = editProductSearch.trim().toLowerCase();
+    if (!term) return [];
+
+    return products
+      .filter(pr => (pr.name || "").toLowerCase().includes(term))
+      .flatMap(pr => {
+        if (pr.options && pr.options.length > 0) {
+          return pr.options.map((opt: any, idx: number) => ({
+            key: `${pr.id}-${idx}`,
+            product: pr,
+            option: opt,
+            productName: pr.name,
+            optionName: opt.name,
+            price: opt.price
+          }));
+        }
+        return [{
+          key: pr.id,
+          product: pr,
+          option: null,
+          productName: pr.name,
+          optionName: null,
+          price: pr.price
+        }];
+      });
+  }, [products, editProductSearch]);
+
+  // 방향키 이동 시 드롭다운 스크롤 자동 추적
+  useEffect(() => {
+    const container = productDropdownRef.current;
+    if (!container) return;
+    const activeItem = container.children[productHighlightIndex] as HTMLElement | undefined;
+    if (activeItem) {
+      activeItem.scrollIntoView({ block: "nearest" });
+    }
+  }, [productHighlightIndex]);
+
+  useEffect(() => {
+    const container = editProductDropdownRef.current;
+    if (!container) return;
+    const activeItem = container.children[editProductHighlightIndex] as HTMLElement | undefined;
+    if (activeItem) {
+      activeItem.scrollIntoView({ block: "nearest" });
+    }
+  }, [editProductHighlightIndex]);
+
   const handleOpenEditModal = (sale: any) => {
     setEditingSaleId(sale.id);
     setEditSaleDate(sale.sale_date || new Date().toISOString().split('T')[0]);
-    setEditFeedbackDay(sale.feedback_day ? sale.feedback_day.toString() : ""); // 🟢 수정 시 불러오기
+    setEditFeedbackDay(sale.feedback_day ? sale.feedback_day.toString() : "");
     setEditPaymentMethod(sale.payment_method);
     
     const pt = patients.find(p => p.id === sale.patient_id);
     setEditSelectedPatient(pt || { id: sale.patient_id, name: sale.patient_name });
     
-    // 기존 아이템의 고유 ID 부여 (옵션 호환)
     const itemsWithUniqueId = (sale.items || []).map((i: any) => ({ ...i, uniqueId: i.uniqueId || i.id }));
     setEditSelectedProducts(itemsWithUniqueId);
     
     setEditMemo(sale.memo || "");
     setEditPatientSearch("");
     setEditProductSearch("");
+    setEditProductHighlightIndex(0);
     setIsEditModalOpen(true);
   };
 
@@ -99,7 +181,7 @@ export default function SalesPage() {
     else { alert("삭제되었습니다."); fetchData(); }
   };
 
-  // 🟢 옵션 지원 제품 추가 로직
+  // 옵션 지원 제품 추가 로직
   const handleAddProduct = (product: any, option: any = null) => {
     const uniqueId = option ? `${product.id}-${option.name}` : product.id;
     const displayName = option ? `${product.name} [${option.name}]` : product.name;
@@ -112,6 +194,34 @@ export default function SalesPage() {
       setSelectedProducts([...selectedProducts, { ...product, uniqueId, name: displayName, price, quantity: 1, original_product_id: product.id, option_name: option?.name }]);
     }
     setProductSearch("");
+    setProductHighlightIndex(0);
+  };
+
+  // 🟢 등록 폼 제품 검색 키보드 핸들러
+  const handleProductSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!productSearch.trim()) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (filteredProductChoices.length > 0) {
+        setProductHighlightIndex(prev => (prev + 1) % filteredProductChoices.length);
+      }
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (filteredProductChoices.length > 0) {
+        setProductHighlightIndex(prev => (prev - 1 + filteredProductChoices.length) % filteredProductChoices.length);
+      }
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const target = filteredProductChoices[productHighlightIndex];
+      if (target) {
+        handleAddProduct(target.product, target.option);
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setProductSearch("");
+      setProductHighlightIndex(0);
+    }
   };
 
   const handleQuantity = (uniqueId: string, d: number) => {
@@ -143,6 +253,34 @@ export default function SalesPage() {
       setEditSelectedProducts([...editSelectedProducts, { ...product, uniqueId, name: displayName, price, quantity: 1, original_product_id: product.id, option_name: option?.name }]);
     }
     setEditProductSearch("");
+    setEditProductHighlightIndex(0);
+  };
+
+  // 🟢 수정 모달 제품 검색 키보드 핸들러
+  const handleEditProductSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!editProductSearch.trim()) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (editFilteredProductChoices.length > 0) {
+        setEditProductHighlightIndex(prev => (prev + 1) % editFilteredProductChoices.length);
+      }
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (editFilteredProductChoices.length > 0) {
+        setEditProductHighlightIndex(prev => (prev - 1 + editFilteredProductChoices.length) % editFilteredProductChoices.length);
+      }
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const target = editFilteredProductChoices[editProductHighlightIndex];
+      if (target) {
+        handleEditAddProduct(target.product, target.option);
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setEditProductSearch("");
+      setEditProductHighlightIndex(0);
+    }
   };
 
   const handleEditQuantity = (uniqueId: string, d: number) => {
@@ -157,7 +295,6 @@ export default function SalesPage() {
     if (!selectedPatient) return alert("고객을 선택해주세요.");
     if (selectedProducts.length === 0) return alert("판매할 제품을 선택해주세요.");
 
-    // 🟢 피드백 날짜 계산
     let feedback_date = null;
     if (feedbackDay && !isNaN(Number(feedbackDay))) {
       const fd = new Date(saleDate);
@@ -176,8 +313,8 @@ export default function SalesPage() {
       memo, 
       user_id: user?.id, 
       sale_date: saleDate,
-      feedback_day: feedbackDay ? Number(feedbackDay) : null, // 🟢 DB 추가 항목
-      feedback_date: feedback_date // 🟢 DB 추가 항목
+      feedback_day: feedbackDay ? Number(feedbackDay) : null,
+      feedback_date: feedback_date
     };
 
     const { error } = await supabase.from("sales").insert([payload]);
@@ -191,7 +328,6 @@ export default function SalesPage() {
     if (!editSelectedPatient) return alert("고객을 선택해주세요.");
     if (editSelectedProducts.length === 0) return alert("판매할 제품을 선택해주세요.");
 
-    // 🟢 피드백 날짜 계산
     let feedback_date = null;
     if (editFeedbackDay && !isNaN(Number(editFeedbackDay))) {
       const fd = new Date(editSaleDate);
@@ -225,17 +361,34 @@ export default function SalesPage() {
   const totalSum = thisMonthSales.reduce((sum, s) => sum + (s.total_amount || 0), 0);
   const avgPrice = totalCount > 0 ? Math.round(totalSum / totalCount) : 0;
 
+  // 🟢 인기 제품 TOP: 옵션을 분리하지 않고 원본 제품 단위로 통합 집계
   const topProducts = useMemo(() => {
     const stats: Record<string, { qty: number, amt: number }> = {};
     sales.forEach(s => {
       s.items?.forEach((item: any) => {
-        if (!stats[item.name]) stats[item.name] = { qty: 0, amt: 0 };
-        stats[item.name].qty += item.quantity;
-        stats[item.name].amt += (item.price * item.quantity);
+        const baseProduct = item.original_product_id
+          ? products.find(p => p.id === item.original_product_id)
+          : products.find(p => p.id === item.id);
+
+        // 등록된 원본 제품명을 우선 사용하고, 없는 경우 뒤의 [옵션명] 표기를 제거해 통합
+        const baseProductName = baseProduct
+          ? baseProduct.name
+          : (item.name || "미지정 제품").replace(/\s*\[[^\]]+\]\s*$/, "").trim();
+
+        if (!stats[baseProductName]) stats[baseProductName] = { qty: 0, amt: 0 };
+        stats[baseProductName].qty += (item.quantity || 0);
+        stats[baseProductName].amt += ((item.price || 0) * (item.quantity || 0));
       });
     });
-    return Object.entries(stats).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.amt - a.amt);
-  }, [sales]);
+    return Object.entries(stats)
+      .map(([name, data]) => ({ name, ...data }))
+      .sort((a, b) => b.amt - a.amt);
+  }, [sales, products]);
+
+  const totalTopProductsAmt = useMemo(
+    () => topProducts.reduce((sum, p) => sum + p.amt, 0),
+    [topProducts]
+  );
 
   const filteredHistorySales = useMemo(() => {
     let list = [...sales];
@@ -299,7 +452,6 @@ export default function SalesPage() {
                 </div>
               </div>
 
-              {/* 🟢 피드백 입력란이 포함된 그리드 (공간 최적화) */}
               <div className="grid grid-cols-12 gap-3">
                 <div className="col-span-4">
                   <label className="block font-bold text-slate-700 text-xs mb-1">판매일자 *</label>
@@ -341,35 +493,56 @@ export default function SalesPage() {
               )}
 
               <div className="relative">
-                <label className="block font-bold text-slate-700 text-xs mb-1">제품/옵션 선택 *</label>
-                <input type="text" placeholder="+ 제품명 검색하여 추가..." value={productSearch} onChange={e => setProductSearch(e.target.value)} 
+                <label className="block font-bold text-slate-700 text-xs mb-1">
+                  제품/옵션 선택 * <span className="text-[10px] font-normal text-slate-400">(↑↓ 이동 · Enter 선택)</span>
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="+ 제품명 검색하여 추가..." 
+                  value={productSearch} 
+                  onChange={e => {
+                    setProductSearch(e.target.value);
+                    setProductHighlightIndex(0);
+                  }}
+                  onKeyDown={handleProductSearchKeyDown}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#528771]" 
                 />
                 
-                {/* 🟢 다중 옵션 드롭다운 렌더링 */}
+                {/* 다중 옵션 드롭다운 렌더링 (방향키 하이라이트 연동) */}
                 {productSearch && (
-                  <div className="absolute z-10 w-full max-h-40 overflow-y-auto border border-slate-200 rounded-xl bg-white shadow-xl mt-1">
-                    {products.filter(pr => pr.name.includes(productSearch)).flatMap(pr => {
-                      if (pr.options && pr.options.length > 0) {
-                        return pr.options.map((opt: any, idx: number) => (
-                          <div key={`${pr.id}-${idx}`} onClick={() => handleAddProduct(pr, opt)} 
-                            className="p-2.5 hover:bg-teal-50 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none"
-                          >
-                            <span className="font-extrabold text-slate-900 text-xs">{pr.name} <span className="text-teal-700 bg-teal-100/50 px-1 rounded">[{opt.name}]</span></span>
-                            <span className="font-extrabold text-teal-800 text-xs">{opt.price?.toLocaleString()}원</span>
-                          </div>
-                        ));
-                      } else {
+                  <div ref={productDropdownRef} className="absolute z-10 w-full max-h-40 overflow-y-auto border border-slate-200 rounded-xl bg-white shadow-xl mt-1">
+                    {filteredProductChoices.length === 0 ? (
+                      <div className="p-3 text-center text-[11px] font-semibold text-slate-400">검색된 제품이 없습니다.</div>
+                    ) : (
+                      filteredProductChoices.map((choice, idx) => {
+                        const isHighlighted = idx === productHighlightIndex;
                         return (
-                          <div key={pr.id} onClick={() => handleAddProduct(pr)} 
-                            className="p-2.5 hover:bg-teal-50 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none"
+                          <div 
+                            key={choice.key} 
+                            onClick={() => handleAddProduct(choice.product, choice.option)} 
+                            onMouseEnter={() => setProductHighlightIndex(idx)}
+                            className={`p-2.5 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none transition-colors ${
+                              isHighlighted ? "bg-teal-100/80" : "hover:bg-teal-50"
+                            }`}
                           >
-                            <span className="font-extrabold text-slate-900 text-xs">{pr.name}</span>
-                            <span className="font-extrabold text-teal-800 text-xs">{pr.price?.toLocaleString()}원</span>
+                            <span className="font-extrabold text-slate-900 text-xs">
+                              {choice.productName}{" "}
+                              {choice.optionName && (
+                                <span className="text-teal-700 bg-teal-100/60 px-1 rounded">[{choice.optionName}]</span>
+                              )}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              {isHighlighted && (
+                                <span className="text-[9px] font-bold text-teal-800 bg-white/80 px-1.5 py-0.5 rounded border border-teal-200">
+                                  Enter ↵
+                                </span>
+                              )}
+                              <span className="font-extrabold text-teal-800 text-xs">{choice.price?.toLocaleString()}원</span>
+                            </div>
                           </div>
                         );
-                      }
-                    })}
+                      })
+                    )}
                   </div>
                 )}
                 
@@ -428,7 +601,7 @@ export default function SalesPage() {
               </h3>
               <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 hide-scrollbar">
                 {topProducts.slice(0, 15).map((p, idx) => {
-                  const percent = Math.round((p.amt / totalSum) * 100) || 0;
+                  const percent = Math.round((p.amt / (totalTopProductsAmt || 1)) * 100) || 0;
                   return (
                     <div key={p.name} className="flex justify-between items-center text-[10px] bg-slate-50 p-2 rounded-lg border border-slate-100">
                       <div className="flex items-center gap-1 overflow-hidden">
@@ -590,7 +763,7 @@ export default function SalesPage() {
       )}
 
       {/* =========================================================================
-          🟢 판매 내역 수정 팝업 모달 (Modal)
+          판매 내역 수정 팝업 모달 (Modal)
       ========================================================================= */}
       {isEditModalOpen && (
         <div onClick={() => setIsEditModalOpen(false)} className="fixed inset-0 z-[120] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
@@ -657,34 +830,55 @@ export default function SalesPage() {
               )}
 
               <div className="relative">
-                <label className="block font-bold text-slate-700 mb-1">제품/옵션 선택 *</label>
-                <input type="text" placeholder="+ 제품명 검색하여 추가..." value={editProductSearch} onChange={e => setEditProductSearch(e.target.value)} 
+                <label className="block font-bold text-slate-700 mb-1">
+                  제품/옵션 선택 * <span className="text-[10px] font-normal text-slate-400">(↑↓ 이동 · Enter 선택)</span>
+                </label>
+                <input 
+                  type="text" 
+                  placeholder="+ 제품명 검색하여 추가..." 
+                  value={editProductSearch} 
+                  onChange={e => {
+                    setEditProductSearch(e.target.value);
+                    setEditProductHighlightIndex(0);
+                  }}
+                  onKeyDown={handleEditProductSearchKeyDown}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]" 
                 />
                 
                 {editProductSearch && (
-                  <div className="absolute z-10 w-full max-h-40 overflow-y-auto border border-slate-200 rounded-xl bg-white shadow-xl mt-1">
-                    {products.filter(pr => pr.name.includes(editProductSearch)).flatMap(pr => {
-                      if (pr.options && pr.options.length > 0) {
-                        return pr.options.map((opt: any, idx: number) => (
-                          <div key={`${pr.id}-${idx}`} onClick={() => handleEditAddProduct(pr, opt)} 
-                            className="p-2.5 hover:bg-teal-50 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none"
-                          >
-                            <span className="font-extrabold text-slate-900">{pr.name} <span className="text-teal-700 bg-teal-100/50 px-1 rounded">[{opt.name}]</span></span>
-                            <span className="font-extrabold text-teal-800">{opt.price?.toLocaleString()}원</span>
-                          </div>
-                        ));
-                      } else {
+                  <div ref={editProductDropdownRef} className="absolute z-10 w-full max-h-40 overflow-y-auto border border-slate-200 rounded-xl bg-white shadow-xl mt-1">
+                    {editFilteredProductChoices.length === 0 ? (
+                      <div className="p-3 text-center text-[11px] font-semibold text-slate-400">검색된 제품이 없습니다.</div>
+                    ) : (
+                      editFilteredProductChoices.map((choice, idx) => {
+                        const isHighlighted = idx === editProductHighlightIndex;
                         return (
-                          <div key={pr.id} onClick={() => handleEditAddProduct(pr)} 
-                            className="p-2.5 hover:bg-teal-50 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none"
+                          <div 
+                            key={choice.key} 
+                            onClick={() => handleEditAddProduct(choice.product, choice.option)} 
+                            onMouseEnter={() => setEditProductHighlightIndex(idx)}
+                            className={`p-2.5 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none transition-colors ${
+                              isHighlighted ? "bg-teal-100/80" : "hover:bg-teal-50"
+                            }`}
                           >
-                            <span className="font-extrabold text-slate-900">{pr.name}</span>
-                            <span className="font-extrabold text-teal-800">{pr.price?.toLocaleString()}원</span>
+                            <span className="font-extrabold text-slate-900">
+                              {choice.productName}{" "}
+                              {choice.optionName && (
+                                <span className="text-teal-700 bg-teal-100/60 px-1 rounded">[{choice.optionName}]</span>
+                              )}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              {isHighlighted && (
+                                <span className="text-[9px] font-bold text-teal-800 bg-white/80 px-1.5 py-0.5 rounded border border-teal-200">
+                                  Enter ↵
+                                </span>
+                              )}
+                              <span className="font-extrabold text-teal-800">{choice.price?.toLocaleString()}원</span>
+                            </div>
                           </div>
                         );
-                      }
-                    })}
+                      })
+                    )}
                   </div>
                 )}
                 
