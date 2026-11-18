@@ -7,7 +7,7 @@ import Link from "next/link";
 export default function StatsPage() {
   const [patients, setPatients] = useState<any[]>([]);
   const [consultations, setConsultations] = useState<any[]>([]);
-  const [salesRecords, setSalesRecords] = useState<any[]>([]); // 🟢 판매관리 데이터 상태 추가
+  const [salesRecords, setSalesRecords] = useState<any[]>([]);
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
 
   const [periodFilter, setPeriodFilter] = useState("6months");
@@ -37,7 +37,7 @@ export default function StatsPage() {
       setConsultations(processed);
     }
 
-    // 3. 판매관리 데이터 로딩 (매출 추이용) 🟢
+    // 3. 판매관리 데이터 로딩 (매출 및 판매 건수 추이용)
     const { data: sData, error: sError } = await supabase
       .from("sales")
       .select("*")
@@ -81,7 +81,7 @@ export default function StatsPage() {
   const currentPatients = patients.filter(p => p.created_at?.startsWith(thisYm));
   const prevPatients = patients.filter(p => p.created_at?.startsWith(lastYm));
 
-  // 🟢 매출 계산은 이제 consultations가 아닌 salesRecords에서 가져옵니다.
+  // 매출 및 판매 건수 집계
   const currentSalesRecords = salesRecords.filter(s => s.sale_date_str?.startsWith(thisYm));
   const prevSalesRecords = salesRecords.filter(s => s.sale_date_str?.startsWith(lastYm));
 
@@ -112,6 +112,7 @@ export default function StatsPage() {
 
   const salesRate = calcRateText(currentSales, prevSales);
   const consultRate = calcRateText(currentConsultations.length, prevConsultations.length);
+  const salesCountRate = calcRateText(currentSalesRecords.length, prevSalesRecords.length); // 🟢 판매 건수 증감률
   const patientRate = calcRateText(patients.length, patients.length - currentPatients.length);
   const newPatientRate = calcRateText(currentPatients.length, prevPatients.length);
   const dailyAvgRate = calcRateText(dailyAverageSales, prevDailyAverageSales);
@@ -127,7 +128,7 @@ export default function StatsPage() {
   const constitutionArray = Object.entries(constitutionCounts).sort((a, b) => b[1] - a[1]);
   const donutColors = ["#14b8a6", "#f59e0b", "#3b82f6", "#8b5cf6", "#94a3b8", "#f43f5e", "#10b981"]; 
 
-  // 월별 차트 데이터 생성 (매출은 sales, 상담은 consultations 기준) 🟢
+  // 월별 차트 데이터 생성
   const monthlyChartData = monthlyBuckets.map((bucket) => {
     const monthConsults = consultations.filter(c => c.consult_date_str?.startsWith(bucket.yearMonth));
     const monthSalesRecs = salesRecords.filter(s => s.sale_date_str?.startsWith(bucket.yearMonth));
@@ -135,7 +136,6 @@ export default function StatsPage() {
     const sales = monthSalesRecs.reduce((sum, s) => sum + (s.total_amount || s.amount || 0), 0);
     const consultCount = monthConsults.length; 
 
-    // 정확한 전월 계산을 위해 Date 객체 활용
     const bDate = new Date(`${bucket.yearMonth}-01`);
     bDate.setMonth(bDate.getMonth() - 1);
     const prevBucketYm = `${bDate.getFullYear()}-${String(bDate.getMonth() + 1).padStart(2, '0')}`;
@@ -159,7 +159,15 @@ export default function StatsPage() {
     };
   });
 
-  // 점과 선으로 이어진 SVG 차트 렌더링 (원본 UI 유지)
+  // 점 위 상시 노출용 간결 라벨 포맷터
+  const formatCompactPointLabel = (val: number, type: "consult" | "sales") => {
+    if (type === "consult") return `${val}건`;
+    if (val === 0) return "0";
+    if (val >= 10000) return `${Math.round(val / 10000).toLocaleString()}만`;
+    return val.toLocaleString();
+  };
+
+  // 점과 선으로 이어진 SVG 차트 렌더링
   const renderSVGChart = (type: "consult" | "sales") => {
     let rawMax = Math.max(...monthlyChartData.map(d => type === "consult" ? d.consultCount : d.sales), 1);
     
@@ -271,6 +279,21 @@ export default function StatsPage() {
                 <g key={`point-${i}`} className="group cursor-pointer">
                   <rect x={`calc(${x}% - ${barWidth}%)`} y="0" width={`calc(${barWidth * 2}%)`} height="100%" fill="transparent" />
                   
+                  {/* 🟢 점 위 상시 수치 라벨 (가독성을 위한 흰색 외곽선 처리) */}
+                  <text
+                    x={`${x}%`}
+                    y={`${y}%`}
+                    dy="-8"
+                    fill={lineColor}
+                    fontSize="10"
+                    fontWeight="800"
+                    textAnchor="middle"
+                    style={{ paintOrder: "stroke", stroke: "#ffffff", strokeWidth: "3px", strokeLinejoin: "round" }}
+                    className="pointer-events-none select-none"
+                  >
+                    {formatCompactPointLabel(val, type)}
+                  </text>
+
                   <circle 
                     cx={`${x}%`} 
                     cy={`${y}%`} 
@@ -281,6 +304,7 @@ export default function StatsPage() {
                     className="group-hover:r-[6] transition-all"
                   />
                   
+                  {/* 호버 시 상세 툴팁 */}
                   <g className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                     <rect x={`calc(${x}% - 52px)`} y="calc(-26px)" width="105" height="24" rx="4" fill="#1e293b" />
                     <text x={`${x}%`} y="-10" fill="white" fontSize="9" fontWeight="bold" textAnchor="middle">
@@ -323,32 +347,38 @@ export default function StatsPage() {
         </div>
       </div>
 
-      {/* 요약 카드 */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+      {/* 요약 카드 (6분할) */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
           <span className="text-xs font-bold text-slate-500 mb-2">총 고객 수</span>
-          <div className="text-2xl font-extrabold text-slate-900 mb-2">{patients.length} <span className="text-sm font-bold text-slate-500">명</span></div>
+          <div className="text-xl font-extrabold text-slate-900 mb-2">{patients.length} <span className="text-xs font-bold text-slate-500">명</span></div>
           <div className="text-[11px] font-bold text-slate-400 flex items-center gap-1">전월 대비 <span className={`px-1.5 py-0.5 rounded ${getRateColor(patients.length, patients.length - currentPatients.length)}`}>{patientRate}</span></div>
         </div>
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
           <span className="text-xs font-bold text-slate-500 mb-2">이번 달 총 매출</span>
-          <div className="text-2xl font-extrabold text-slate-900 mb-2 truncate" title={`${currentSales.toLocaleString()}원`}>{currentSales.toLocaleString()} <span className="text-sm font-bold text-slate-500">원</span></div>
+          <div className="text-xl font-extrabold text-slate-900 mb-2 truncate" title={`${currentSales.toLocaleString()}원`}>{currentSales.toLocaleString()} <span className="text-xs font-bold text-slate-500">원</span></div>
           <div className="text-[11px] font-bold text-slate-400 flex items-center gap-1">전월 대비 <span className={`px-1.5 py-0.5 rounded ${getRateColor(currentSales, prevSales)}`}>{salesRate}</span></div>
         </div>
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
           <span className="text-xs font-bold text-slate-500 mb-2">이번 달 일평균 매출</span>
-          <div className="text-2xl font-extrabold text-slate-900 mb-2 truncate" title={`${dailyAverageSales.toLocaleString()}원`}>{dailyAverageSales.toLocaleString()} <span className="text-sm font-bold text-slate-500">원</span></div>
+          <div className="text-xl font-extrabold text-slate-900 mb-2 truncate" title={`${dailyAverageSales.toLocaleString()}원`}>{dailyAverageSales.toLocaleString()} <span className="text-xs font-bold text-slate-500">원</span></div>
           <div className="text-[11px] font-bold text-slate-400 flex items-center gap-1">전월 대비 <span className={`px-1.5 py-0.5 rounded ${getRateColor(dailyAverageSales, prevDailyAverageSales)}`}>{dailyAvgRate}</span></div>
         </div>
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
           <span className="text-xs font-bold text-slate-500 mb-2">이번 달 신규 환자</span>
-          <div className="text-2xl font-extrabold text-slate-900 mb-2">{currentPatients.length} <span className="text-sm font-bold text-slate-500">명</span></div>
+          <div className="text-xl font-extrabold text-slate-900 mb-2">{currentPatients.length} <span className="text-xs font-bold text-slate-500">명</span></div>
           <div className="text-[11px] font-bold text-slate-400 flex items-center gap-1">전월 대비 <span className={`px-1.5 py-0.5 rounded ${getRateColor(currentPatients.length, prevPatients.length)}`}>{newPatientRate}</span></div>
         </div>
-        <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between col-span-2 md:col-span-1">
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
           <span className="text-xs font-bold text-slate-500 mb-2">이번 달 상담 건수</span>
-          <div className="text-2xl font-extrabold text-slate-900 mb-2">{currentConsultations.length} <span className="text-sm font-bold text-slate-500">건</span></div>
+          <div className="text-xl font-extrabold text-slate-900 mb-2">{currentConsultations.length} <span className="text-xs font-bold text-slate-500">건</span></div>
           <div className="text-[11px] font-bold text-slate-400 flex items-center gap-1">전월 대비 <span className={`px-1.5 py-0.5 rounded ${getRateColor(currentConsultations.length, prevConsultations.length)}`}>{consultRate}</span></div>
+        </div>
+        {/* 🟢 추가된 이번 달 판매 건수 카드 */}
+        <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
+          <span className="text-xs font-bold text-slate-500 mb-2">이번 달 판매 건수</span>
+          <div className="text-xl font-extrabold text-slate-900 mb-2">{currentSalesRecords.length} <span className="text-xs font-bold text-slate-500">건</span></div>
+          <div className="text-[11px] font-bold text-slate-400 flex items-center gap-1">전월 대비 <span className={`px-1.5 py-0.5 rounded ${getRateColor(currentSalesRecords.length, prevSalesRecords.length)}`}>{salesCountRate}</span></div>
         </div>
       </div>
 
