@@ -49,7 +49,6 @@ const buildCustomerSalesRanking = (salesList: any[], patientsList: any[]) => {
       (s.patient_id ? patientsList.find(p => String(p.id) === String(s.patient_id)) : null) ||
       (rawName ? patientsList.find(p => (p.name || "").trim() === rawName) : null);
 
-    // 같은 고객이면 patient_id 유무나 공백 차이와 무관하게 동일한 키로 합산
     const key = matchedPatient
       ? `patient_${matchedPatient.id}`
       : `name_${rawName || "미지정 고객"}`;
@@ -80,6 +79,7 @@ export default function PatientsPage() {
   const [consultations, setConsultations] = useState<any[]>([]);
   const [sales, setSales] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
+  const [currentDate, setCurrentDate] = useState<Date | null>(null);
   
   const [selectedPatient, setSelectedPatient] = useState<any | null>(null);
 
@@ -108,12 +108,13 @@ export default function PatientsPage() {
   const [activeCount, setActiveCount] = useState(0);
 
   useEffect(() => {
+    setCurrentDate(new Date());
     fetchData();
   }, []);
 
   useEffect(() => {
-    if (consultations.length > 0) {
-      const threeMonthsAgo = new Date();
+    if (consultations.length > 0 && currentDate) {
+      const threeMonthsAgo = new Date(currentDate);
       threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
       const activePatientIds = new Set(
         consultations
@@ -124,7 +125,7 @@ export default function PatientsPage() {
     } else {
       setActiveCount(0);
     }
-  }, [consultations]);
+  }, [consultations, currentDate]);
 
   const fetchData = async () => {
     // 1. 고객 데이터 로딩
@@ -225,9 +226,11 @@ export default function PatientsPage() {
     [customerSalesRankingAll]
   );
 
-  // 최근 3개월 누적 판매 TOP (사람별 합산)
+  // 최근 3개월 누적 판매 TOP (currentDate 기반으로 계산하여 프리렌더 에러 방지)
   const customerSalesRanking3Months = useMemo(() => {
-    const threeMonthsAgo = new Date();
+    if (!currentDate) return [];
+
+    const threeMonthsAgo = new Date(currentDate);
     threeMonthsAgo.setHours(0, 0, 0, 0);
     threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
 
@@ -240,7 +243,7 @@ export default function PatientsPage() {
     });
 
     return buildCustomerSalesRanking(recentSales, patients);
-  }, [sales, patients]);
+  }, [sales, patients, currentDate]);
 
   const totalSalesSum3Months = useMemo(
     () => customerSalesRanking3Months.reduce((sum, c) => sum + c.totalAmt, 0),
@@ -405,7 +408,7 @@ export default function PatientsPage() {
             ) : (
               sortedPatients.map((p) => {
                 const isSelected = selectedPatient?.id === p.id;
-                const ageText = p.birth_year ? `${new Date().getFullYear() - p.birth_year + 1}세` : "-";
+                const ageText = p.birth_year && currentDate ? `${currentDate.getFullYear() - p.birth_year + 1}세` : "-";
 
                 return (
                   <div 
@@ -468,7 +471,7 @@ export default function PatientsPage() {
                     {selectedPatient.body_type && selectedPatient.body_type !== "선택 안함" ? selectedPatient.body_type : "체질 미설정"}
                   </span>
                   <span>·</span>
-                  <span>{selectedPatient.birth_year ? `${new Date().getFullYear() - selectedPatient.birth_year + 1}세` : "-"} / {selectedPatient.gender || "-"}</span>
+                  <span>{selectedPatient.birth_year && currentDate ? `${currentDate.getFullYear() - selectedPatient.birth_year + 1}세` : "-"} / {selectedPatient.gender || "-"}</span>
                   
                   {selectedPatient.phone && (
                     <>
