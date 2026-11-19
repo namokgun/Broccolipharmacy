@@ -89,7 +89,6 @@ const calculatePatientCumulativeSales = (patientsList: any[], salesList: any[]) 
       ? groupList.find(g => g.memberIds.has(sPatientId))
       : undefined;
 
-    // patient_id가 없거나 삭제 후 재등록된 고객은 이름으로 매칭
     if (!matchedGroup && sPatientName && (!sPatientId || !patientIdSet.has(sPatientId))) {
       matchedGroup = groupList.find(g => g.memberNames.has(sPatientName));
     }
@@ -633,31 +632,32 @@ export default function PatientsPage() {
           )}
         </div>
 
-        {/* 3열: 우측 통계 (환자별 누적 판매 금액 TOP) */}
-        <div className="lg:col-span-3 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-3.5 space-y-3">
+        {/* 3열: 우측 통계 (스크롤 없이 10명씩 슬림 출력) */}
+        <div className="lg:col-span-3 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-2.5 justify-between gap-1.5">
           
-          <div className="flex flex-col flex-1 overflow-hidden space-y-1.5">
-            <div className="flex justify-between items-center flex-shrink-0">
-              <h3 className="text-xs font-extrabold text-slate-900">🏆 전체 누적 판매 TOP</h3>
+          {/* 전체 누적 판매 TOP 10 */}
+          <div className="flex flex-col flex-1 min-h-0 space-y-1">
+            <div className="flex justify-between items-center flex-shrink-0 px-0.5">
+              <h3 className="text-[11px] font-extrabold text-slate-900">🏆 전체 누적 판매 TOP 10</h3>
               <span className="text-[10px] font-bold text-slate-400">{totalSalesSumAll.toLocaleString()}원</span>
             </div>
             
-            <div className="flex-1 overflow-y-auto space-y-1 pr-1 hide-scrollbar">
-              {customerSalesRankingAll.slice(0, 5).map((c, idx) => {
+            <div className="flex-1 flex flex-col justify-start gap-[2px] overflow-hidden">
+              {customerSalesRankingAll.slice(0, 10).map((c, idx) => {
                 const percent = Math.round((c.totalAmt / (totalSalesSumAll || 1)) * 100);
                 return (
                   <div 
                     key={c.key} 
                     onClick={() => handleSelectTopCustomer(c)}
-                    className="p-1.5 bg-slate-50 hover:bg-teal-50/60 rounded-xl border border-slate-100 flex flex-col gap-0.5 cursor-pointer transition"
+                    className="px-2 py-[2.5px] bg-slate-50 hover:bg-teal-50/70 rounded-lg border border-slate-100 flex flex-col gap-[2px] cursor-pointer transition"
                   >
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="font-extrabold text-slate-800 truncate max-w-[125px]" title={c.customId ? `${c.name} (${c.customId})` : c.name}>
+                    <div className="flex justify-between items-center text-[10.5px] leading-none">
+                      <span className="font-extrabold text-slate-800 truncate max-w-[135px]" title={c.customId ? `${c.name} (${c.customId})` : c.name}>
                         {idx + 1}. {c.name} <span className="text-[9px] font-bold text-slate-400">({c.count}건)</span>
                       </span>
-                      <span className="font-black text-[#528771]">{c.totalAmt.toLocaleString()}원</span>
+                      <span className="font-black text-[#528771] tabular-nums">{c.totalAmt.toLocaleString()}원</span>
                     </div>
-                    <div className="w-full bg-slate-200 rounded-full h-1 overflow-hidden">
+                    <div className="w-full bg-slate-200/80 rounded-full h-[2.5px] overflow-hidden">
                       <div className="bg-[#528771] h-full rounded-full" style={{ width: `${percent}%` }}></div>
                     </div>
                   </div>
@@ -669,30 +669,31 @@ export default function PatientsPage() {
             </div>
           </div>
 
-          <hr className="border-slate-100 my-1" />
+          <hr className="border-slate-100 flex-shrink-0" />
 
-          <div className="flex flex-col flex-1 overflow-hidden space-y-1.5">
-            <div className="flex justify-between items-center flex-shrink-0">
-              <h3 className="text-xs font-extrabold text-slate-900">🔥 3개월 누적 판매 TOP</h3>
+          {/* 3개월 누적 판매 TOP 10 */}
+          <div className="flex flex-col flex-1 min-h-0 space-y-1">
+            <div className="flex justify-between items-center flex-shrink-0 px-0.5">
+              <h3 className="text-[11px] font-extrabold text-slate-900">🔥 3개월 누적 판매 TOP 10</h3>
               <span className="text-[10px] font-bold text-slate-400">{totalSalesSum3Months.toLocaleString()}원</span>
             </div>
             
-            <div className="flex-1 overflow-y-auto space-y-1 pr-1 hide-scrollbar">
-              {customerSalesRanking3Months.slice(0, 5).map((c, idx) => {
+            <div className="flex-1 flex flex-col justify-start gap-[2px] overflow-hidden">
+              {customerSalesRanking3Months.slice(0, 10).map((c, idx) => {
                 const percent = Math.round((c.totalAmt / (totalSalesSum3Months || 1)) * 100);
                 return (
                   <div 
                     key={c.key} 
                     onClick={() => handleSelectTopCustomer(c)}
-                    className="p-1.5 bg-slate-50 hover:bg-amber-50/60 rounded-xl border border-slate-100 flex flex-col gap-0.5 cursor-pointer transition"
+                    className="px-2 py-[2.5px] bg-slate-50 hover:bg-amber-50/70 rounded-lg border border-slate-100 flex flex-col gap-[2px] cursor-pointer transition"
                   >
-                    <div className="flex justify-between items-center text-[11px]">
-                      <span className="font-extrabold text-slate-800 truncate max-w-[125px]" title={c.customId ? `${c.name} (${c.customId})` : c.name}>
+                    <div className="flex justify-between items-center text-[10.5px] leading-none">
+                      <span className="font-extrabold text-slate-800 truncate max-w-[135px]" title={c.customId ? `${c.name} (${c.customId})` : c.name}>
                         {idx + 1}. {c.name} <span className="text-[9px] font-bold text-slate-400">({c.count}건)</span>
                       </span>
-                      <span className="font-black text-amber-700">{c.totalAmt.toLocaleString()}원</span>
+                      <span className="font-black text-amber-700 tabular-nums">{c.totalAmt.toLocaleString()}원</span>
                     </div>
-                    <div className="w-full bg-slate-200 rounded-full h-1 overflow-hidden">
+                    <div className="w-full bg-slate-200/80 rounded-full h-[2.5px] overflow-hidden">
                       <div className="bg-amber-600 h-full rounded-full" style={{ width: `${percent}%` }}></div>
                     </div>
                   </div>
