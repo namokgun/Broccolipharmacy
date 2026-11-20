@@ -4,6 +4,17 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/app/lib/supabase";
 
 const PAYMENT_METHODS = ["카드", "링크", "홈피", "매장", "현영", "사업자", "입금", "지역상품", "기타"];
+const SALES_DRAFT_KEY = "broccoli_sales_form_draft_v1";
+
+const getLocalToday = () => {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+};
+
+type HistorySortKey = "sale_date" | "patient_name" | "feedback_day" | "total_amount";
 
 export default function SalesPage() {
   const [sales, setSales] = useState<any[]>([]);
@@ -15,8 +26,17 @@ export default function SalesPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingSaleId, setEditingSaleId] = useState<string | null>(null);
 
+  // 인기제품 TOP 기준 전환 ("qty" | "amt")
+  const [topProductMetric, setTopProductMetric] = useState<"qty" | "amt">("amt");
+
+  // 최근 수정 시각 로컬 보정 맵 (DB updated_at 컬럼 유무와 무관하게 즉시 반영)
+  const [localModifiedMap, setLocalModifiedMap] = useState<Record<string, number>>({});
+
   // 전체 내역 정렬 및 검색 상태
-  const [sortOrder, setSortOrder] = useState<"desc" | "asc">("desc");
+  const [historySort, setHistorySort] = useState<{ key: HistorySortKey; direction: "asc" | "desc" }>({
+    key: "sale_date",
+    direction: "desc",
+  });
   const [historySearch, setHistorySearch] = useState("");
 
   // 등록 폼 상태
@@ -31,6 +51,7 @@ export default function SalesPage() {
   const [productHighlightIndex, setProductHighlightIndex] = useState(0);
   const productDropdownRef = useRef<HTMLDivElement | null>(null);
   const [memo, setMemo] = useState("");
+  const isDraftLoaded = useRef(false);
 
   // 수정 모달 폼 상태
   const [editSaleDate, setEditSaleDate] = useState("");
@@ -44,12 +65,51 @@ export default function SalesPage() {
   const editProductDropdownRef = useRef<HTMLDivElement | null>(null);
   const [editMemo, setEditMemo] = useState("");
 
-  useEffect(() => { 
-    const now = new Date();
-    setSaleDate(now.toISOString().split('T')[0]);
-    setCurrentMonth(now.toISOString().slice(0, 7));
-    fetchData(); 
+  useEffect(() => {
+    const today = getLocalToday();
+    setCurrentMonth(today.slice(0, 7));
+
+    // 다른 탭/페이지 이동 후 복귀 시 작성 중이던 날짜 및 폼 데이터 복원
+    try {
+      const rawDraft = sessionStorage.getItem(SALES_DRAFT_KEY);
+      if (rawDraft) {
+        const draft = JSON.parse(rawDraft);
+        setSaleDate(draft.saleDate || today);
+        setFeedbackDay(draft.feedbackDay || "");
+        setPaymentMethod(draft.paymentMethod || PAYMENT_METHODS[0]);
+        setSelectedPatient(draft.selectedPatient || null);
+        setSelectedProducts(Array.isArray(draft.selectedProducts) ? draft.selectedProducts : []);
+        setMemo(draft.memo || "");
+      } else {
+        setSaleDate(today);
+      }
+    } catch {
+      setSaleDate(today);
+    }
+
+    isDraftLoaded.current = true;
+    fetchData();
   }, []);
+
+  // 작성 중인 폼 상태 자동 임시 저장 (페이지/탭 전환 시 날짜 및 입력값 보존)
+  useEffect(() => {
+    if (!isDraftLoaded.current || !saleDate) return;
+    try {
+      sessionStorage.setItem(
+        SALES_DRAFT_KEY,
+        JSON.stringify({
+          saleDate,
+          feedbackDay,
+          paymentMethod,
+          selectedPatient,
+          selectedProducts,
+          memo,
+        })
+      );
+    } catch {
+      // ignore storage quota errors
+    }
+  }, [saleDate, feedbackDay, paymentMethod, selectedPatient, selectedProducts, memo]);
 
   const fetchData = async () => {
     const { data: sData } = await supabase.from("sales").select("*").order("sale_date", { ascending: false });
@@ -61,7 +121,11 @@ export default function SalesPage() {
   };
 
   const resetForm = () => {
-    setSaleDate(new Date().toISOString().split('T')[0]);
+    const today = getLocalToday();
+    try {
+      sessionStorage.removeItem(SALES_DRAFT_KEY);
+    } catch {}
+    setSaleDate(today);
     setFeedbackDay("");
     setPaymentMethod(PAYMENT_METHODS[0]);
     setSelectedPatient(null);
@@ -78,7 +142,7 @@ export default function SalesPage() {
     return "번호 없음";
   };
 
-  // 🟢 등록 폼 제품/옵션 검색 결과 목록 (키보드 탐색 공용)
+  // 등록 폼 제품/옵션 검색 결과 목록 (키보드 탐색 공용)
   const filteredProductChoices = useMemo(() => {
     const term = productSearch.trim().toLowerCase();
     if (!term) return [];
@@ -107,7 +171,7 @@ export default function SalesPage() {
       });
   }, [products, productSearch]);
 
-  // 🟢 수정 모달 제품/옵션 검색 결과 목록 (키보드 탐색 공용)
+  // 수정 모달 제품/옵션 검색 결과 목록 (키보드 탐색 공용)
   const editFilteredProductChoices = useMemo(() => {
     const term = editProductSearch.trim().toLowerCase();
     if (!term) return [];
@@ -136,7 +200,6 @@ export default function SalesPage() {
       });
   }, [products, editProductSearch]);
 
-  // 방향키 이동 시 드롭다운 스크롤 자동 추적
   useEffect(() => {
     const container = productDropdownRef.current;
     if (!container) return;
@@ -157,7 +220,7 @@ export default function SalesPage() {
 
   const handleOpenEditModal = (sale: any) => {
     setEditingSaleId(sale.id);
-    setEditSaleDate(sale.sale_date || new Date().toISOString().split('T')[0]);
+    setEditSaleDate(sale.sale_date || getLocalToday());
     setEditFeedbackDay(sale.feedback_day ? sale.feedback_day.toString() : "");
     setEditPaymentMethod(sale.payment_method);
     
@@ -181,7 +244,6 @@ export default function SalesPage() {
     else { alert("삭제되었습니다."); fetchData(); }
   };
 
-  // 옵션 지원 제품 추가 로직
   const handleAddProduct = (product: any, option: any = null) => {
     const uniqueId = option ? `${product.id}-${option.name}` : product.id;
     const displayName = option ? `${product.name} [${option.name}]` : product.name;
@@ -197,7 +259,6 @@ export default function SalesPage() {
     setProductHighlightIndex(0);
   };
 
-  // 🟢 등록 폼 제품 검색 키보드 핸들러
   const handleProductSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!productSearch.trim()) return;
 
@@ -256,7 +317,6 @@ export default function SalesPage() {
     setEditProductHighlightIndex(0);
   };
 
-  // 🟢 수정 모달 제품 검색 키보드 핸들러
   const handleEditProductSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!editProductSearch.trim()) return;
 
@@ -335,7 +395,8 @@ export default function SalesPage() {
       feedback_date = fd.toISOString().split('T')[0];
     }
 
-    const payload = {
+    const nowIso = new Date().toISOString();
+    const basePayload = {
       patient_id: editSelectedPatient.id, 
       patient_name: editSelectedPatient.name, 
       payment_method: editPaymentMethod,
@@ -344,12 +405,26 @@ export default function SalesPage() {
       memo: editMemo, 
       sale_date: editSaleDate,
       feedback_day: editFeedbackDay ? Number(editFeedbackDay) : null,
-      feedback_date: feedback_date
+      feedback_date: feedback_date,
     };
 
-    const { error } = await supabase.from("sales").update(payload).eq("id", editingSaleId);
-    if (error) alert("수정 실패: " + error.message);
-    else { 
+    // updated_at 컬럼 포함 시도 후, 컬럼 미생성 환경이면 기본 필드로 재시도
+    let { error } = await supabase
+      .from("sales")
+      .update({ ...basePayload, updated_at: nowIso })
+      .eq("id", editingSaleId);
+
+    if (error && error.message?.includes("updated_at")) {
+      const retry = await supabase.from("sales").update(basePayload).eq("id", editingSaleId);
+      error = retry.error;
+    }
+
+    if (error) {
+      alert("수정 실패: " + error.message);
+    } else {
+      if (editingSaleId) {
+        setLocalModifiedMap(prev => ({ ...prev, [editingSaleId]: Date.now() }));
+      }
       alert("수정되었습니다."); 
       setIsEditModalOpen(false); 
       fetchData(); 
@@ -361,16 +436,15 @@ export default function SalesPage() {
   const totalSum = thisMonthSales.reduce((sum, s) => sum + (s.total_amount || 0), 0);
   const avgPrice = totalCount > 0 ? Math.round(totalSum / totalCount) : 0;
 
-  // 🟢 인기 제품 TOP: 옵션을 분리하지 않고 원본 제품 단위로 통합 집계
+  // 인기 제품 TOP: 원본 제품 단위로 통합 후 판매량/금액 기준 정렬
   const topProducts = useMemo(() => {
-    const stats: Record<string, { qty: number, amt: number }> = {};
+    const stats: Record<string, { qty: number; amt: number }> = {};
     sales.forEach(s => {
       s.items?.forEach((item: any) => {
         const baseProduct = item.original_product_id
           ? products.find(p => p.id === item.original_product_id)
           : products.find(p => p.id === item.id);
 
-        // 등록된 원본 제품명을 우선 사용하고, 없는 경우 뒤의 [옵션명] 표기를 제거해 통합
         const baseProductName = baseProduct
           ? baseProduct.name
           : (item.name || "미지정 제품").replace(/\s*\[[^\]]+\]\s*$/, "").trim();
@@ -380,15 +454,46 @@ export default function SalesPage() {
         stats[baseProductName].amt += ((item.price || 0) * (item.quantity || 0));
       });
     });
-    return Object.entries(stats)
-      .map(([name, data]) => ({ name, ...data }))
-      .sort((a, b) => b.amt - a.amt);
-  }, [sales, products]);
 
-  const totalTopProductsAmt = useMemo(
-    () => topProducts.reduce((sum, p) => sum + p.amt, 0),
-    [topProducts]
+    const list = Object.entries(stats).map(([name, data]) => ({ name, ...data }));
+    return topProductMetric === "qty"
+      ? list.sort((a, b) => b.qty - a.qty)
+      : list.sort((a, b) => b.amt - a.amt);
+  }, [sales, products, topProductMetric]);
+
+  const totalTopProductsValue = useMemo(
+    () => topProducts.reduce((sum, p) => sum + (topProductMetric === "qty" ? p.qty : p.amt), 0),
+    [topProducts, topProductMetric]
   );
+
+  // 최근 판매 내역: 최종 수정 시점(updated_at / 로컬 수정 시각 / created_at) 내림차순 정렬
+  const recentModifiedSales = useMemo(() => {
+    return [...sales].sort((a, b) => {
+      const timeA = Math.max(
+        localModifiedMap[a.id] || 0,
+        new Date(a.updated_at || a.created_at || a.sale_date || 0).getTime()
+      );
+      const timeB = Math.max(
+        localModifiedMap[b.id] || 0,
+        new Date(b.updated_at || b.created_at || b.sale_date || 0).getTime()
+      );
+      return timeB - timeA;
+    });
+  }, [sales, localModifiedMap]);
+
+  // 전체 내역 컬럼 정렬 토글
+  const handleHistorySort = (key: HistorySortKey) => {
+    setHistorySort(prev =>
+      prev.key === key
+        ? { key, direction: prev.direction === "asc" ? "desc" : "asc" }
+        : { key, direction: key === "patient_name" ? "asc" : "desc" }
+    );
+  };
+
+  const getHistorySortArrow = (key: HistorySortKey) => {
+    if (historySort.key !== key) return "↕";
+    return historySort.direction === "asc" ? "▲" : "▼";
+  };
 
   const filteredHistorySales = useMemo(() => {
     let list = [...sales];
@@ -406,12 +511,34 @@ export default function SalesPage() {
         );
       });
     }
+
+    const dir = historySort.direction === "asc" ? 1 : -1;
+
     return list.sort((a, b) => {
-      const dateA = new Date(a.sale_date).getTime();
-      const dateB = new Date(b.sale_date).getTime();
-      return sortOrder === "desc" ? dateB - dateA : dateA - dateB;
+      if (historySort.key === "patient_name") {
+        return (a.patient_name || "").localeCompare(b.patient_name || "", "ko") * dir;
+      }
+
+      if (historySort.key === "feedback_day") {
+        const fbA = a.feedback_day !== null && a.feedback_day !== undefined && a.feedback_day !== "" ? Number(a.feedback_day) : null;
+        const fbB = b.feedback_day !== null && b.feedback_day !== undefined && b.feedback_day !== "" ? Number(b.feedback_day) : null;
+        if (fbA === null && fbB === null) return 0;
+        if (fbA === null) return 1; // 피드백 미설정 항목은 하단 배치
+        if (fbB === null) return -1;
+        return (fbA - fbB) * dir;
+      }
+
+      if (historySort.key === "total_amount") {
+        const amtA = Number(a.total_amount ?? 0);
+        const amtB = Number(b.total_amount ?? 0);
+        return (amtA - amtB) * dir;
+      }
+
+      const dateA = new Date(a.sale_date || 0).getTime();
+      const dateB = new Date(b.sale_date || 0).getTime();
+      return (dateA - dateB) * dir;
     });
-  }, [sales, patients, historySearch, sortOrder]);
+  }, [sales, patients, historySearch, historySort]);
 
   return (
     <div className="w-full h-[calc(100vh-32px)] flex flex-col space-y-3 overflow-hidden max-w-[1700px] mx-auto pb-2">
@@ -419,10 +546,18 @@ export default function SalesPage() {
       <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center flex-shrink-0">
         <h1 className="text-lg font-extrabold text-slate-900">판매 관리</h1>
         <div className="flex bg-slate-100 p-1 rounded-xl">
-          <button onClick={() => { setActiveTab("register"); resetForm(); }} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition ${activeTab === "register" ? "bg-white text-teal-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+          <button
+            type="button"
+            onClick={() => setActiveTab("register")}
+            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition ${activeTab === "register" ? "bg-white text-teal-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+          >
             판매 등록
           </button>
-          <button onClick={() => setActiveTab("history")} className={`px-4 py-1.5 rounded-lg text-xs font-bold transition ${activeTab === "history" ? "bg-white text-teal-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
+          <button
+            type="button"
+            onClick={() => setActiveTab("history")}
+            className={`px-4 py-1.5 rounded-lg text-xs font-bold transition ${activeTab === "history" ? "bg-white text-teal-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
+          >
             전체 내역
           </button>
         </div>
@@ -432,9 +567,18 @@ export default function SalesPage() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 flex-1 min-h-0">
           
           <div className="lg:col-span-5 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col p-5 overflow-y-auto space-y-4">
-            <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#528771]"></span> 새 판매 등록
-            </h2>
+            <div className="flex justify-between items-center">
+              <h2 className="text-sm font-extrabold text-slate-900 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-[#528771]"></span> 새 판매 등록
+              </h2>
+              <button
+                type="button"
+                onClick={resetForm}
+                className="text-[11px] font-bold text-slate-400 hover:text-slate-700 px-2 py-0.5 rounded-md hover:bg-slate-100 transition"
+              >
+                입력 초기화
+              </button>
+            </div>
             
             <form onSubmit={handleSubmit} className="flex flex-col h-full space-y-4">
               <div>
@@ -508,7 +652,6 @@ export default function SalesPage() {
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#528771]" 
                 />
                 
-                {/* 다중 옵션 드롭다운 렌더링 (방향키 하이라이트 연동) */}
                 {productSearch && (
                   <div ref={productDropdownRef} className="absolute z-10 w-full max-h-40 overflow-y-auto border border-slate-200 rounded-xl bg-white shadow-xl mt-1">
                     {filteredProductChoices.length === 0 ? (
@@ -596,20 +739,35 @@ export default function SalesPage() {
 
           <div className="lg:col-span-3 flex flex-col gap-3 overflow-hidden">
             <div className="bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col flex-1 p-5 overflow-hidden">
-              <h3 className="text-xs font-extrabold text-slate-900 mb-3 flex items-center gap-1.5">
-                🔥 인기 제품 TOP
-              </h3>
+              <div className="flex justify-between items-center mb-3 flex-shrink-0">
+                <h3 className="text-xs font-extrabold text-slate-900 flex items-center gap-1.5">
+                  🔥 인기 제품 TOP
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setTopProductMetric(prev => (prev === "amt" ? "qty" : "amt"))}
+                  className="px-2.5 py-1 rounded-lg border border-slate-200 bg-slate-50 hover:bg-teal-50 hover:border-teal-300 text-[10px] font-extrabold text-slate-700 transition cursor-pointer"
+                >
+                  {topProductMetric === "amt" ? "금액순 ⇄" : "판매량순 ⇄"}
+                </button>
+              </div>
               <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 hide-scrollbar">
                 {topProducts.slice(0, 15).map((p, idx) => {
-                  const percent = Math.round((p.amt / (totalTopProductsAmt || 1)) * 100) || 0;
+                  const value = topProductMetric === "qty" ? p.qty : p.amt;
+                  const percent = Math.round((value / (totalTopProductsValue || 1)) * 100) || 0;
                   return (
                     <div key={p.name} className="flex justify-between items-center text-[10px] bg-slate-50 p-2 rounded-lg border border-slate-100">
                       <div className="flex items-center gap-1 overflow-hidden">
-                        <span className="font-extrabold text-slate-800 truncate max-w-[85px]" title={p.name}>{idx + 1}. {p.name}</span>
-                        <span className="text-slate-400 font-bold flex-shrink-0">({p.qty})</span>
+                        <span className="font-extrabold text-slate-800 truncate max-w-[90px]" title={p.name}>{idx + 1}. {p.name}</span>
+                        <span className="text-slate-400 font-bold flex-shrink-0">
+                          {topProductMetric === "amt" ? `(${p.qty}개)` : `(${p.amt.toLocaleString()}원)`}
+                        </span>
                       </div>
-                      <div className="font-black text-slate-900 flex-shrink-0 text-right ml-1">
-                        {p.amt.toLocaleString()} <span className="text-teal-700 font-bold ml-0.5">({percent}%)</span>
+                      <div className="font-black text-slate-900 flex-shrink-0 text-right ml-1 tabular-nums">
+                        {topProductMetric === "amt"
+                          ? `${p.amt.toLocaleString()}원`
+                          : `${p.qty.toLocaleString()}개`}{" "}
+                        <span className="text-teal-700 font-bold ml-0.5">({percent}%)</span>
                       </div>
                     </div>
                   );
@@ -638,12 +796,12 @@ export default function SalesPage() {
 
           <div className="lg:col-span-4 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col p-4 overflow-hidden">
             <h3 className="text-xs font-extrabold text-slate-900 mb-2.5 flex items-center justify-between">
-              <span>최근 판매 내역</span>
-              <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">총 {sales.length}건</span>
+              <span>최근 판매 내역 <span className="text-[10px] font-normal text-slate-400">(최종 수정순)</span></span>
+              <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">총 {recentModifiedSales.length}건</span>
             </h3>
             
             <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 hide-scrollbar">
-              {sales.map(s => (
+              {recentModifiedSales.map(s => (
                 <div key={s.id} className="py-2 px-3 bg-white hover:bg-slate-50 border border-slate-200 rounded-xl transition-colors cursor-default group relative flex flex-col justify-between">
                   <div className="flex justify-between items-center">
                     <div className="flex items-baseline gap-2 overflow-hidden">
@@ -664,7 +822,7 @@ export default function SalesPage() {
                   </button>
                 </div>
               ))}
-              {sales.length === 0 && (
+              {recentModifiedSales.length === 0 && (
                 <div className="text-xs font-bold text-slate-400 text-center py-8">등록된 내역이 없습니다.</div>
               )}
             </div>
@@ -693,10 +851,10 @@ export default function SalesPage() {
                 className="w-full sm:w-64 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#528771]"
               />
               <button 
-                onClick={() => setSortOrder(sortOrder === "desc" ? "asc" : "desc")}
+                onClick={() => handleHistorySort("sale_date")}
                 className="px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 transition whitespace-nowrap shadow-xs"
               >
-                {sortOrder === "desc" ? "📅 최신순 ↓" : "📅 과거순 ↑"}
+                {historySort.key === "sale_date" && historySort.direction === "asc" ? "📅 과거순 ↑" : "📅 최신순 ↓"}
               </button>
             </div>
           </div>
@@ -705,14 +863,34 @@ export default function SalesPage() {
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-100/80 text-slate-600 sticky top-0 backdrop-blur-md z-10 border-b border-slate-200">
                 <tr>
-                  <th className="py-3 px-4 font-bold whitespace-nowrap w-[110px]">판매일자</th>
-                  <th className="py-3 px-4 font-bold whitespace-nowrap w-[90px]">고객명</th>
+                  <th
+                    onClick={() => handleHistorySort("sale_date")}
+                    className={`py-3 px-4 font-bold whitespace-nowrap w-[110px] cursor-pointer select-none hover:text-[#528771] transition ${historySort.key === "sale_date" ? "text-[#528771]" : ""}`}
+                  >
+                    판매일자 <span className="text-[10px] ml-0.5">{getHistorySortArrow("sale_date")}</span>
+                  </th>
+                  <th
+                    onClick={() => handleHistorySort("patient_name")}
+                    className={`py-3 px-4 font-bold whitespace-nowrap w-[100px] cursor-pointer select-none hover:text-[#528771] transition ${historySort.key === "patient_name" ? "text-[#528771]" : ""}`}
+                  >
+                    고객명 <span className="text-[10px] ml-0.5">{getHistorySortArrow("patient_name")}</span>
+                  </th>
                   <th className="py-3 px-4 font-bold whitespace-nowrap w-[100px]">ID</th>
                   <th className="py-3 px-4 font-bold w-[220px]">판매 상품 내역</th>
                   <th className="py-3 px-4 font-extrabold w-auto min-w-[250px] text-slate-800">코멘트</th>
-                  <th className="py-3 px-4 font-bold text-center whitespace-nowrap w-[80px]">피드백</th>
+                  <th
+                    onClick={() => handleHistorySort("feedback_day")}
+                    className={`py-3 px-4 font-bold text-center whitespace-nowrap w-[90px] cursor-pointer select-none hover:text-[#528771] transition ${historySort.key === "feedback_day" ? "text-[#528771]" : ""}`}
+                  >
+                    피드백 <span className="text-[10px] ml-0.5">{getHistorySortArrow("feedback_day")}</span>
+                  </th>
                   <th className="py-3 px-4 font-bold text-center whitespace-nowrap w-[90px]">결제수단</th>
-                  <th className="py-3 px-4 font-bold text-right whitespace-nowrap w-[110px]">총 결제금액</th>
+                  <th
+                    onClick={() => handleHistorySort("total_amount")}
+                    className={`py-3 px-4 font-bold text-right whitespace-nowrap w-[120px] cursor-pointer select-none hover:text-[#528771] transition ${historySort.key === "total_amount" ? "text-[#528771]" : ""}`}
+                  >
+                    총 결제금액 <span className="text-[10px] ml-0.5">{getHistorySortArrow("total_amount")}</span>
+                  </th>
                   <th className="py-3 px-4 font-bold text-center whitespace-nowrap w-[90px]">관리</th>
                 </tr>
               </thead>
@@ -762,9 +940,7 @@ export default function SalesPage() {
         </div>
       )}
 
-      {/* =========================================================================
-          판매 내역 수정 팝업 모달 (Modal)
-      ========================================================================= */}
+      {/* 판매 내역 수정 팝업 모달 */}
       {isEditModalOpen && (
         <div onClick={() => setIsEditModalOpen(false)} className="fixed inset-0 z-[120] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-xl max-h-[90vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col cursor-default" onClick={e => e.stopPropagation()}>
