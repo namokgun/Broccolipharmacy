@@ -5,11 +5,19 @@ import { supabase } from "@/app/lib/supabase";
 
 const STATUS_OPTIONS = ["판매중", "품절", "단종"];
 
+type ProductSortKey = "default" | "name" | "options" | "purchase_price" | "price" | "stock";
+
 export default function ProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedManufacturer, setSelectedManufacturer] = useState("전체");
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);
+
+  // 리스트 컬럼 정렬 상태
+  const [sortConfig, setSortConfig] = useState<{ key: ProductSortKey; direction: "asc" | "desc" }>({
+    key: "default",
+    direction: "desc",
+  });
 
   // 모달 폼 상태
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -85,11 +93,51 @@ export default function ProductsPage() {
 
   const manufacturerTabs = ["전체", ...allManufacturers];
 
-  const filteredProducts = products.filter(p => {
-    const matchSearch = (p.name || "").includes(searchQuery) || (p.manufacturer || "").includes(searchQuery);
-    const matchManufacturer = selectedManufacturer === "전체" || p.manufacturer === selectedManufacturer;
-    return matchSearch && matchManufacturer;
-  });
+  const handleSort = (key: Exclude<ProductSortKey, "default">) => {
+    setSortConfig(prev =>
+      prev.key === key
+        ? { key, direction: prev.direction === "asc" ? "desc" : "asc" }
+        : { key, direction: key === "name" ? "asc" : "desc" }
+    );
+  };
+
+  const getSortArrow = (key: Exclude<ProductSortKey, "default">) => {
+    if (sortConfig.key !== key) return "↕";
+    return sortConfig.direction === "asc" ? "▲" : "▼";
+  };
+
+  const sortedFilteredProducts = useMemo(() => {
+    const filtered = products.filter(p => {
+      const matchSearch = (p.name || "").includes(searchQuery) || (p.manufacturer || "").includes(searchQuery);
+      const matchManufacturer = selectedManufacturer === "전체" || p.manufacturer === selectedManufacturer;
+      return matchSearch && matchManufacturer;
+    });
+
+    if (sortConfig.key === "default") return filtered;
+
+    const dir = sortConfig.direction === "asc" ? 1 : -1;
+
+    return [...filtered].sort((a, b) => {
+      if (sortConfig.key === "name") {
+        return (a.name || "").localeCompare(b.name || "", "ko") * dir;
+      }
+      if (sortConfig.key === "options") {
+        const optA = Array.isArray(a.options) ? a.options.length : 0;
+        const optB = Array.isArray(b.options) ? b.options.length : 0;
+        return (optA - optB) * dir;
+      }
+      if (sortConfig.key === "purchase_price") {
+        return ((Number(a.purchase_price) || 0) - (Number(b.purchase_price) || 0)) * dir;
+      }
+      if (sortConfig.key === "price") {
+        return ((Number(a.price) || 0) - (Number(b.price) || 0)) * dir;
+      }
+      if (sortConfig.key === "stock") {
+        return ((Number(a.stock) || 0) - (Number(b.stock) || 0)) * dir;
+      }
+      return 0;
+    });
+  }, [products, searchQuery, selectedManufacturer, sortConfig]);
 
   const handleOpenRegister = () => {
     setEditingProductId(null);
@@ -166,7 +214,6 @@ export default function ProductsPage() {
     return data.publicUrl;
   };
 
-  // 옵션 조작 핸들러
   const handleAddOption = () => {
     setOptions([...options, { id: Date.now().toString(), name: "", price: "", unit: "1" }]);
   };
@@ -282,20 +329,45 @@ export default function ProductsPage() {
               <thead className="bg-slate-100/80 text-slate-600 sticky top-0 backdrop-blur-md z-10 border-b border-slate-200">
                 <tr>
                   <th className="py-2.5 px-4 font-bold w-20 whitespace-nowrap">이미지</th>
-                  <th className="py-2.5 px-4 font-bold">제품명</th>
+                  <th
+                    onClick={() => handleSort("name")}
+                    className={`py-2.5 px-4 font-bold cursor-pointer select-none hover:text-[#528771] transition ${sortConfig.key === "name" ? "text-[#528771]" : ""}`}
+                  >
+                    제품명 <span className="text-[10px] ml-0.5">{getSortArrow("name")}</span>
+                  </th>
                   <th className="py-2.5 px-4 font-bold text-center">분류</th>
-                  <th className="py-2.5 px-4 font-bold text-center">옵션수</th>
-                  <th className="py-2.5 px-4 font-bold text-right">매입가</th>
-                  <th className="py-2.5 px-4 font-bold text-right">기본 판매가</th>
-                  <th className="py-2.5 px-4 font-bold text-center">총 재고(낱개)</th>
+                  <th
+                    onClick={() => handleSort("options")}
+                    className={`py-2.5 px-4 font-bold text-center cursor-pointer select-none hover:text-[#528771] transition whitespace-nowrap ${sortConfig.key === "options" ? "text-[#528771]" : ""}`}
+                  >
+                    옵션수 <span className="text-[10px] ml-0.5">{getSortArrow("options")}</span>
+                  </th>
+                  <th
+                    onClick={() => handleSort("purchase_price")}
+                    className={`py-2.5 px-4 font-bold text-right cursor-pointer select-none hover:text-[#528771] transition whitespace-nowrap ${sortConfig.key === "purchase_price" ? "text-[#528771]" : ""}`}
+                  >
+                    매입가 <span className="text-[10px] ml-0.5">{getSortArrow("purchase_price")}</span>
+                  </th>
+                  <th
+                    onClick={() => handleSort("price")}
+                    className={`py-2.5 px-4 font-bold text-right cursor-pointer select-none hover:text-[#528771] transition whitespace-nowrap ${sortConfig.key === "price" ? "text-[#528771]" : ""}`}
+                  >
+                    기본 판매가 <span className="text-[10px] ml-0.5">{getSortArrow("price")}</span>
+                  </th>
+                  <th
+                    onClick={() => handleSort("stock")}
+                    className={`py-2.5 px-4 font-bold text-center cursor-pointer select-none hover:text-[#528771] transition whitespace-nowrap ${sortConfig.key === "stock" ? "text-[#528771]" : ""}`}
+                  >
+                    총 재고(낱개) <span className="text-[10px] ml-0.5">{getSortArrow("stock")}</span>
+                  </th>
                   <th className="py-2.5 px-4 font-bold text-center">상태</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredProducts.length === 0 ? (
+                {sortedFilteredProducts.length === 0 ? (
                   <tr><td colSpan={8} className="py-12 text-center text-slate-400 font-bold">등록된 제품이 없습니다.</td></tr>
                 ) : (
-                  filteredProducts.map((p) => (
+                  sortedFilteredProducts.map((p) => (
                     <tr 
                       key={p.id} 
                       onClick={() => setSelectedProduct(p)}
