@@ -112,7 +112,7 @@ export default function StatsPage() {
 
   const salesRate = calcRateText(currentSales, prevSales);
   const consultRate = calcRateText(currentConsultations.length, prevConsultations.length);
-  const salesCountRate = calcRateText(currentSalesRecords.length, prevSalesRecords.length); // 🟢 판매 건수 증감률
+  const salesCountRate = calcRateText(currentSalesRecords.length, prevSalesRecords.length);
   const patientRate = calcRateText(patients.length, patients.length - currentPatients.length);
   const newPatientRate = calcRateText(currentPatients.length, prevPatients.length);
   const dailyAvgRate = calcRateText(dailyAverageSales, prevDailyAverageSales);
@@ -126,7 +126,20 @@ export default function StatsPage() {
   });
   const totalPatientsCount = Math.max(1, patients.length);
   const constitutionArray = Object.entries(constitutionCounts).sort((a, b) => b[1] - a[1]);
-  const donutColors = ["#14b8a6", "#f59e0b", "#3b82f6", "#8b5cf6", "#94a3b8", "#f43f5e", "#10b981"]; 
+  const donutColors = ["#14b8a6", "#f59e0b", "#3b82f6", "#8b5cf6", "#94a3b8", "#f43f5e", "#10b981"];
+
+  // 결제수단별 비율 집계 (판매건수 기준 원형 차트 + 매출 비중 표기)
+  const paymentMethodStats: Record<string, { count: number; amount: number }> = {};
+  salesRecords.forEach(s => {
+    const method = (s.payment_method || "기타").trim() || "기타";
+    const amt = Number(s.total_amount ?? s.amount ?? 0);
+    if (!paymentMethodStats[method]) paymentMethodStats[method] = { count: 0, amount: 0 };
+    paymentMethodStats[method].count += 1;
+    paymentMethodStats[method].amount += amt;
+  });
+  const totalSalesRecordsCount = Math.max(1, salesRecords.length);
+  const paymentMethodArray = Object.entries(paymentMethodStats).sort((a, b) => b[1].count - a[1].count);
+  const paymentColors = ["#528771", "#3b82f6", "#f59e0b", "#8b5cf6", "#ec4899", "#06b6d4", "#f97316", "#64748b", "#84cc16"];
 
   // 월별 차트 데이터 생성
   const monthlyChartData = monthlyBuckets.map((bucket) => {
@@ -175,7 +188,7 @@ export default function StatsPage() {
     let yTicks: number[] = [];
 
     if (type === "sales") {
-      const step = 10000000; // 1000만원 단위
+      const step = 10000000;
       displayMax = Math.ceil(rawMax / step) * step;
       if (displayMax === 0) displayMax = step;
       
@@ -279,7 +292,6 @@ export default function StatsPage() {
                 <g key={`point-${i}`} className="group cursor-pointer">
                   <rect x={`calc(${x}% - ${barWidth}%)`} y="0" width={`calc(${barWidth * 2}%)`} height="100%" fill="transparent" />
                   
-                  {/* 🟢 점 위 상시 수치 라벨 (가독성을 위한 흰색 외곽선 처리) */}
                   <text
                     x={`${x}%`}
                     y={`${y}%`}
@@ -304,7 +316,6 @@ export default function StatsPage() {
                     className="group-hover:r-[6] transition-all"
                   />
                   
-                  {/* 호버 시 상세 툴팁 */}
                   <g className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                     <rect x={`calc(${x}% - 52px)`} y="calc(-26px)" width="105" height="24" rx="4" fill="#1e293b" />
                     <text x={`${x}%`} y="-10" fill="white" fontSize="9" fontWeight="bold" textAnchor="middle">
@@ -374,7 +385,6 @@ export default function StatsPage() {
           <div className="text-xl font-extrabold text-slate-900 mb-2">{currentConsultations.length} <span className="text-xs font-bold text-slate-500">건</span></div>
           <div className="text-[11px] font-bold text-slate-400 flex items-center gap-1">전월 대비 <span className={`px-1.5 py-0.5 rounded ${getRateColor(currentConsultations.length, prevConsultations.length)}`}>{consultRate}</span></div>
         </div>
-        {/* 🟢 추가된 이번 달 판매 건수 카드 */}
         <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-between">
           <span className="text-xs font-bold text-slate-500 mb-2">이번 달 판매 건수</span>
           <div className="text-xl font-extrabold text-slate-900 mb-2">{currentSalesRecords.length} <span className="text-xs font-bold text-slate-500">건</span></div>
@@ -411,26 +421,26 @@ export default function StatsPage() {
         </div>
       </div>
 
-      {/* 하단 비율 및 표 영역 */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+      {/* 하단 비율 및 표 영역 (3개 창 균등 배열: 체질별 환자군 비율 / 결제수단별 비율 / 월별 최근 매출 현황) */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
         
-        {/* 체질 분포 도넛 차트 */}
-        <div className="lg:col-span-5 bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between h-[340px]">
-          <div className="flex justify-between items-center border-b border-slate-50 pb-3 mb-6">
-            <h3 className="text-[15px] font-extrabold text-slate-800 flex items-center gap-2">
+        {/* 1. 체질 분포 도넛 차트 */}
+        <div className="lg:col-span-4 bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between h-[340px]">
+          <div className="flex justify-between items-center border-b border-slate-50 pb-3 mb-2">
+            <h3 className="text-[14px] font-extrabold text-slate-800 flex items-center gap-2">
               <span className="text-slate-400">🧬</span> 체질별 환자군 비율
             </h3>
           </div>
           
-          <div className="flex-1 flex flex-row items-center px-4">
-            <div className="relative w-32 h-32 flex-shrink-0">
+          <div className="flex-1 flex flex-row items-center px-1 gap-4">
+            <div className="relative w-28 h-28 flex-shrink-0">
               <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
                 <path className="text-slate-50" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="4.5" />
                 {(() => {
                   let offset = 0;
                   return constitutionArray.map(([name, count], idx) => {
                     const percent = (count / totalPatientsCount) * 100;
-                    if(percent === 0) return null;
+                    if (percent === 0) return null;
                     const strokeDasharray = `${percent} ${100 - percent}`;
                     const strokeDashoffset = -offset;
                     offset += percent;
@@ -451,22 +461,22 @@ export default function StatsPage() {
               </svg>
               <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
                 <span className="text-[9px] text-slate-400 font-bold mb-0.5">총 고객수</span>
-                <span className="text-lg font-extrabold text-slate-800">{patients.length}<span className="text-xs font-bold text-slate-500">명</span></span>
+                <span className="text-base font-extrabold text-slate-800">{patients.length}<span className="text-[11px] font-bold text-slate-500">명</span></span>
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 ml-8 flex-1 max-h-[200px] overflow-y-auto pr-1">
+            <div className="flex flex-col gap-2.5 flex-1 max-h-[220px] overflow-y-auto pr-1 hide-scrollbar">
               {constitutionArray.map(([name, count], idx) => {
                 const percent = Math.round((count / totalPatientsCount) * 100);
                 const color = donutColors[idx % donutColors.length];
                 return (
-                  <div key={name} className="flex items-center justify-between text-xs w-full">
-                    <div className="flex items-center gap-2 truncate">
+                  <div key={name} className="flex items-center justify-between text-[11px] w-full">
+                    <div className="flex items-center gap-1.5 truncate">
                       <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }}></span>
                       <span className="font-bold text-slate-700 truncate">{name}</span>
                     </div>
-                    <div className="flex items-center gap-4 flex-shrink-0">
-                      <span className="font-extrabold text-slate-900 w-8 text-right">{percent}%</span>
+                    <div className="flex items-center gap-2 flex-shrink-0 tabular-nums">
+                      <span className="font-extrabold text-slate-900 w-7 text-right">{percent}%</span>
                       <span className="font-bold text-slate-400 w-8 text-right">{count}명</span>
                     </div>
                   </div>
@@ -476,10 +486,85 @@ export default function StatsPage() {
           </div>
         </div>
 
-        {/* 월별 매출 현황 테이블 */}
-        <div className="lg:col-span-7 bg-white p-6 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between h-[340px]">
+        {/* 2. 결제수단별 비율 도넛 차트 */}
+        <div className="lg:col-span-4 bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between h-[340px]">
           <div className="flex justify-between items-center border-b border-slate-50 pb-3 mb-2">
-            <h3 className="text-[15px] font-extrabold text-slate-800 flex items-center gap-2">
+            <h3 className="text-[14px] font-extrabold text-slate-800 flex items-center gap-2">
+              <span className="text-slate-400">💳</span> 결제수단별 비율
+            </h3>
+            <span className="text-[11px] font-bold text-slate-400">총 {salesRecords.length}건</span>
+          </div>
+
+          {paymentMethodArray.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center text-xs font-bold text-slate-400">
+              결제 내역이 없습니다.
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-row items-center px-1 gap-4">
+              <div className="relative w-28 h-28 flex-shrink-0">
+                <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
+                  <path className="text-slate-50" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="currentColor" strokeWidth="4.5" />
+                  {(() => {
+                    let offset = 0;
+                    return paymentMethodArray.map(([method, stat], idx) => {
+                      const percent = (stat.count / totalSalesRecordsCount) * 100;
+                      if (percent === 0) return null;
+                      const strokeDasharray = `${percent} ${100 - percent}`;
+                      const strokeDashoffset = -offset;
+                      offset += percent;
+                      return (
+                        <path 
+                          key={method}
+                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" 
+                          fill="none" 
+                          stroke={paymentColors[idx % paymentColors.length]} 
+                          strokeWidth="4.5" 
+                          strokeDasharray={strokeDasharray}
+                          strokeDashoffset={strokeDashoffset}
+                          className="transition-all duration-700"
+                        />
+                      );
+                    });
+                  })()}
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none px-1">
+                  <span className="text-[9px] text-slate-400 font-bold mb-0.5">최다 결제</span>
+                  <span className="text-xs font-extrabold text-slate-800 truncate max-w-[68px]">
+                    {paymentMethodArray[0]?.[0] || "-"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-2.5 flex-1 max-h-[220px] overflow-y-auto pr-1 hide-scrollbar">
+                {paymentMethodArray.map(([method, stat], idx) => {
+                  const percent = Math.round((stat.count / totalSalesRecordsCount) * 100);
+                  const color = paymentColors[idx % paymentColors.length];
+                  return (
+                    <div
+                      key={method}
+                      title={`${method}: ${stat.count}건 (${stat.amount.toLocaleString()}원)`}
+                      className="flex items-center justify-between text-[11px] w-full"
+                    >
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }}></span>
+                        <span className="font-bold text-slate-700 truncate">{method}</span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0 tabular-nums">
+                        <span className="font-extrabold text-slate-900 w-7 text-right">{percent}%</span>
+                        <span className="font-bold text-slate-400 w-8 text-right">{stat.count}건</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 3. 월별 매출 현황 테이블 */}
+        <div className="lg:col-span-4 bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between h-[340px]">
+          <div className="flex justify-between items-center border-b border-slate-50 pb-3 mb-2">
+            <h3 className="text-[14px] font-extrabold text-slate-800 flex items-center gap-2">
               <span className="text-slate-400">📄</span> 월별 최근 매출 현황
             </h3>
             <Link href="/consultations#history" className="text-[11px] font-bold text-slate-400 hover:text-slate-800 transition">
@@ -487,25 +572,25 @@ export default function StatsPage() {
             </Link>
           </div>
           
-          <div className="overflow-x-auto flex-1 flex items-start mt-2">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-slate-50 text-slate-500 border-b border-slate-100">
+          <div className="overflow-y-auto flex-1 flex items-start mt-1 hide-scrollbar">
+            <table className="w-full text-left text-[11px]">
+              <thead className="bg-slate-50 text-slate-500 border-b border-slate-100 sticky top-0">
                 <tr>
-                  <th className="py-3 px-4 font-bold rounded-tl-lg">년월</th>
-                  <th className="py-3 px-4 font-bold">월 매출액</th>
-                  <th className="py-3 px-4 font-bold">상담 건수</th>
-                  <th className="py-3 px-4 font-bold text-right rounded-tr-lg">전월 대비 증감률</th>
+                  <th className="py-2.5 px-2.5 font-bold rounded-tl-lg whitespace-nowrap">년월</th>
+                  <th className="py-2.5 px-2.5 font-bold whitespace-nowrap">월 매출액</th>
+                  <th className="py-2.5 px-2 font-bold text-center whitespace-nowrap">상담</th>
+                  <th className="py-2.5 px-2.5 font-bold text-right rounded-tr-lg whitespace-nowrap">증감률</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
                 {[...monthlyChartData].reverse().map((data, idx) => {
                   return (
                     <tr key={idx} className="hover:bg-slate-50/80 transition">
-                      <td className="py-3 px-4 text-slate-500 font-bold">{data.label}</td>
-                      <td className="py-3 px-4 text-slate-900 font-extrabold">{data.sales.toLocaleString()} 원</td>
-                      <td className="py-3 px-4 text-slate-500 font-bold">{data.consultCount} 건</td>
-                      <td className="py-3 px-4 text-slate-900 font-extrabold text-right">
-                        <span className={`px-1.5 py-0.5 rounded text-[11px] ${data.sRate > 0 ? "text-emerald-600 bg-emerald-50" : "text-slate-500 bg-slate-100"}`}>
+                      <td className="py-2.5 px-2.5 text-slate-500 font-bold whitespace-nowrap">{data.label}</td>
+                      <td className="py-2.5 px-2.5 text-slate-900 font-extrabold whitespace-nowrap tabular-nums">{data.sales.toLocaleString()}원</td>
+                      <td className="py-2.5 px-2 text-slate-500 font-bold text-center whitespace-nowrap">{data.consultCount}건</td>
+                      <td className="py-2.5 px-2.5 text-slate-900 font-extrabold text-right whitespace-nowrap">
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] ${data.sRate > 0 ? "text-emerald-600 bg-emerald-50" : "text-slate-500 bg-slate-100"}`}>
                           {data.sRate > 0 ? `+${data.sRate.toFixed(1)}%` : `${data.sRate.toFixed(1)}%`}
                         </span>
                       </td>
