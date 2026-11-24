@@ -235,11 +235,6 @@ export default function PatientsPage() {
   const [labItemSearch, setLabItemSearch] = useState("");
   const [labSearchHighlightIdx, setLabSearchHighlightIdx] = useState(0);
   const [savingLab, setSavingLab] = useState(false);
-
-  // 사진 AI 인식 상태
-  const [labPhotoPreview, setLabPhotoPreview] = useState<string | null>(null);
-  const [isParsingLabImage, setIsParsingLabImage] = useState(false);
-  const labPhotoInputRef = useRef<HTMLInputElement | null>(null);
   const labValueInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // 폼 필드
@@ -429,9 +424,6 @@ export default function PatientsPage() {
   const handleOpenLabInput = (recordToEdit: LabRecord | null = null) => {
     if (!selectedPatient) return;
 
-    setLabPhotoPreview(null);
-    setIsParsingLabImage(false);
-
     if (recordToEdit) {
       setEditingLabRecordId(recordToEdit.id);
       setLabExamDate(recordToEdit.exam_date);
@@ -455,92 +447,6 @@ export default function PatientsPage() {
     setLabItemSearch("");
     setLabSearchHighlightIdx(0);
     setIsLabInputModalOpen(true);
-  };
-
-  // 검사지 이미지 AI 자동 인식 처리
-  const handleLabImageFile = (file: File) => {
-    if (!file || !file.type.startsWith("image/")) return;
-
-    const reader = new FileReader();
-    reader.onload = async () => {
-      const dataUrl = reader.result as string;
-      setLabPhotoPreview(dataUrl);
-
-      const base64Data = dataUrl.split(",")[1];
-      if (!base64Data) return;
-
-      setIsParsingLabImage(true);
-      try {
-        const res = await fetch("/api/parse-lab", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            imageBase64: base64Data,
-            mimeType: file.type,
-          }),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          throw new Error(data.error || "이미지 분석 중 오류가 발생했습니다.");
-        }
-
-        if (data.exam_date && /^\d{4}-\d{2}-\d{2}$/.test(data.exam_date)) {
-          setLabExamDate(data.exam_date);
-        }
-
-        if (Array.isArray(data.items) && data.items.length > 0) {
-          const parsedItems: LabItemEntry[] = data.items
-            .filter((it: any) => it && it.name && it.value !== undefined)
-            .map((it: any) => ({
-              name: String(it.name).trim(),
-              ref: it.ref ? String(it.ref).trim() : "",
-              value: String(it.value).trim(),
-            }));
-
-          setLabDraftItems(prev => {
-            if (prev.length === 0) return parsedItems;
-            const merged = [...prev];
-            parsedItems.forEach(pItem => {
-              const existIdx = merged.findIndex(
-                m => m.name.toLowerCase() === pItem.name.toLowerCase()
-              );
-              if (existIdx >= 0) {
-                merged[existIdx] = {
-                  ...merged[existIdx],
-                  ref: pItem.ref || merged[existIdx].ref,
-                  value: pItem.value || merged[existIdx].value,
-                };
-              } else {
-                merged.push(pItem);
-              }
-            });
-            return merged;
-          });
-        } else {
-          alert("이미지에서 검사항목을 찾지 못했습니다. 직접 입력해주세요.");
-        }
-      } catch (err: any) {
-        alert(err.message || "AI 사진 인식에 실패했습니다.");
-      } finally {
-        setIsParsingLabImage(false);
-      }
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleLabModalPaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
-    const items = e.clipboardData?.items;
-    if (!items) return;
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].type.startsWith("image/")) {
-        const file = items[i].getAsFile();
-        if (file) {
-          e.preventDefault();
-          handleLabImageFile(file);
-          break;
-        }
-      }
-    }
   };
 
   const handleAddLabItemRow = (itemName: string) => {
@@ -1437,11 +1343,10 @@ export default function PatientsPage() {
       )}
 
       {/* =========================================================================
-          혈액검사 동적 항목 선택/직접 입력 + 사진 AI 자동입력 모달
+          혈액검사 동적 항목 선택/직접 입력 모달
       ========================================================================= */}
       {isLabInputModalOpen && selectedPatient && (
         <div
-          onPaste={handleLabModalPaste}
           onClick={() => setIsLabInputModalOpen(false)}
           className="fixed inset-0 z-[130] bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
         >
@@ -1463,45 +1368,6 @@ export default function PatientsPage() {
             </div>
 
             <form onSubmit={handleSaveLabRecord} className="flex-1 flex flex-col min-h-0 space-y-3 text-xs">
-              {/* 검사지 사진 AI 자동입력 바 */}
-              <div className="p-2.5 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-2 shrink-0">
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <input
-                    ref={labPhotoInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={e => {
-                      const file = e.target.files?.[0];
-                      if (file) handleLabImageFile(file);
-                      e.target.value = "";
-                    }}
-                  />
-                  <button
-                    type="button"
-                    disabled={isParsingLabImage}
-                    onClick={() => labPhotoInputRef.current?.click()}
-                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold text-[11px] transition shrink-0 disabled:opacity-50"
-                  >
-                    {isParsingLabImage ? "⏳ AI 분석 중..." : "📷 검사지 사진 AI 입력"}
-                  </button>
-                  <span className="text-[11px] text-slate-500 font-semibold truncate">
-                    {isParsingLabImage
-                      ? "사진에서 항목과 수치를 추출하고 있습니다..."
-                      : "사진을 선택하거나 창에서 Ctrl+V로 붙여넣으세요."}
-                  </span>
-                </div>
-                {labPhotoPreview && (
-                  <img
-                    src={labPhotoPreview}
-                    alt="검사지 미리보기"
-                    onClick={() => setPreviewImageUrl(labPhotoPreview)}
-                    className="w-9 h-9 rounded-lg object-cover border border-slate-300 cursor-pointer shrink-0"
-                    title="클릭하여 크게 보기"
-                  />
-                )}
-              </div>
-
               {/* 검사일자 + 항목 검색/직접추가 바 */}
               <div className="grid grid-cols-12 gap-2.5 shrink-0">
                 <div className="col-span-4">
@@ -1562,7 +1428,7 @@ export default function PatientsPage() {
 
               <div className="flex justify-between items-center shrink-0">
                 <span className="text-[10px] text-slate-400 font-semibold">
-                  기준치(ref) 작성법: &lt;150, &gt;60, 3-7 (단위 생략/포함 모두 가능)
+                  기준치(ref) 작성법: &lt;150, &gt;60, 3-7
                 </span>
                 {labDraftItems.length > 0 && (
                   <button
@@ -1677,7 +1543,7 @@ export default function PatientsPage() {
                   </button>
                   <button
                     type="submit"
-                    disabled={savingLab || isParsingLabImage}
+                    disabled={savingLab}
                     className="px-5 py-2 bg-[#528771] text-white font-bold rounded-xl hover:bg-[#3d6856] transition shadow-sm disabled:opacity-50"
                   >
                     {savingLab ? "저장 중..." : "저장하기"}
