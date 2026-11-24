@@ -7,7 +7,6 @@ const CONSTITUTION_OPTIONS = ["선택 안함", "태양인", "태음인", "소양
 
 // 제공된 검사지 및 기존 양식의 검사항목 목록
 const LAB_PRESETS: string[] = [
-  // 기존 양식 항목
   "TG",
   "LDL",
   "HDL",
@@ -21,7 +20,6 @@ const LAB_PRESETS: string[] = [
   "TSH",
   "T4",
   "uric acid",
-  // 병원 검사지 항목
   "AST",
   "ALT",
   "Protein total",
@@ -227,6 +225,9 @@ export default function PatientsPage() {
 
   // 혈액검사 모달 및 동적 입력 상태
   const [isLabTableModalOpen, setIsLabTableModalOpen] = useState(false);
+  const [isEditingTableRefs, setIsEditingTableRefs] = useState(false);
+  const [draftTableRefs, setDraftTableRefs] = useState<Record<string, string>>({});
+
   const [isLabInputModalOpen, setIsLabInputModalOpen] = useState(false);
   const [editingLabRecordId, setEditingLabRecordId] = useState<string | null>(null);
   const [labExamDate, setLabExamDate] = useState("");
@@ -234,6 +235,11 @@ export default function PatientsPage() {
   const [labItemSearch, setLabItemSearch] = useState("");
   const [labSearchHighlightIdx, setLabSearchHighlightIdx] = useState(0);
   const [savingLab, setSavingLab] = useState(false);
+
+  // 사진 AI 인식 상태
+  const [labPhotoPreview, setLabPhotoPreview] = useState<string | null>(null);
+  const [isParsingLabImage, setIsParsingLabImage] = useState(false);
+  const labPhotoInputRef = useRef<HTMLInputElement | null>(null);
   const labValueInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // 폼 필드
@@ -274,7 +280,6 @@ export default function PatientsPage() {
   }, [consultations, currentDate]);
 
   const fetchData = async () => {
-    // 1. 고객 데이터 로딩
     const { data: pData, error: pError } = await supabase.from("patients").select("*").order("name");
     if (pError) console.error("고객 데이터 로딩 에러:", pError.message);
     if (pData) {
@@ -285,7 +290,6 @@ export default function PatientsPage() {
       });
     }
 
-    // 2. 판매관리 데이터 로딩
     const { data: sData, error: sError } = await supabase
       .from("sales")
       .select("*")
@@ -302,7 +306,6 @@ export default function PatientsPage() {
       setSales(normalizedSales);
     }
 
-    // 3. 상담 데이터 로딩
     const { data: cData, error: cError } = await supabase.from("consultations").select("*").order("created_at", { ascending: false });
     if (cError) console.error("상담 데이터 로딩 에러:", cError.message);
     if (cData) {
@@ -335,7 +338,6 @@ export default function PatientsPage() {
       .sort((a: LabRecord, b: LabRecord) => (b.exam_date || "").localeCompare(a.exam_date || ""));
   }, [selectedPatient]);
 
-  // 해당 환자에게 사용된 검사항목 행(Row) 목록과 최근 참고치(ref) 통합
   const patientLabMatrixRows = useMemo(() => {
     const rowMap = new Map<string, { name: string; ref: string }>();
     const chronological = [...selectedPatientLabRecords].reverse();
@@ -354,7 +356,53 @@ export default function PatientsPage() {
     return Array.from(rowMap.values());
   }, [selectedPatientLabRecords]);
 
-  // 항목 검색 및 직접 추가 드롭다운 후보 (제공된 자료 항목만 사용)
+  // 추이표에서 [기준치 수정] 시작
+  const handleStartEditTableRefs = () => {
+    const initialRefs: Record<string, string> = {};
+    patientLabMatrixRows.forEach(r => {
+      initialRefs[r.name] = r.ref || "";
+    });
+    setDraftTableRefs(initialRefs);
+    setIsEditingTableRefs(true);
+  };
+
+  // 추이표에서 수정한 기준치 일괄 저장
+  const handleSaveTableRefs = async () => {
+    if (!selectedPatient) return;
+
+    const existingRecords: LabRecord[] = Array.isArray(selectedPatient.lab_records)
+      ? [...selectedPatient.lab_records]
+      : [];
+
+    const updatedRecords = existingRecords.map(rec => ({
+      ...rec,
+      items: rec.items.map(item => {
+        const matchedKey = Object.keys(draftTableRefs).find(
+          k => k.trim().toLowerCase() === item.name.trim().toLowerCase()
+        );
+        if (matchedKey !== undefined) {
+          return { ...item, ref: draftTableRefs[matchedKey].trim() };
+        }
+        return item;
+      }),
+    }));
+
+    setSavingLab(true);
+    const { error } = await supabase
+      .from("patients")
+      .update({ lab_records: updatedRecords })
+      .eq("id", selectedPatient.id);
+    setSavingLab(false);
+
+    if (error) {
+      alert("기준치 저장 실패: " + error.message);
+      return;
+    }
+
+    setIsEditingTableRefs(false);
+    fetchData();
+  };
+
   const labSearchCandidates = useMemo(() => {
     const term = labItemSearch.trim();
     if (!term) return [];
@@ -381,6 +429,9 @@ export default function PatientsPage() {
   const handleOpenLabInput = (recordToEdit: LabRecord | null = null) => {
     if (!selectedPatient) return;
 
+    setLabPhotoPreview(null);
+    setIsParsingLabImage(false);
+
     if (recordToEdit) {
       setEditingLabRecordId(recordToEdit.id);
       setLabExamDate(recordToEdit.exam_date);
@@ -388,7 +439,6 @@ export default function PatientsPage() {
     } else {
       setEditingLabRecordId(null);
       setLabExamDate(getLocalToday());
-      // 기존에 이 환자에게 등록했던 항목이 있으면 항목명만 세팅 (참고치는 검사마다 다르므로 빈칸으로 시작)
       if (patientLabMatrixRows.length > 0) {
         setLabDraftItems(
           patientLabMatrixRows.map(r => ({
@@ -405,6 +455,92 @@ export default function PatientsPage() {
     setLabItemSearch("");
     setLabSearchHighlightIdx(0);
     setIsLabInputModalOpen(true);
+  };
+
+  // 검사지 이미지 AI 자동 인식 처리
+  const handleLabImageFile = (file: File) => {
+    if (!file || !file.type.startsWith("image/")) return;
+
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUrl = reader.result as string;
+      setLabPhotoPreview(dataUrl);
+
+      const base64Data = dataUrl.split(",")[1];
+      if (!base64Data) return;
+
+      setIsParsingLabImage(true);
+      try {
+        const res = await fetch("/api/parse-lab", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            imageBase64: base64Data,
+            mimeType: file.type,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(data.error || "이미지 분석 중 오류가 발생했습니다.");
+        }
+
+        if (data.exam_date && /^\d{4}-\d{2}-\d{2}$/.test(data.exam_date)) {
+          setLabExamDate(data.exam_date);
+        }
+
+        if (Array.isArray(data.items) && data.items.length > 0) {
+          const parsedItems: LabItemEntry[] = data.items
+            .filter((it: any) => it && it.name && it.value !== undefined)
+            .map((it: any) => ({
+              name: String(it.name).trim(),
+              ref: it.ref ? String(it.ref).trim() : "",
+              value: String(it.value).trim(),
+            }));
+
+          setLabDraftItems(prev => {
+            if (prev.length === 0) return parsedItems;
+            const merged = [...prev];
+            parsedItems.forEach(pItem => {
+              const existIdx = merged.findIndex(
+                m => m.name.toLowerCase() === pItem.name.toLowerCase()
+              );
+              if (existIdx >= 0) {
+                merged[existIdx] = {
+                  ...merged[existIdx],
+                  ref: pItem.ref || merged[existIdx].ref,
+                  value: pItem.value || merged[existIdx].value,
+                };
+              } else {
+                merged.push(pItem);
+              }
+            });
+            return merged;
+          });
+        } else {
+          alert("이미지에서 검사항목을 찾지 못했습니다. 직접 입력해주세요.");
+        }
+      } catch (err: any) {
+        alert(err.message || "AI 사진 인식에 실패했습니다.");
+      } finally {
+        setIsParsingLabImage(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleLabModalPaste = (e: React.ClipboardEvent<HTMLDivElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].type.startsWith("image/")) {
+        const file = items[i].getAsFile();
+        if (file) {
+          e.preventDefault();
+          handleLabImageFile(file);
+          break;
+        }
+      }
+    }
   };
 
   const handleAddLabItemRow = (itemName: string) => {
@@ -597,7 +733,6 @@ export default function PatientsPage() {
   });
   const returningCount = Object.values(patientConsultCounts).filter(cnt => cnt >= 2).length;
 
-  // 전체 누적 판매 TOP
   const customerSalesRankingAll = useMemo(
     () => calculatePatientCumulativeSales(patients, sales),
     [patients, sales]
@@ -608,7 +743,6 @@ export default function PatientsPage() {
     [customerSalesRankingAll]
   );
 
-  // 최근 3개월 누적 판매 TOP
   const customerSalesRanking3Months = useMemo(() => {
     if (!currentDate) return [];
 
@@ -911,7 +1045,10 @@ export default function PatientsPage() {
                     {selectedPatientLabRecords.length > 0 && (
                       <button
                         type="button"
-                        onClick={() => setIsLabTableModalOpen(true)}
+                        onClick={() => {
+                          setIsEditingTableRefs(false);
+                          setIsLabTableModalOpen(true);
+                        }}
                         className="text-[10px] font-bold text-teal-800 hover:underline"
                       >
                         전체 표 보기 →
@@ -929,7 +1066,10 @@ export default function PatientsPage() {
                   </div>
                 ) : (
                   <div
-                    onClick={() => setIsLabTableModalOpen(true)}
+                    onClick={() => {
+                      setIsEditingTableRefs(false);
+                      setIsLabTableModalOpen(true);
+                    }}
                     className="p-2.5 bg-slate-50 hover:bg-teal-50/40 rounded-xl border border-slate-100 cursor-pointer transition space-y-1.5"
                   >
                     <div className="flex justify-between items-center text-[10px]">
@@ -1040,10 +1180,9 @@ export default function PatientsPage() {
           )}
         </div>
 
-        {/* 3열: 우측 통계 (스크롤 없이 10명씩 슬림 출력) */}
+        {/* 3열: 우측 통계 */}
         <div className="lg:col-span-3 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-2.5 justify-between gap-1.5">
           
-          {/* 전체 누적 판매 TOP 10 */}
           <div className="flex flex-col flex-1 min-h-0 space-y-1">
             <div className="flex justify-between items-center flex-shrink-0 px-0.5">
               <h3 className="text-[11px] font-extrabold text-slate-900">🏆 전체 누적 판매 TOP 10</h3>
@@ -1079,7 +1218,6 @@ export default function PatientsPage() {
 
           <hr className="border-slate-100 flex-shrink-0" />
 
-          {/* 3개월 누적 판매 TOP 10 */}
           <div className="flex flex-col flex-1 min-h-0 space-y-1">
             <div className="flex justify-between items-center flex-shrink-0 px-0.5">
               <h3 className="text-[11px] font-extrabold text-slate-900">🔥 3개월 누적 판매 TOP 10</h3>
@@ -1118,11 +1256,14 @@ export default function PatientsPage() {
       </div>
 
       {/* =========================================================================
-          혈액검사 시계열 추이표 모달
+          혈액검사 시계열 추이표 모달 (기준치 수정 버튼 포함)
       ========================================================================= */}
       {isLabTableModalOpen && selectedPatient && (
         <div
-          onClick={() => setIsLabTableModalOpen(false)}
+          onClick={() => {
+            setIsEditingTableRefs(false);
+            setIsLabTableModalOpen(false);
+          }}
           className="fixed inset-0 z-[110] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
         >
           <div
@@ -1135,10 +1276,38 @@ export default function PatientsPage() {
                   🩸 {selectedPatient.name} 님 혈액검사 추이표
                 </h3>
                 <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
-                  상단 날짜를 클릭하면 해당 일자의 검사 결과 및 참고치를 수정하거나 삭제할 수 있습니다.
+                  상단 날짜를 클릭하면 해당 일자의 검사 결과를 수정하거나 삭제할 수 있습니다.
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                {selectedPatientLabRecords.length > 0 && !isEditingTableRefs && (
+                  <button
+                    type="button"
+                    onClick={handleStartEditTableRefs}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-bold text-xs transition"
+                  >
+                    ✎ 기준치 수정
+                  </button>
+                )}
+                {isEditingTableRefs && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditingTableRefs(false)}
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl font-bold text-xs transition"
+                    >
+                      취소
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveTableRefs}
+                      disabled={savingLab}
+                      className="px-3.5 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-xl font-bold text-xs transition shadow-sm"
+                    >
+                      {savingLab ? "저장 중..." : "기준치 저장"}
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
                   onClick={() => handleOpenLabInput(null)}
@@ -1148,7 +1317,10 @@ export default function PatientsPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setIsLabTableModalOpen(false)}
+                  onClick={() => {
+                    setIsEditingTableRefs(false);
+                    setIsLabTableModalOpen(false);
+                  }}
                   className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200"
                 >
                   ✕
@@ -1168,7 +1340,7 @@ export default function PatientsPage() {
                       <th className="py-2.5 px-3.5 font-extrabold bg-slate-100 sticky left-0 z-30 min-w-[145px] border-r border-slate-200">
                         검사항목
                       </th>
-                      <th className="py-2.5 px-3 font-bold text-slate-500 bg-slate-100 sticky left-[145px] z-30 min-w-[95px] border-r border-slate-200">
+                      <th className="py-2.5 px-3 font-bold text-slate-500 bg-slate-100 sticky left-[145px] z-30 min-w-[115px] border-r border-slate-200">
                         ref
                       </th>
                       {selectedPatientLabRecords.map(rec => (
@@ -1190,16 +1362,31 @@ export default function PatientsPage() {
                         <td className="py-2.5 px-3.5 font-extrabold text-slate-900 bg-white sticky left-0 z-10 border-r border-slate-200 whitespace-nowrap">
                           {row.name}
                         </td>
-                        <td className="py-2.5 px-3 font-semibold text-slate-500 bg-white sticky left-[145px] z-10 border-r border-slate-200 whitespace-nowrap">
-                          {row.ref || "-"}
+                        <td className="py-1.5 px-2.5 font-semibold text-slate-500 bg-white sticky left-[145px] z-10 border-r border-slate-200 whitespace-nowrap">
+                          {isEditingTableRefs ? (
+                            <input
+                              type="text"
+                              value={draftTableRefs[row.name] ?? ""}
+                              onChange={e =>
+                                setDraftTableRefs(prev => ({
+                                  ...prev,
+                                  [row.name]: e.target.value,
+                                }))
+                              }
+                              className="w-24 px-2 py-1 bg-teal-50/50 border border-teal-300 rounded-lg text-[11px] font-bold text-slate-800 focus:outline-none focus:border-[#528771]"
+                            />
+                          ) : (
+                            row.ref || "-"
+                          )}
                         </td>
                         {selectedPatientLabRecords.map(rec => {
                           const found = rec.items.find(
                             i => i.name.trim().toLowerCase() === row.name.toLowerCase()
                           );
                           const val = found?.value || "";
-                          // 각 검사일자에 기록된 개별 참고치(found.ref)를 우선 사용
-                          const activeRef = found?.ref || row.ref || "";
+                          const activeRef = isEditingTableRefs
+                            ? draftTableRefs[row.name] || ""
+                            : found?.ref || row.ref || "";
                           const status = evaluateLabStatus(val, activeRef);
 
                           return (
@@ -1222,18 +1409,24 @@ export default function PatientsPage() {
               </div>
             )}
 
-            <div className="flex justify-between items-center text-[11px] text-slate-400 pt-1">
-              <div className="flex items-center gap-3">
+            <div className="flex flex-wrap justify-between items-center text-[11px] text-slate-400 pt-1 gap-2">
+              <div className="flex flex-wrap items-center gap-3">
                 <span>
-                  <strong className="text-rose-600">빨간색</strong>: 참고치 상한 초과
+                  <strong className="text-rose-600">빨간색</strong>: 상한 초과
                 </span>
                 <span>
-                  <strong className="text-blue-600">파란색</strong>: 참고치 하한 미만
+                  <strong className="text-blue-600">파란색</strong>: 하한 미만
+                </span>
+                <span className="text-slate-400">
+                  · 기준치 표기법: <code className="text-slate-600">&lt;150</code>, <code className="text-slate-600">&gt;60</code>, <code className="text-slate-600">3-7</code>
                 </span>
               </div>
               <button
                 type="button"
-                onClick={() => setIsLabTableModalOpen(false)}
+                onClick={() => {
+                  setIsEditingTableRefs(false);
+                  setIsLabTableModalOpen(false);
+                }}
                 className="px-4 py-1.5 bg-slate-900 text-white rounded-xl font-bold text-xs hover:bg-slate-800"
               >
                 닫기
@@ -1244,10 +1437,11 @@ export default function PatientsPage() {
       )}
 
       {/* =========================================================================
-          혈액검사 동적 항목 선택/직접 입력 모달
+          혈액검사 동적 항목 선택/직접 입력 + 사진 AI 자동입력 모달
       ========================================================================= */}
       {isLabInputModalOpen && selectedPatient && (
         <div
+          onPaste={handleLabModalPaste}
           onClick={() => setIsLabInputModalOpen(false)}
           className="fixed inset-0 z-[130] bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
         >
@@ -1269,6 +1463,45 @@ export default function PatientsPage() {
             </div>
 
             <form onSubmit={handleSaveLabRecord} className="flex-1 flex flex-col min-h-0 space-y-3 text-xs">
+              {/* 검사지 사진 AI 자동입력 바 */}
+              <div className="p-2.5 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center justify-between gap-2 shrink-0">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <input
+                    ref={labPhotoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) handleLabImageFile(file);
+                      e.target.value = "";
+                    }}
+                  />
+                  <button
+                    type="button"
+                    disabled={isParsingLabImage}
+                    onClick={() => labPhotoInputRef.current?.click()}
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl font-bold text-[11px] transition shrink-0 disabled:opacity-50"
+                  >
+                    {isParsingLabImage ? "⏳ AI 분석 중..." : "📷 검사지 사진 AI 입력"}
+                  </button>
+                  <span className="text-[11px] text-slate-500 font-semibold truncate">
+                    {isParsingLabImage
+                      ? "사진에서 항목과 수치를 추출하고 있습니다..."
+                      : "사진을 선택하거나 창에서 Ctrl+V로 붙여넣으세요."}
+                  </span>
+                </div>
+                {labPhotoPreview && (
+                  <img
+                    src={labPhotoPreview}
+                    alt="검사지 미리보기"
+                    onClick={() => setPreviewImageUrl(labPhotoPreview)}
+                    className="w-9 h-9 rounded-lg object-cover border border-slate-300 cursor-pointer shrink-0"
+                    title="클릭하여 크게 보기"
+                  />
+                )}
+              </div>
+
               {/* 검사일자 + 항목 검색/직접추가 바 */}
               <div className="grid grid-cols-12 gap-2.5 shrink-0">
                 <div className="col-span-4">
@@ -1327,8 +1560,11 @@ export default function PatientsPage() {
                 </div>
               </div>
 
-              {labDraftItems.length > 0 && (
-                <div className="flex justify-end shrink-0">
+              <div className="flex justify-between items-center shrink-0">
+                <span className="text-[10px] text-slate-400 font-semibold">
+                  기준치(ref) 작성법: &lt;150, &gt;60, 3-7 (단위 생략/포함 모두 가능)
+                </span>
+                {labDraftItems.length > 0 && (
                   <button
                     type="button"
                     onClick={() => setLabDraftItems([])}
@@ -1336,8 +1572,8 @@ export default function PatientsPage() {
                   >
                     전체 비우기
                   </button>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* 선택된 검사항목 입력 테이블 */}
               <div className="flex-1 overflow-y-auto border border-slate-200 rounded-2xl">
@@ -1441,7 +1677,7 @@ export default function PatientsPage() {
                   </button>
                   <button
                     type="submit"
-                    disabled={savingLab}
+                    disabled={savingLab || isParsingLabImage}
                     className="px-5 py-2 bg-[#528771] text-white font-bold rounded-xl hover:bg-[#3d6856] transition shadow-sm disabled:opacity-50"
                   >
                     {savingLab ? "저장 중..." : "저장하기"}
