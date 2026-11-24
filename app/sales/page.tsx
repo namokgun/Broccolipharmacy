@@ -1295,7 +1295,7 @@ export default function PurchasesPage() {
                       onClick={handleUpdatePurchase}
                       className="px-5 py-2 bg-[#528771] text-white font-bold rounded-xl hover:bg-[#3d6856] transition shadow-sm disabled:opacity-50"
                     >
-                      {loading ? "저장 중..." : "수정 저장"}
+                      {loading ? "저장 중... " : "수정 저장"}
                     </button>
                   </div>
                 </div>
