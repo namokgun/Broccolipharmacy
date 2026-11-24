@@ -172,7 +172,7 @@ export default function StatsPage() {
     };
   });
 
-  // 점 위 상시 노출용 간결 라벨 포맷터
+  // 막대 위 상시 노출용 간결 라벨 포맷터
   const formatCompactPointLabel = (val: number, type: "consult" | "sales") => {
     if (type === "consult") return `${val}건`;
     if (val === 0) return "0";
@@ -180,7 +180,7 @@ export default function StatsPage() {
     return val.toLocaleString();
   };
 
-  // 점과 선으로 이어진 SVG 차트 렌더링
+  // 막대 및 점·선 SVG 차트 렌더링
   const renderSVGChart = (type: "consult" | "sales") => {
     let rawMax = Math.max(...monthlyChartData.map(d => type === "consult" ? d.consultCount : d.sales), 1);
     
@@ -201,6 +201,7 @@ export default function StatsPage() {
     }
     
     const barColor = type === "consult" ? "#94a3b8" : "#e5e5e5"; 
+    const barLabelColor = type === "consult" ? "#475569" : "#57534e";
     const lineColor = type === "consult" ? "#334155" : "#78350f"; 
 
     const points = monthlyChartData.map((d, i) => {
@@ -250,6 +251,7 @@ export default function StatsPage() {
               );
             })}
 
+            {/* 막대 그래프 */}
             {monthlyChartData.map((d, i) => {
               const x = points[i].x;
               const val = type === "consult" ? d.consultCount : d.sales;
@@ -257,7 +259,7 @@ export default function StatsPage() {
               const barWidth = 8;
 
               return (
-                <g key={`bar-${i}`} className="group cursor-pointer">
+                <g key={`bar-${i}`}>
                   {val > 0 && (
                     <rect 
                       x={`calc(${x}% - ${barWidth / 2}%)`} 
@@ -266,13 +268,14 @@ export default function StatsPage() {
                       height={`${heightPct}%`} 
                       fill={barColor} 
                       rx="3"
-                      className="transition-all duration-300 group-hover:opacity-80"
+                      className="transition-all duration-300"
                     />
                   )}
                 </g>
               );
             })}
 
+            {/* 증감률 꺾은선 */}
             <path 
               d={linePathD} 
               fill="none" 
@@ -283,39 +286,54 @@ export default function StatsPage() {
               className="transition-all duration-300"
             />
 
+            {/* 증감률 꼭짓점 원 */}
+            {points.map((p, i) => (
+              <circle 
+                key={`circle-${i}`}
+                cx={`${p.x}%`} 
+                cy={`${p.y}%`} 
+                r="4" 
+                fill="#ffffff" 
+                stroke={lineColor} 
+                strokeWidth="2.5" 
+                className="pointer-events-none"
+              />
+            ))}
+
+            {/* 막대그래프 위 상시 수치 라벨 */}
             {monthlyChartData.map((d, i) => {
-              const { x, y, rawRate } = points[i];
+              const x = points[i].x;
+              const val = type === "consult" ? d.consultCount : d.sales;
+              const heightPct = (val / displayMax) * 100;
+              const barTopY = 100 - heightPct;
+
+              return (
+                <text
+                  key={`bar-label-${i}`}
+                  x={`${x}%`}
+                  y={`${barTopY}%`}
+                  dy="-6"
+                  fill={barLabelColor}
+                  fontSize="10"
+                  fontWeight="800"
+                  textAnchor="middle"
+                  style={{ paintOrder: "stroke", stroke: "#ffffff", strokeWidth: "3px", strokeLinejoin: "round" }}
+                  className="pointer-events-none select-none"
+                >
+                  {formatCompactPointLabel(val, type)}
+                </text>
+              );
+            })}
+
+            {/* 호버 영역 및 상세 툴팁 */}
+            {monthlyChartData.map((d, i) => {
+              const { x, rawRate } = points[i];
               const val = type === "consult" ? d.consultCount : d.sales;
               const barWidth = 8;
 
               return (
-                <g key={`point-${i}`} className="group cursor-pointer">
+                <g key={`hover-${i}`} className="group cursor-pointer">
                   <rect x={`calc(${x}% - ${barWidth}%)`} y="0" width={`calc(${barWidth * 2}%)`} height="100%" fill="transparent" />
-                  
-                  <text
-                    x={`${x}%`}
-                    y={`${y}%`}
-                    dy="-8"
-                    fill={lineColor}
-                    fontSize="10"
-                    fontWeight="800"
-                    textAnchor="middle"
-                    style={{ paintOrder: "stroke", stroke: "#ffffff", strokeWidth: "3px", strokeLinejoin: "round" }}
-                    className="pointer-events-none select-none"
-                  >
-                    {formatCompactPointLabel(val, type)}
-                  </text>
-
-                  <circle 
-                    cx={`${x}%`} 
-                    cy={`${y}%`} 
-                    r="4" 
-                    fill="#ffffff" 
-                    stroke={lineColor} 
-                    strokeWidth="2.5" 
-                    className="group-hover:r-[6] transition-all"
-                  />
-                  
                   <g className="opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
                     <rect x={`calc(${x}% - 52px)`} y="calc(-26px)" width="105" height="24" rx="4" fill="#1e293b" />
                     <text x={`${x}%`} y="-10" fill="white" fontSize="9" fontWeight="bold" textAnchor="middle">
