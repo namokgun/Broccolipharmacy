@@ -235,6 +235,7 @@ export default function PatientsPage() {
   const [labItemSearch, setLabItemSearch] = useState("");
   const [labSearchHighlightIdx, setLabSearchHighlightIdx] = useState(0);
   const [savingLab, setSavingLab] = useState(false);
+  const labItemSearchInputRef = useRef<HTMLInputElement | null>(null);
   const labValueInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // 폼 필드
@@ -447,6 +448,7 @@ export default function PatientsPage() {
     setLabItemSearch("");
     setLabSearchHighlightIdx(0);
     setIsLabInputModalOpen(true);
+    setTimeout(() => labItemSearchInputRef.current?.focus(), 50);
   };
 
   const handleAddLabItemRow = (itemName: string) => {
@@ -485,7 +487,16 @@ export default function PatientsPage() {
   const handleLabSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!labItemSearch.trim()) return;
 
-    if (e.key === "ArrowDown") {
+    if (e.key === "Tab") {
+      e.preventDefault();
+      if (labSearchCandidates.length > 0) {
+        if (e.shiftKey) {
+          setLabSearchHighlightIdx(prev => (prev - 1 + labSearchCandidates.length) % labSearchCandidates.length);
+        } else {
+          setLabSearchHighlightIdx(prev => (prev + 1) % labSearchCandidates.length);
+        }
+      }
+    } else if (e.key === "ArrowDown") {
       e.preventDefault();
       if (labSearchCandidates.length > 0) {
         setLabSearchHighlightIdx(prev => (prev + 1) % labSearchCandidates.length);
@@ -1343,7 +1354,7 @@ export default function PatientsPage() {
       )}
 
       {/* =========================================================================
-          혈액검사 동적 항목 선택/직접 입력 모달
+          혈액검사 동적 항목 선택/직접 입력 모달 (Tab + Enter 선택 지원)
       ========================================================================= */}
       {isLabInputModalOpen && selectedPatient && (
         <div
@@ -1383,9 +1394,10 @@ export default function PatientsPage() {
 
                 <div className="col-span-8 relative">
                   <label className="block font-bold text-slate-700 mb-1">
-                    검사항목 추가 <span className="text-[10px] font-normal text-slate-400">(검색 또는 새 항목명 직접 입력 후 Enter)</span>
+                    검사항목 추가 <span className="text-[10px] font-normal text-slate-400">(검색 후 Tab / ↑↓ 이동, Enter 선택)</span>
                   </label>
                   <input
+                    ref={labItemSearchInputRef}
                     type="text"
                     placeholder=""
                     value={labItemSearch}
@@ -1415,7 +1427,7 @@ export default function PatientsPage() {
                             </span>
                             {isHighlighted && (
                               <span className="text-[9px] font-bold text-teal-800 bg-white px-1.5 py-0.5 rounded border border-teal-200">
-                                Enter ↵
+                                Tab · Enter ↵
                               </span>
                             )}
                           </div>
@@ -1495,7 +1507,11 @@ export default function PatientsPage() {
                                   if (e.key === "Enter") {
                                     e.preventDefault();
                                     const nextInput = labValueInputRefs.current[idx + 1];
-                                    if (nextInput) nextInput.focus();
+                                    if (nextInput) {
+                                      nextInput.focus();
+                                    } else {
+                                      labItemSearchInputRef.current?.focus();
+                                    }
                                   }
                                 }}
                                 className={`w-full px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-[#528771] ${getLabValueColorClass(status)}`}
