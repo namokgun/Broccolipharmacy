@@ -1,9 +1,111 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/app/lib/supabase";
 
 const CONSTITUTION_OPTIONS = ["선택 안함", "태양인", "태음인", "소양인", "소음인", "강아지", "고양이"];
+
+// 자주 쓰는 혈액검사 항목 사전 (병원 영문명 검색 별칭 및 기본 참고치 포함)
+const LAB_PRESETS: { name: string; ref: string; aliases: string[] }[] = [
+  { name: "TG", ref: "<150", aliases: ["triglyceride", "중성지방"] },
+  { name: "LDL", ref: "<130", aliases: ["ldl-cholesterol", "저밀도"] },
+  { name: "HDL", ref: ">60", aliases: ["hdl-cholesterol", "고밀도"] },
+  { name: "TOTAL", ref: "<200", aliases: ["total cholesterol", "총콜레스테롤"] },
+  { name: "HP", ref: "", aliases: ["혈압", "bp"] },
+  { name: "당화혈", ref: "<5.7", aliases: ["hba1c", "당화혈색소"] },
+  { name: "FPS", ref: "70-100", aliases: ["glucose", "공복혈당", "혈당"] },
+  { name: "안압", ref: "", aliases: ["iop"] },
+  { name: "총빌리루빈", ref: "<1.2", aliases: ["total bilirubin", "빌리루빈"] },
+  { name: "간접빌리루빈", ref: "<0.8", aliases: ["indirect bilirubin"] },
+  { name: "TSH", ref: "0.35-5.5", aliases: ["갑상선자극호르몬"] },
+  { name: "T4", ref: "<1.76", aliases: ["free t4", "유리t4"] },
+  { name: "uric acid", ref: "3-7", aliases: ["요산"] },
+  { name: "AST", ref: "0-33", aliases: ["got", "간수치"] },
+  { name: "ALT", ref: "10-49", aliases: ["gpt", "간수치"] },
+  { name: "Protein total", ref: "5.7-8.2", aliases: ["총단백"] },
+  { name: "Albumin", ref: "3.2-4.8", aliases: ["알부민"] },
+  { name: "BUN", ref: "9-23", aliases: ["혈중요소질소", "신장"] },
+  { name: "Creatinine", ref: "0.55-1.02", aliases: ["크레아티닌", "신장"] },
+  { name: "eGFR", ref: ">60", aliases: ["사구체여과율"] },
+  { name: "Sodium", ref: "135-145", aliases: ["na", "나트륨"] },
+  { name: "Potassium", ref: "3.5-5.5", aliases: ["k", "칼륨"] },
+  { name: "Chloride", ref: "98-110", aliases: ["cl", "염소"] },
+  { name: "Phosphorus", ref: "2.4-5.1", aliases: ["p", "인"] },
+  { name: "Calcium", ref: "8.3-10.6", aliases: ["ca", "칼슘"] },
+  { name: "Microalbumin(U)", ref: "", aliases: ["미세알부민"] },
+  { name: "Malb/CrRatio", ref: "", aliases: ["microalbumin/creatinine ratio"] },
+  { name: "지방간", ref: "", aliases: ["초음파", "간초음파"] },
+];
+
+// 원클릭 묶음 추가 프리셋
+const LAB_QUICK_GROUPS: { label: string; items: string[] }[] = [
+  { label: "+ 지질4종", items: ["TG", "LDL", "HDL", "TOTAL"] },
+  { label: "+ 혈당", items: ["당화혈", "FPS"] },
+  { label: "+ 간기능", items: ["AST", "ALT", "총빌리루빈", "간접빌리루빈"] },
+  { label: "+ 신장", items: ["BUN", "Creatinine", "eGFR"] },
+  { label: "+ 갑상선/요산", items: ["TSH", "T4", "uric acid"] },
+];
+
+interface LabItemEntry {
+  name: string;
+  ref: string;
+  value: string;
+}
+
+interface LabRecord {
+  id: string;
+  exam_date: string;
+  items: LabItemEntry[];
+}
+
+const getLocalToday = () => {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+};
+
+// 참고치(ref) 대비 높음/낮음 자동 판정
+const evaluateLabStatus = (value: string, ref: string): "high" | "low" | "normal" => {
+  if (!value || !ref) return "normal";
+  const cleanVal = value.trim();
+  // "112/70 83", "지방간", "정상" 등 단일 숫자가 아닌 경우 기본 색상 유지
+  if (!/^-?\d+(\.\d+)?$/.test(cleanVal)) return "normal";
+  const num = parseFloat(cleanVal);
+  if (isNaN(num)) return "normal";
+
+  const cleanRef = ref.replace(/\s+/g, "");
+
+  // <150, <=150 형태
+  const lessMatch = cleanRef.match(/^<=?(-?\d+(?:\.\d+)?)/);
+  if (lessMatch) {
+    const max = parseFloat(lessMatch[1]);
+    return num > max ? "high" : "normal";
+  }
+
+  // >60, >=60 형태
+  const greaterMatch = cleanRef.match(/^>=?(-?\d+(?:\.\d+)?)/);
+  if (greaterMatch) {
+    const min = parseFloat(greaterMatch[1]);
+    return num < min ? "low" : "normal";
+  }
+
+  // 3-7, 0.35-5.5, 0~33 범위 형태
+  const rangeMatch = cleanRef.match(/^(-?\d+(?:\.\d+)?)[-~](-?\d+(?:\.\d+)?)/);
+  if (rangeMatch) {
+    const min = parseFloat(rangeMatch[1]);
+    const max = parseFloat(rangeMatch[2]);
+    if (num > max) return "high";
+    if (num < min) return "low";
+    return "normal";
+  }
+
+  return "normal";
+};
+
+const getLabValueColorClass = (status: "high" | "low" | "normal") => {
+  if (status === "high") return "text-rose-600 font-extrabold";
+  if (status === "low") return "text-blue-600 font-extrabold";
+  return "text-slate-800 font-bold";
+};
 
 const getTagColor = (tag: string) => {
   const colors = [
@@ -45,7 +147,6 @@ const calculatePatientCumulativeSales = (patientsList: any[], salesList: any[]) 
 
   const patientIdSet = new Set(patientsList.map(p => String(p.id)));
 
-  // 대표 고객(representative_id) 기준으로 환자별 누적 그룹 생성
   const groups: Record<string, {
     repPatient: any;
     memberIds: Set<string>;
@@ -79,7 +180,6 @@ const calculatePatientCumulativeSales = (patientsList: any[], salesList: any[]) 
 
   const groupList = Object.values(groups);
 
-  // 모든 판매 기록을 해당 환자의 누적 판매 금액에 합산
   salesList.forEach(s => {
     const amt = s.computed_amount ?? getSaleAmount(s);
     const sPatientId = s.patient_id ? String(s.patient_id) : null;
@@ -129,6 +229,17 @@ export default function PatientsPage() {
   const [photosModalPatient, setPhotosModalPatient] = useState<any | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
 
+  // 🩸 혈액검사 모달 및 동적 입력 상태
+  const [isLabTableModalOpen, setIsLabTableModalOpen] = useState(false);
+  const [isLabInputModalOpen, setIsLabInputModalOpen] = useState(false);
+  const [editingLabRecordId, setEditingLabRecordId] = useState<string | null>(null);
+  const [labExamDate, setLabExamDate] = useState("");
+  const [labDraftItems, setLabDraftItems] = useState<LabItemEntry[]>([]);
+  const [labItemSearch, setLabItemSearch] = useState("");
+  const [labSearchHighlightIdx, setLabSearchHighlightIdx] = useState(0);
+  const [savingLab, setSavingLab] = useState(false);
+  const labValueInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
   // 폼 필드
   const [name, setName] = useState("");
   const [customId, setCustomId] = useState("");
@@ -172,9 +283,10 @@ export default function PatientsPage() {
     if (pError) console.error("고객 데이터 로딩 에러:", pError.message);
     if (pData) {
       setPatients(pData);
-      if (pData.length > 0 && !selectedPatient) {
-        setSelectedPatient(pData[0]);
-      }
+      setSelectedPatient((prev: any) => {
+        if (!prev) return pData.length > 0 ? pData[0] : null;
+        return pData.find((p: any) => p.id === prev.id) || pData[0] || null;
+      });
     }
 
     // 2. 판매관리 데이터 로딩
@@ -215,6 +327,261 @@ export default function PatientsPage() {
       );
       setConsultations(withSignedUrls);
     }
+  };
+
+  // =========================================================================
+  // 혈액검사 기록 파싱 및 시계열 매트릭스 계산
+  // =========================================================================
+  const selectedPatientLabRecords: LabRecord[] = useMemo(() => {
+    if (!selectedPatient || !Array.isArray(selectedPatient.lab_records)) return [];
+    return [...selectedPatient.lab_records]
+      .filter((r: any) => r && r.exam_date && Array.isArray(r.items))
+      .sort((a: LabRecord, b: LabRecord) => (b.exam_date || "").localeCompare(a.exam_date || ""));
+  }, [selectedPatient]);
+
+  // 해당 환자에게 사용된 검사항목 행(Row) 목록과 최신 참고치(ref) 통합
+  const patientLabMatrixRows = useMemo(() => {
+    const rowMap = new Map<string, { name: string; ref: string }>();
+    // 오래된 기록부터 최신 기록 순으로 순회하여 최신 ref를 반영하되 최초 등록 순서 유지
+    const chronological = [...selectedPatientLabRecords].reverse();
+    chronological.forEach(rec => {
+      rec.items.forEach(item => {
+        const key = item.name.trim();
+        if (!key) return;
+        const existing = rowMap.get(key);
+        if (!existing) {
+          rowMap.set(key, { name: key, ref: item.ref || "" });
+        } else if (item.ref && item.ref.trim() !== "") {
+          existing.ref = item.ref.trim();
+        }
+      });
+    });
+    return Array.from(rowMap.values());
+  }, [selectedPatientLabRecords]);
+
+  // 항목 검색 및 직접 추가 드롭다운 후보
+  const labSearchCandidates = useMemo(() => {
+    const term = labItemSearch.trim();
+    if (!term) return [];
+    const lower = term.toLowerCase();
+
+    const matchedPresets = LAB_PRESETS.filter(
+      p =>
+        p.name.toLowerCase().includes(lower) ||
+        p.aliases.some(a => a.toLowerCase().includes(lower))
+    ).map(p => ({
+      name: p.name,
+      ref: p.ref,
+      isCustom: false,
+    }));
+
+    const hasExactMatch = matchedPresets.some(p => p.name.toLowerCase() === lower);
+    if (!hasExactMatch) {
+      matchedPresets.push({
+        name: term,
+        ref: "",
+        isCustom: true,
+      });
+    }
+
+    return matchedPresets;
+  }, [labItemSearch]);
+
+  const handleOpenLabInput = (recordToEdit: LabRecord | null = null) => {
+    if (!selectedPatient) return;
+
+    if (recordToEdit) {
+      setEditingLabRecordId(recordToEdit.id);
+      setLabExamDate(recordToEdit.exam_date);
+      setLabDraftItems(recordToEdit.items.map(i => ({ ...i })));
+    } else {
+      setEditingLabRecordId(null);
+      setLabExamDate(getLocalToday());
+      // 기존에 이 환자가 관리하던 항목이 있다면 기본 틀로 세팅 (불필요한 항목은 ✕로 제거 가능)
+      if (patientLabMatrixRows.length > 0) {
+        setLabDraftItems(
+          patientLabMatrixRows.map(r => ({
+            name: r.name,
+            ref: r.ref,
+            value: "",
+          }))
+        );
+      } else {
+        setLabDraftItems([]);
+      }
+    }
+
+    setLabItemSearch("");
+    setLabSearchHighlightIdx(0);
+    setIsLabInputModalOpen(true);
+  };
+
+  const handleAddLabItemRow = (itemName: string, defaultRef: string = "") => {
+    const trimmed = itemName.trim();
+    if (!trimmed) return;
+
+    const alreadyIdx = labDraftItems.findIndex(
+      i => i.name.toLowerCase() === trimmed.toLowerCase()
+    );
+
+    if (alreadyIdx >= 0) {
+      setLabItemSearch("");
+      setLabSearchHighlightIdx(0);
+      setTimeout(() => labValueInputRefs.current[alreadyIdx]?.focus(), 30);
+      return;
+    }
+
+    const preset = LAB_PRESETS.find(
+      p =>
+        p.name.toLowerCase() === trimmed.toLowerCase() ||
+        p.aliases.some(a => a.toLowerCase() === trimmed.toLowerCase())
+    );
+    const prevRef = patientLabMatrixRows.find(
+      r => r.name.toLowerCase() === trimmed.toLowerCase()
+    )?.ref;
+
+    const nextIdx = labDraftItems.length;
+    setLabDraftItems(prev => [
+      ...prev,
+      {
+        name: preset ? preset.name : trimmed,
+        ref: defaultRef || prevRef || preset?.ref || "",
+        value: "",
+      },
+    ]);
+    setLabItemSearch("");
+    setLabSearchHighlightIdx(0);
+    setTimeout(() => labValueInputRefs.current[nextIdx]?.focus(), 30);
+  };
+
+  const handleAddLabQuickGroup = (itemNames: string[]) => {
+    setLabDraftItems(prev => {
+      const next = [...prev];
+      itemNames.forEach(itemName => {
+        if (!next.some(i => i.name.toLowerCase() === itemName.toLowerCase())) {
+          const preset = LAB_PRESETS.find(p => p.name === itemName);
+          const prevRef = patientLabMatrixRows.find(r => r.name === itemName)?.ref;
+          next.push({
+            name: itemName,
+            ref: prevRef || preset?.ref || "",
+            value: "",
+          });
+        }
+      });
+      return next;
+    });
+  };
+
+  const handleLabSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!labItemSearch.trim()) return;
+
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (labSearchCandidates.length > 0) {
+        setLabSearchHighlightIdx(prev => (prev + 1) % labSearchCandidates.length);
+      }
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (labSearchCandidates.length > 0) {
+        setLabSearchHighlightIdx(prev => (prev - 1 + labSearchCandidates.length) % labSearchCandidates.length);
+      }
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const target = labSearchCandidates[labSearchHighlightIdx];
+      if (target) {
+        handleAddLabItemRow(target.name, target.ref);
+      } else {
+        handleAddLabItemRow(labItemSearch.trim(), "");
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setLabItemSearch("");
+      setLabSearchHighlightIdx(0);
+    }
+  };
+
+  const handleSaveLabRecord = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPatient) return;
+    if (!labExamDate) return alert("검사일자를 입력해주세요.");
+
+    const validItems = labDraftItems
+      .filter(i => i.name.trim() !== "" && i.value.trim() !== "")
+      .map(i => ({
+        name: i.name.trim(),
+        ref: i.ref.trim(),
+        value: i.value.trim(),
+      }));
+
+    if (validItems.length === 0) {
+      return alert("최소 1개 이상의 검사 결과값을 입력해주세요.");
+    }
+
+    const existingRecords: LabRecord[] = Array.isArray(selectedPatient.lab_records)
+      ? [...selectedPatient.lab_records]
+      : [];
+
+    let updatedRecords: LabRecord[];
+    if (editingLabRecordId) {
+      updatedRecords = existingRecords.map(rec =>
+        rec.id === editingLabRecordId
+          ? { ...rec, exam_date: labExamDate, items: validItems }
+          : rec
+      );
+    } else {
+      const newRecord: LabRecord = {
+        id: `${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        exam_date: labExamDate,
+        items: validItems,
+      };
+      updatedRecords = [newRecord, ...existingRecords];
+    }
+
+    setSavingLab(true);
+    const { error } = await supabase
+      .from("patients")
+      .update({ lab_records: updatedRecords })
+      .eq("id", selectedPatient.id);
+    setSavingLab(false);
+
+    if (error) {
+      if (error.message?.includes("lab_records")) {
+        alert(
+          "Supabase의 patients 테이블에 lab_records 컬럼이 없습니다.\nSQL Editor에서 아래 명령어를 실행해 주세요:\n\nALTER TABLE patients ADD COLUMN IF NOT EXISTS lab_records JSONB DEFAULT '[]'::jsonb;"
+        );
+      } else {
+        alert("혈액검사 저장 실패: " + error.message);
+      }
+      return;
+    }
+
+    setIsLabInputModalOpen(false);
+    fetchData();
+  };
+
+  const handleDeleteLabRecord = async (recordId: string) => {
+    if (!selectedPatient) return;
+    if (!confirm("이 날짜의 혈액검사 기록을 삭제하시겠습니까?")) return;
+
+    const existingRecords: LabRecord[] = Array.isArray(selectedPatient.lab_records)
+      ? selectedPatient.lab_records
+      : [];
+    const updatedRecords = existingRecords.filter(r => r.id !== recordId);
+
+    setSavingLab(true);
+    const { error } = await supabase
+      .from("patients")
+      .update({ lab_records: updatedRecords })
+      .eq("id", selectedPatient.id);
+    setSavingLab(false);
+
+    if (error) {
+      alert("삭제 실패: " + error.message);
+      return;
+    }
+
+    setIsLabInputModalOpen(false);
+    fetchData();
   };
 
   const getPatientStats = (patient: any) => {
@@ -262,7 +629,7 @@ export default function PatientsPage() {
   });
   const returningCount = Object.values(patientConsultCounts).filter(cnt => cnt >= 2).length;
 
-  // 전체 누적 판매 TOP (환자별 누적 판매 금액 순)
+  // 전체 누적 판매 TOP
   const customerSalesRankingAll = useMemo(
     () => calculatePatientCumulativeSales(patients, sales),
     [patients, sales]
@@ -273,7 +640,7 @@ export default function PatientsPage() {
     [customerSalesRankingAll]
   );
 
-  // 최근 3개월 누적 판매 TOP (환자별 최근 3개월 누적 판매 금액 순)
+  // 최근 3개월 누적 판매 TOP
   const customerSalesRanking3Months = useMemo(() => {
     if (!currentDate) return [];
 
@@ -559,6 +926,77 @@ export default function PatientsPage() {
                 </div>
               </div>
 
+              {/* 🩸 혈액검사 기록 요약 카드 */}
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-xs font-extrabold text-slate-900">
+                    🩸 혈액검사 기록 ({selectedPatientLabRecords.length}회)
+                  </h3>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenLabInput(null)}
+                      className="px-2 py-0.5 bg-[#528771] hover:bg-[#3d6856] text-white rounded-md font-bold text-[10px] transition"
+                    >
+                      + 결과 입력
+                    </button>
+                    {selectedPatientLabRecords.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setIsLabTableModalOpen(true)}
+                        className="text-[10px] font-bold text-teal-800 hover:underline"
+                      >
+                        전체 표 보기 →
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {selectedPatientLabRecords.length === 0 ? (
+                  <div
+                    onClick={() => handleOpenLabInput(null)}
+                    className="p-2.5 bg-slate-50 hover:bg-teal-50/40 rounded-xl border border-dashed border-slate-200 text-center text-[11px] text-slate-400 cursor-pointer transition"
+                  >
+                    등록된 혈액검사 기록이 없습니다. (+ 결과 입력)
+                  </div>
+                ) : (
+                  <div
+                    onClick={() => setIsLabTableModalOpen(true)}
+                    className="p-2.5 bg-slate-50 hover:bg-teal-50/40 rounded-xl border border-slate-100 cursor-pointer transition space-y-1.5"
+                  >
+                    <div className="flex justify-between items-center text-[10px]">
+                      <span className="font-extrabold text-slate-700">
+                        최근 검사일: {selectedPatientLabRecords[0].exam_date}
+                      </span>
+                      <span className="text-slate-400 font-bold">
+                        {selectedPatientLabRecords[0].items.length}개 항목
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {selectedPatientLabRecords[0].items.slice(0, 6).map((item, idx) => {
+                        const rowRef =
+                          patientLabMatrixRows.find(r => r.name === item.name)?.ref || item.ref;
+                        const status = evaluateLabStatus(item.value, rowRef);
+                        return (
+                          <span
+                            key={idx}
+                            className="px-1.5 py-0.5 bg-white border border-slate-200/80 rounded-md text-[10px] flex items-center gap-1"
+                          >
+                            <span className="text-slate-500 font-semibold">{item.name}</span>
+                            <span className={getLabValueColorClass(status)}>{item.value}</span>
+                          </span>
+                        );
+                      })}
+                      {selectedPatientLabRecords[0].items.length > 6 && (
+                        <span className="px-1.5 py-0.5 text-[10px] font-bold text-slate-400">
+                          +{selectedPatientLabRecords[0].items.length - 6}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* 최근 판매 내역 */}
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
@@ -708,6 +1146,360 @@ export default function PatientsPage() {
         </div>
 
       </div>
+
+      {/* =========================================================================
+          🩸 혈액검사 시계열 추이표 모달 (기존 노션/엑셀 양식과 동일한 가로 비교표)
+      ========================================================================= */}
+      {isLabTableModalOpen && selectedPatient && (
+        <div
+          onClick={() => setIsLabTableModalOpen(false)}
+          className="fixed inset-0 z-[110] bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white w-full max-w-5xl max-h-[88vh] rounded-3xl p-5 shadow-2xl border border-slate-200 flex flex-col space-y-3 cursor-default"
+          >
+            <div className="flex flex-wrap justify-between items-center border-b border-slate-100 pb-3 gap-2">
+              <div>
+                <h3 className="text-base font-extrabold text-slate-900">
+                  🩸 {selectedPatient.name} 님 혈액검사 추이표
+                </h3>
+                <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
+                  상단 날짜를 클릭하면 해당 일자의 검사 결과를 수정하거나 삭제할 수 있습니다.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleOpenLabInput(null)}
+                  className="px-3.5 py-1.5 bg-[#528771] hover:bg-[#3d6856] text-white rounded-xl font-bold text-xs transition shadow-sm"
+                >
+                  + 새 검사결과 입력
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsLabTableModalOpen(false)}
+                  className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {selectedPatientLabRecords.length === 0 ? (
+              <div className="py-16 text-center text-slate-400 font-bold text-xs">
+                등록된 혈액검사 기록이 없습니다.
+              </div>
+            ) : (
+              <div className="flex-1 overflow-auto border border-slate-200 rounded-2xl">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead className="bg-slate-100 text-slate-700 sticky top-0 z-20 border-b border-slate-200">
+                    <tr>
+                      <th className="py-2.5 px-3.5 font-extrabold bg-slate-100 sticky left-0 z-30 min-w-[130px] border-r border-slate-200">
+                        검사항목
+                      </th>
+                      <th className="py-2.5 px-3 font-bold text-slate-500 bg-slate-100 sticky left-[130px] z-30 min-w-[90px] border-r border-slate-200">
+                        ref
+                      </th>
+                      {selectedPatientLabRecords.map(rec => (
+                        <th
+                          key={rec.id}
+                          onClick={() => handleOpenLabInput(rec)}
+                          title="클릭하여 이 날짜 결과 수정/삭제"
+                          className="py-2.5 px-3.5 font-extrabold text-center min-w-[105px] border-r border-slate-200 last:border-none cursor-pointer hover:bg-teal-100/70 hover:text-teal-900 transition whitespace-nowrap group"
+                        >
+                          <span>{rec.exam_date}</span>
+                          <span className="ml-1 text-[9px] text-slate-400 group-hover:text-teal-700">✎</span>
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {patientLabMatrixRows.map(row => (
+                      <tr key={row.name} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-2.5 px-3.5 font-extrabold text-slate-900 bg-white sticky left-0 z-10 border-r border-slate-200 whitespace-nowrap">
+                          {row.name}
+                        </td>
+                        <td className="py-2.5 px-3 font-semibold text-slate-500 bg-white sticky left-[130px] z-10 border-r border-slate-200 whitespace-nowrap">
+                          {row.ref || "-"}
+                        </td>
+                        {selectedPatientLabRecords.map(rec => {
+                          const found = rec.items.find(
+                            i => i.name.trim().toLowerCase() === row.name.toLowerCase()
+                          );
+                          const val = found?.value || "";
+                          const activeRef = row.ref || found?.ref || "";
+                          const status = evaluateLabStatus(val, activeRef);
+
+                          return (
+                            <td
+                              key={`${rec.id}-${row.name}`}
+                              onClick={() => handleOpenLabInput(rec)}
+                              className={`py-2.5 px-3.5 text-center border-r border-slate-100 last:border-none cursor-pointer tabular-nums ${
+                                val ? getLabValueColorClass(status) : "text-slate-300"
+                              }`}
+                            >
+                              {val || "-"}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="flex justify-between items-center text-[11px] text-slate-400 pt-1">
+              <div className="flex items-center gap-3">
+                <span>
+                  <strong className="text-rose-600">빨간색</strong>: 참고치 상한 초과
+                </span>
+                <span>
+                  <strong className="text-blue-600">파란색</strong>: 참고치 하한 미만
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsLabTableModalOpen(false)}
+                className="px-4 py-1.5 bg-slate-900 text-white rounded-xl font-bold text-xs hover:bg-slate-800"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* =========================================================================
+          🩸 혈액검사 동적 항목 선택/직접 입력 모달
+      ========================================================================= */}
+      {isLabInputModalOpen && selectedPatient && (
+        <div
+          onClick={() => setIsLabInputModalOpen(false)}
+          className="fixed inset-0 z-[130] bg-slate-950/65 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            className="bg-white w-full max-w-2xl max-h-[90vh] rounded-3xl p-5 shadow-2xl border border-slate-200 flex flex-col space-y-3 cursor-default"
+          >
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2.5 shrink-0">
+              <h3 className="text-sm font-extrabold text-slate-900">
+                🩸 {selectedPatient.name} 님 혈액검사 {editingLabRecordId ? "결과 수정" : "결과 입력"}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setIsLabInputModalOpen(false)}
+                className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveLabRecord} className="flex-1 flex flex-col min-h-0 space-y-3 text-xs">
+              {/* 검사일자 + 항목 검색/직접추가 바 */}
+              <div className="grid grid-cols-12 gap-2.5 shrink-0">
+                <div className="col-span-4">
+                  <label className="block font-bold text-slate-700 mb-1">검사일자 *</label>
+                  <input
+                    type="date"
+                    value={labExamDate}
+                    onChange={e => setLabExamDate(e.target.value)}
+                    required
+                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]"
+                  />
+                </div>
+
+                <div className="col-span-8 relative">
+                  <label className="block font-bold text-slate-700 mb-1">
+                    검사항목 추가 <span className="text-[10px] font-normal text-slate-400">(검색 또는 새 항목명 직접 입력 후 Enter)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="+ 예: TG, 당화혈, AST, 지방간..."
+                    value={labItemSearch}
+                    onChange={e => {
+                      setLabItemSearch(e.target.value);
+                      setLabSearchHighlightIdx(0);
+                    }}
+                    onKeyDown={handleLabSearchKeyDown}
+                    className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl font-semibold focus:outline-none focus:border-[#528771]"
+                  />
+
+                  {labItemSearch.trim() && (
+                    <div className="absolute z-30 w-full max-h-44 overflow-y-auto border border-slate-200 rounded-xl bg-white shadow-xl mt-1">
+                      {labSearchCandidates.map((cand, idx) => {
+                        const isHighlighted = idx === labSearchHighlightIdx;
+                        return (
+                          <div
+                            key={`${cand.name}-${idx}`}
+                            onClick={() => handleAddLabItemRow(cand.name, cand.ref)}
+                            onMouseEnter={() => setLabSearchHighlightIdx(idx)}
+                            className={`px-3 py-2 cursor-pointer flex justify-between items-center border-b border-slate-100 last:border-none ${
+                              isHighlighted ? "bg-teal-100/80" : "hover:bg-teal-50"
+                            }`}
+                          >
+                            <span className="font-extrabold text-slate-900">
+                              {cand.isCustom ? `+ "${cand.name}" 새 항목 직접 추가` : cand.name}
+                            </span>
+                            <div className="flex items-center gap-2">
+                              {cand.ref && (
+                                <span className="text-[10px] font-bold text-slate-400">
+                                  ref: {cand.ref}
+                                </span>
+                              )}
+                              {isHighlighted && (
+                                <span className="text-[9px] font-bold text-teal-800 bg-white px-1.5 py-0.5 rounded border border-teal-200">
+                                  Enter ↵
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 원클릭 묶음 버튼 + 목록 비우기 */}
+              <div className="flex flex-wrap items-center justify-between gap-1.5 shrink-0">
+                <div className="flex flex-wrap items-center gap-1">
+                  {LAB_QUICK_GROUPS.map(grp => (
+                    <button
+                      key={grp.label}
+                      type="button"
+                      onClick={() => handleAddLabQuickGroup(grp.items)}
+                      className="px-2 py-1 bg-slate-100 hover:bg-teal-50 hover:text-teal-800 text-slate-600 rounded-lg font-bold text-[10px] transition"
+                    >
+                      {grp.label}
+                    </button>
+                  ))}
+                </div>
+                {labDraftItems.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setLabDraftItems([])}
+                    className="text-[10px] font-bold text-slate-400 hover:text-rose-600 px-1.5 py-0.5 transition"
+                  >
+                    전체 비우기
+                  </button>
+                )}
+              </div>
+
+              {/* 선택된 검사항목 입력 테이블 */}
+              <div className="flex-1 overflow-y-auto border border-slate-200 rounded-2xl">
+                {labDraftItems.length === 0 ? (
+                  <div className="py-12 text-center text-slate-400 font-semibold text-xs">
+                    위 검색창에서 원하는 검사항목을 입력하거나 묶음 버튼을 눌러 추가하세요.
+                  </div>
+                ) : (
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead className="bg-slate-50 text-slate-500 sticky top-0 border-b border-slate-200">
+                      <tr>
+                        <th className="py-2 px-3 font-bold w-[34%]">검사항목</th>
+                        <th className="py-2 px-3 font-bold w-[26%]">참고치 (ref)</th>
+                        <th className="py-2 px-3 font-bold w-[32%]">검사 결과 (Enter 다음칸)</th>
+                        <th className="py-2 px-2 font-bold text-center w-[8%]">삭제</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {labDraftItems.map((item, idx) => {
+                        const status = evaluateLabStatus(item.value, item.ref);
+                        return (
+                          <tr key={`${item.name}-${idx}`} className="hover:bg-slate-50/60">
+                            <td className="py-1.5 px-3 font-extrabold text-slate-900">
+                              {item.name}
+                            </td>
+                            <td className="py-1.5 px-2">
+                              <input
+                                type="text"
+                                placeholder="예: <150, 3-7"
+                                value={item.ref}
+                                onChange={e => {
+                                  const next = [...labDraftItems];
+                                  next[idx] = { ...next[idx], ref: e.target.value };
+                                  setLabDraftItems(next);
+                                }}
+                                className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-semibold text-slate-600 focus:outline-none focus:border-[#528771]"
+                              />
+                            </td>
+                            <td className="py-1.5 px-2">
+                              <input
+                                ref={el => {
+                                  labValueInputRefs.current[idx] = el;
+                                }}
+                                type="text"
+                                placeholder="수치 또는 소견..."
+                                value={item.value}
+                                onChange={e => {
+                                  const next = [...labDraftItems];
+                                  next[idx] = { ...next[idx], value: e.target.value };
+                                  setLabDraftItems(next);
+                                }}
+                                onKeyDown={e => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    const nextInput = labValueInputRefs.current[idx + 1];
+                                    if (nextInput) nextInput.focus();
+                                  }
+                                }}
+                                className={`w-full px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-[#528771] ${getLabValueColorClass(status)}`}
+                              />
+                            </td>
+                            <td className="py-1.5 px-2 text-center">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setLabDraftItems(labDraftItems.filter((_, i) => i !== idx))
+                                }
+                                className="text-slate-400 hover:text-rose-600 font-bold p-1"
+                              >
+                                ✕
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              <div className="flex justify-between items-center pt-2 border-t border-slate-100 shrink-0">
+                <div>
+                  {editingLabRecordId && (
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteLabRecord(editingLabRecordId)}
+                      disabled={savingLab}
+                      className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-bold rounded-xl transition"
+                    >
+                      이 날짜 기록 삭제
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsLabInputModalOpen(false)}
+                    className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingLab}
+                    className="px-5 py-2 bg-[#528771] text-white font-bold rounded-xl hover:bg-[#3d6856] transition shadow-sm disabled:opacity-50"
+                  >
+                    {savingLab ? "저장 중..." : "저장하기"}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* 신규 고객 등록 및 수정 모달 */}
       {isModalOpen && (
