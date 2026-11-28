@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/app/lib/supabase";
 
 const CONSTITUTION_OPTIONS = ["선택 안함", "태양인", "태음인", "소양인", "소음인", "강아지", "고양이"];
@@ -208,6 +209,8 @@ const calculatePatientCumulativeSales = (patientsList: any[], salesList: any[]) 
 };
 
 export default function PatientsPage() {
+  const router = useRouter();
+
   const [patients, setPatients] = useState<any[]>([]);
   const [consultations, setConsultations] = useState<any[]>([]);
   const [sales, setSales] = useState<any[]>([]);
@@ -322,6 +325,18 @@ export default function PatientsPage() {
       );
       setConsultations(withSignedUrls);
     }
+  };
+
+  // 상담 내역 클릭 시 해당 상담 페이지로 이동
+  const handleNavigateToConsultation = (consultation: any) => {
+    if (!consultation?.id) return;
+    setHistoryModalPatient(null);
+    const params = new URLSearchParams();
+    params.set("consultationId", String(consultation.id));
+    if (consultation.patient_id) {
+      params.set("patientId", String(consultation.patient_id));
+    }
+    router.push(`/consultations?${params.toString()}`);
   };
 
   // =========================================================================
@@ -1029,27 +1044,32 @@ export default function PatientsPage() {
                 <div className="flex justify-between items-center">
                   <h3 className="text-xs font-extrabold text-slate-900">🛍️ 최근 판매 내역 ({selectedPatientStats.pSales.length}건)</h3>
                 </div>
-                <div className="space-y-1 max-h-36 overflow-y-auto pr-1 hide-scrollbar">
+                <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1 hide-scrollbar">
                   {selectedPatientStats.pSales.length === 0 ? (
-                    <div className="p-2.5 bg-slate-50 rounded-xl text-center text-[11px] text-slate-400">판매 내역이 없습니다.</div>
+                    <div className="p-3 bg-slate-50 rounded-xl text-center text-[11px] text-slate-400">판매 내역이 없습니다.</div>
                   ) : (
-                    selectedPatientStats.pSales.slice(0, 3).map(s => (
-                      <div key={s.id} className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs flex justify-between items-center">
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-bold text-slate-400">{s.sale_date_str || s.sale_date} · {s.payment_method}</span>
-                          <span className="font-extrabold text-slate-800 text-[11px]">
-                            {s.items?.map((i: any) => `${i.name}(${i.quantity})`).join(", ")}
-                          </span>
+                    selectedPatientStats.pSales.slice(0, 3).map(s => {
+                      const itemsText = s.items?.map((i: any) => `${i.name}(${i.quantity})`).join(", ") || "판매 내역";
+                      const subText = [s.payment_method, s.memo].filter(Boolean).join(" · ");
+                      return (
+                        <div key={s.id} className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs flex flex-col gap-1">
+                          <div className="flex justify-between items-center font-bold text-slate-700">
+                            <div className="flex items-center gap-2 truncate">
+                              <span className="text-[10px] text-slate-400">{s.sale_date_str || s.sale_date}</span>
+                              <span className="text-teal-900 font-extrabold text-[11px] truncate" title={itemsText}>{itemsText}</span>
+                            </div>
+                            <span className="text-[#528771] font-extrabold flex-shrink-0">{(s.computed_amount ?? getSaleAmount(s)).toLocaleString()}원</span>
+                          </div>
+                          {subText && <p className="font-semibold text-slate-600 text-[11px] truncate" title={subText}>{subText}</p>}
                         </div>
-                        <span className="font-black text-[#528771] text-[11px]">{(s.computed_amount ?? getSaleAmount(s)).toLocaleString()}원</span>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               </div>
 
               {/* 최근 상담 내역 */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 pt-2.5">
                 <div className="flex justify-between items-center">
                   <h3 className="text-xs font-extrabold text-slate-900">💬 최근 상담 내역 ({selectedPatientStats.pConsults.length}건)</h3>
                   <button onClick={() => setHistoryModalPatient(selectedPatient)} className="text-[10px] font-bold text-teal-800 hover:underline">전체보기 →</button>
@@ -1059,7 +1079,11 @@ export default function PatientsPage() {
                     <div className="p-3 bg-slate-50 rounded-xl text-center text-[11px] text-slate-400">상담 내역이 없습니다.</div>
                   ) : (
                     selectedPatientStats.pConsults.slice(0, 2).map(c => (
-                      <div key={c.id} className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs flex flex-col gap-1">
+                      <div
+                        key={c.id}
+                        onClick={() => handleNavigateToConsultation(c)}
+                        className="p-2.5 bg-slate-50 hover:bg-teal-50/70 rounded-xl border border-slate-100 hover:border-teal-300 text-xs flex flex-col gap-1 cursor-pointer transition"
+                      >
                         <div className="flex justify-between items-center font-bold text-slate-700">
                           <div className="flex items-center gap-2 truncate">
                             <span className="text-[10px] text-slate-400">{c.consultation_date || c.created_at?.split('T')[0]}</span>
@@ -1665,20 +1689,29 @@ export default function PatientsPage() {
         </div>
       )}
 
+      {/* 전체 상담 기록 모달 */}
       {historyModalPatient && (
         <div onClick={() => setHistoryModalPatient(null)} className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-3xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center border-b pb-3">
               <h3 className="text-lg font-bold text-slate-900">📂 {historyModalPatient.name} 님의 전체 상담 기록</h3>
+              <span className="text-[11px] font-semibold text-slate-400">기록을 클릭하면 해당 상담 내역으로 이동합니다</span>
             </div>
             <div className="flex-1 overflow-y-auto space-y-4 pr-1">
               {consultations.filter(c => c.patient_id === historyModalPatient.id).length === 0 ? (
                 <div className="text-center py-12 text-slate-400 text-sm">작성된 상담 기록이 없습니다.</div>
               ) : (
                 consultations.filter(c => c.patient_id === historyModalPatient.id).map((c, idx) => (
-                  <div key={c.id || idx} className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-3 text-xs">
+                  <div
+                    key={c.id || idx}
+                    onClick={() => handleNavigateToConsultation(c)}
+                    className="p-4 bg-white hover:bg-teal-50/50 border border-slate-200 hover:border-teal-400 rounded-2xl shadow-xs space-y-3 text-xs cursor-pointer transition group"
+                  >
                     <div className="flex justify-between items-center border-b border-slate-100 pb-2">
-                      <span className="font-bold text-slate-900 text-sm">{c.consultation_date || c.created_at.split('T')[0]}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-slate-900 text-sm">{c.consultation_date || c.created_at.split('T')[0]}</span>
+                        <span className="text-[10px] font-bold text-teal-700 opacity-0 group-hover:opacity-100 transition">상담 내역으로 이동 →</span>
+                      </div>
                       {c.amount && <span className="font-extrabold text-purple-800 text-sm">{c.amount.toLocaleString()}원</span>}
                     </div>
                     <div className="flex flex-col sm:flex-row gap-4 items-start">
@@ -1709,23 +1742,24 @@ export default function PatientsPage() {
         </div>
       )}
 
+      {/* 사진 모아보기 모달 (팝업창 및 사진 크기 확대) */}
       {photosModalPatient && (
-        <div onClick={() => setPhotosModalPatient(null)} className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
-          <div className="bg-white w-full max-w-2xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center border-b pb-3">
-              <h3 className="text-lg font-bold text-slate-900">📸 {photosModalPatient.name} 님의 사진 모아보기</h3>
-              <button onClick={() => setPhotosModalPatient(null)} className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200">✕</button>
+        <div onClick={() => setPhotosModalPatient(null)} className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
+          <div className="bg-white w-[94vw] max-w-6xl h-[90vh] max-h-[90vh] rounded-3xl p-6 sm:p-7 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center border-b pb-3.5 shrink-0">
+              <h3 className="text-lg font-extrabold text-slate-900">📸 {photosModalPatient.name} 님의 사진 모아보기 ({selectedPatientAllPhotos.length}장)</h3>
+              <button onClick={() => setPhotosModalPatient(null)} className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200 text-sm">✕</button>
             </div>
-            <div className="flex-1 overflow-y-auto grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-6 content-start pr-1">
+            <div className="flex-1 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-7 content-start pr-1">
               {selectedPatientAllPhotos.length === 0 ? (
                 <div className="col-span-full text-center py-12 text-slate-400 text-sm">등록된 사진이 없습니다.</div>
               ) : (
                 selectedPatientAllPhotos.map((photo: any, idx: number) => (
-                  <div key={idx} className="flex flex-col gap-1.5">
+                  <div key={idx} className="flex flex-col gap-2">
                     <div className="relative aspect-square border border-slate-200 rounded-2xl overflow-hidden bg-slate-50 cursor-pointer shadow-sm group" onClick={() => setPreviewImageUrl(photo.url)}>
                       <img src={photo.url} className="w-full h-full object-cover group-hover:scale-105 transition duration-300" />
                     </div>
-                    <div className="text-center text-[11px] leading-tight flex flex-col">
+                    <div className="text-center text-xs leading-snug flex flex-col">
                       <span className="font-extrabold text-slate-800">{photo.date}</span>
                       <span className="font-semibold text-teal-700 truncate px-1" title={photo.prescription}>{photo.prescription || "-"}</span>
                     </div>
@@ -1733,15 +1767,15 @@ export default function PatientsPage() {
                 ))
               )}
             </div>
-            <div className="flex justify-end pt-3 border-t"><button onClick={() => setPhotosModalPatient(null)} className="px-5 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800">닫기</button></div>
+            <div className="flex justify-end pt-3 border-t shrink-0"><button onClick={() => setPhotosModalPatient(null)} className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-slate-800">닫기</button></div>
           </div>
         </div>
       )}
 
       {previewImageUrl && (
-        <div onClick={() => setPreviewImageUrl(null)} className="fixed inset-0 z-[150] bg-slate-950/80 flex items-center justify-center p-4 cursor-pointer">
-          <img src={previewImageUrl} className="max-w-full max-h-full object-contain rounded-lg shadow-2xl" onClick={(e) => e.stopPropagation()} />
-          <button onClick={() => setPreviewImageUrl(null)} className="absolute top-4 right-4 text-white bg-slate-800 w-10 h-10 rounded-full font-bold">✕</button>
+        <div onClick={() => setPreviewImageUrl(null)} className="fixed inset-0 z-[150] bg-slate-950/85 flex items-center justify-center p-4 cursor-pointer">
+          <img src={previewImageUrl} className="w-[92vw] h-[90vh] object-contain rounded-xl shadow-2xl" onClick={(e) => e.stopPropagation()} />
+          <button onClick={() => setPreviewImageUrl(null)} className="absolute top-5 right-5 text-white bg-slate-800/90 hover:bg-slate-700 w-11 h-11 rounded-full font-bold text-base">✕</button>
         </div>
       )}
 
