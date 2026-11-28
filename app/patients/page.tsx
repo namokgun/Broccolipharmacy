@@ -318,18 +318,11 @@ export default function PatientsPage() {
     }
   };
 
-  // 상담 내역 클릭 시 상담 기록조회 탭 + 해당 상담 내역 수정창으로 이동
+  // 상담 내역 클릭 시 상담 기록 조회(/consultations/history) 해당 내역으로 이동
   const handleNavigateToConsultation = (consultation: any) => {
     if (!consultation?.id) return;
     setHistoryModalPatient(null);
-    const params = new URLSearchParams();
-    params.set("tab", "history");
-    params.set("consultationId", String(consultation.id));
-    params.set("edit", "true");
-    if (consultation.patient_id) {
-      params.set("patientId", String(consultation.patient_id));
-    }
-    router.push(`/consultations?${params.toString()}`);
+    router.push(`/consultations/history?id=${encodeURIComponent(String(consultation.id))}`);
   };
 
   const selectedPatientLabRecords: LabRecord[] = useMemo(() => {
@@ -1698,7 +1691,7 @@ export default function PatientsPage() {
           <div className="bg-white w-full max-w-3xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center border-b pb-3">
               <h3 className="text-lg font-bold text-slate-900">📂 {historyModalPatient.name} 님의 전체 상담 기록</h3>
-              <span className="text-[11px] font-semibold text-slate-400">기록을 클릭하면 상담 기록조회 및 수정창으로 이동합니다</span>
+              <span className="text-[11px] font-semibold text-slate-400">기록을 클릭하면 상담 기록 조회 화면으로 이동합니다</span>
             </div>
             <div className="flex-1 overflow-y-auto space-y-4 pr-1">
               {consultations.filter(c => c.patient_id === historyModalPatient.id).length === 0 ? (
@@ -1713,7 +1706,7 @@ export default function PatientsPage() {
                     <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-slate-900 text-sm">{c.consultation_date || c.created_at.split("T")[0]}</span>
-                        <span className="text-[10px] font-bold text-teal-700 opacity-0 group-hover:opacity-100 transition">수정창으로 이동 →</span>
+                        <span className="text-[10px] font-bold text-teal-700 opacity-0 group-hover:opacity-100 transition">상담 기록 조회로 이동 →</span>
                       </div>
                       {c.amount && <span className="font-extrabold text-purple-800 text-sm">{c.amount.toLocaleString()}원</span>}
                     </div>

@@ -1,10 +1,14 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { supabase } from "@/app/lib/supabase";
 import Link from "next/link";
 
-export default function ConsultationHistoryPage() {
+function ConsultationHistoryContent() {
+  const searchParams = useSearchParams();
+  const targetId = searchParams.get("id") || searchParams.get("consultationId");
+
   const [consultations, setConsultations] = useState<any[]>([]);
   const [selectedConsultation, setSelectedConsultation] = useState<any | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -13,6 +17,21 @@ export default function ConsultationHistoryPage() {
   useEffect(() => {
     fetchConsultations();
   }, []);
+
+  // URL 파라미터(?id=...)로 넘어온 경우 해당 상담 기록 자동 선택 및 스크롤
+  useEffect(() => {
+    if (!targetId || consultations.length === 0) return;
+    const matched = consultations.find((c: any) => String(c.id) === String(targetId));
+    if (matched) {
+      setSelectedConsultation(matched);
+      setTimeout(() => {
+        document.getElementById(`consultation-item-${matched.id}`)?.scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+        });
+      }, 80);
+    }
+  }, [targetId, consultations]);
 
   const fetchConsultations = async () => {
     const { data, error } = await supabase
@@ -39,9 +58,11 @@ export default function ConsultationHistoryPage() {
           if (c.image_urls && Array.isArray(c.image_urls) && c.image_urls.length > 0) {
             const signedUrls = await Promise.all(
               c.image_urls.map(async (path: string) => {
-                if (path.startsWith('http')) return path;
-                const { data: signedData } = await supabase.storage.from('consultation-images').createSignedUrl(path, 60 * 60);
-                return signedData?.signedUrl || '';
+                if (path.startsWith("http")) return path;
+                const { data: signedData } = await supabase.storage
+                  .from("consultation-images")
+                  .createSignedUrl(path, 60 * 60);
+                return signedData?.signedUrl || "";
               })
             );
             return { ...c, display_image_urls: signedUrls.filter(Boolean) };
@@ -51,8 +72,13 @@ export default function ConsultationHistoryPage() {
       );
 
       setConsultations(processed);
-      if (processed.length > 0 && !selectedConsultation) {
-        setSelectedConsultation(processed[0]);
+      if (processed.length > 0) {
+        if (targetId) {
+          const matched = processed.find((c: any) => String(c.id) === String(targetId));
+          setSelectedConsultation(matched || processed[0]);
+        } else if (!selectedConsultation) {
+          setSelectedConsultation(processed[0]);
+        }
       }
     }
   };
@@ -86,7 +112,7 @@ export default function ConsultationHistoryPage() {
 
   return (
     <div className="w-full h-[calc(100vh-32px)] flex flex-col space-y-3 overflow-hidden max-w-[1700px] mx-auto pb-2">
-      
+
       {/* 상단 헤더 */}
       <div className="bg-white px-5 py-3 rounded-2xl shadow-sm border border-slate-200 flex justify-between items-center flex-shrink-0">
         <h1 className="text-lg font-extrabold text-slate-900">상담 기록 조회</h1>
@@ -99,13 +125,13 @@ export default function ConsultationHistoryPage() {
 
       {/* 좌우 분할 레이아웃 */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 flex-1 min-h-0">
-        
+
         {/* 좌측: 리스트 창 */}
         <div className="lg:col-span-7 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-4">
           <div className="mb-3 flex-shrink-0">
-            <input 
-              type="text" 
-              placeholder="고객명, 전화번호, 주호소, 처방내용, 설진태그 검색..." 
+            <input
+              type="text"
+              placeholder="고객명, 전화번호, 주호소, 처방내용, 설진태그 검색..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#528771] transition"
@@ -122,15 +148,16 @@ export default function ConsultationHistoryPage() {
             ) : (
               filteredConsultations.map((c) => {
                 const isSelected = selectedConsultation?.id === c.id;
-                const dateStr = c.consultation_date || c.created_at?.split('T')[0];
+                const dateStr = c.consultation_date || c.created_at?.split("T")[0];
 
                 return (
-                  <div 
-                    key={c.id} 
+                  <div
+                    id={`consultation-item-${c.id}`}
+                    key={c.id}
                     onClick={() => setSelectedConsultation(c)}
                     className={`p-3 rounded-2xl border transition cursor-pointer flex items-center justify-between gap-3 text-xs ${
-                      isSelected 
-                        ? "bg-teal-50/70 border-teal-600 shadow-2xs" 
+                      isSelected
+                        ? "bg-teal-50/70 border-teal-600 shadow-2xs"
                         : "bg-white border-slate-100 hover:bg-slate-50/80"
                     }`}
                   >
@@ -154,7 +181,6 @@ export default function ConsultationHistoryPage() {
                       )}
                     </div>
 
-                    {/* 🟢 수정됨: 설진태그 표시 (글자 제한 및 ... 잘림 해제, # 제거, 자연스러운 줄바꿈) */}
                     <div className="flex flex-wrap items-center gap-1 flex-shrink-0">
                       {Array.isArray(c.tongue_tags) && c.tongue_tags.length > 0 ? (
                         c.tongue_tags.map((tag: string, idx: number) => (
@@ -179,7 +205,7 @@ export default function ConsultationHistoryPage() {
         <div className="lg:col-span-5 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col overflow-hidden p-5">
           {selectedConsultation ? (
             <div className="flex-1 overflow-y-auto space-y-4 pr-1">
-              
+
               {/* 고객 요약 카드 */}
               <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 flex items-center justify-between">
                 <div>
@@ -192,14 +218,14 @@ export default function ConsultationHistoryPage() {
                 </div>
                 <div className="text-right">
                   <span className="text-[11px] bg-teal-100 text-teal-900 font-bold px-3 py-1 rounded-xl">
-                    {selectedConsultation.consultation_date || selectedConsultation.created_at?.split('T')[0]}
+                    {selectedConsultation.consultation_date || selectedConsultation.created_at?.split("T")[0]}
                   </span>
                 </div>
               </div>
 
               {/* 상세 정보 카드 섹션 */}
               <div className="space-y-3 text-xs">
-                
+
                 <div className="grid grid-cols-2 gap-3">
                   <div className="p-3.5 bg-slate-50/60 rounded-2xl border border-slate-100">
                     <span className="text-[10px] font-bold text-slate-400 block mb-1">결제 금액 및 방식</span>
@@ -215,7 +241,6 @@ export default function ConsultationHistoryPage() {
                   </div>
                 </div>
 
-                {/* 🟢 수정됨: 설진태그 상세 영역 (# 기호 제거) */}
                 {selectedConsultation.tongue_tags && selectedConsultation.tongue_tags.length > 0 && (
                   <div className="p-3.5 bg-amber-50/50 rounded-2xl border border-amber-200">
                     <span className="text-[10px] font-bold text-amber-800 block mb-1.5">설진 태그</span>
@@ -270,8 +295,8 @@ export default function ConsultationHistoryPage() {
                     <span className="text-[10px] font-bold text-slate-400 block mb-2">첨부 사진 ({selectedConsultation.display_image_urls.length}장)</span>
                     <div className="flex flex-row flex-wrap gap-2">
                       {selectedConsultation.display_image_urls.map((imgUrl: string, imgIdx: number) => (
-                        <div 
-                          key={imgIdx} 
+                        <div
+                          key={imgIdx}
                           className="relative w-20 h-20 border border-slate-200 rounded-xl overflow-hidden bg-white shadow-2xs cursor-pointer flex items-center justify-center group"
                           onClick={() => setPreviewImageUrl(imgUrl)}
                         >
@@ -285,14 +310,14 @@ export default function ConsultationHistoryPage() {
 
               {/* 수정 및 삭제 버튼 영역 */}
               <div className="pt-4 border-t flex justify-end gap-2">
-                <Link 
-                  href={`/consultations?id=${selectedConsultation.id}`} 
+                <Link
+                  href={`/consultations?id=${selectedConsultation.id}`}
                   className="px-4 py-2 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs hover:bg-slate-200 transition"
                 >
                   기록 수정
                 </Link>
-                <button 
-                  onClick={() => handleDelete(selectedConsultation.id)} 
+                <button
+                  onClick={() => handleDelete(selectedConsultation.id)}
                   className="px-4 py-2 bg-red-50 text-red-600 font-bold rounded-xl text-xs hover:bg-red-100 transition"
                 >
                   기록 삭제
@@ -317,5 +342,13 @@ export default function ConsultationHistoryPage() {
       )}
 
     </div>
+  );
+}
+
+export default function ConsultationHistoryPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-xs text-slate-400 font-bold">상담 기록 불러오는 중...</div>}>
+      <ConsultationHistoryContent />
+    </Suspense>
   );
 }
