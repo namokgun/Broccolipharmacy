@@ -33,9 +33,28 @@ const parseLocalDate = (dateInput: string) => {
   return new Date(dateInput);
 };
 
+const getSaleAmount = (s: any) => {
+  const totalAmt = Number(s.total_amount);
+  if (s.total_amount !== null && s.total_amount !== undefined && s.total_amount !== "" && !isNaN(totalAmt)) {
+    return totalAmt;
+  }
+  const amt = Number(s.amount);
+  if (s.amount !== null && s.amount !== undefined && s.amount !== "" && !isNaN(amt)) {
+    return amt;
+  }
+  if (Array.isArray(s.items)) {
+    return s.items.reduce(
+      (sum: number, item: any) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1),
+      0
+    );
+  }
+  return 0;
+};
+
 export default function SchedulesPage() {
   const [schedules, setSchedules] = useState<any[]>([]);
   const [consultations, setConsultations] = useState<any[]>([]);
+  const [sales, setSales] = useState<any[]>([]);
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
   const [currentDate, setCurrentDate] = useState<Date | null>(null);
   const [viewMode, setViewMode] = useState<"biweekly" | "monthly">("biweekly");
@@ -43,6 +62,7 @@ export default function SchedulesPage() {
   const [selectedDetailSchedule, setSelectedDetailSchedule] = useState<any | null>(null);
   const [selectedDetailFeedback, setSelectedDetailFeedback] = useState<any | null>(null);
   const [selectedDetailConsultation, setSelectedDetailConsultation] = useState<any | null>(null);
+  const [selectedDetailSale, setSelectedDetailSale] = useState<any | null>(null);
   const [previewImageUrl, setPreviewImageUrl] = useState<string | null>(null);
   const [dayDetailDate, setDayDetailDate] = useState<string | null>(null);
   const [dayDetailType, setDayDetailType] = useState<"consult" | "feedback">("consult");
@@ -75,11 +95,11 @@ export default function SchedulesPage() {
       .select("*, patients(name, phone, custom_id)")
       .order("created_at", { ascending: false });
 
-    // 3. 판매(Sales) 피드백 데이터 로드
+    // 3. 판매(Sales) 전체 데이터 로드 (캘린더 표시 + 피드백 겸용)
     const { data: salesData } = await supabase
       .from("sales")
       .select("*, patients(name, phone, custom_id)")
-      .not("feedback_day", "is", null);
+      .order("created_at", { ascending: false });
 
     let consultFeedbacks: any[] = [];
     let saleFeedbacks: any[] = [];
@@ -124,28 +144,32 @@ export default function SchedulesPage() {
     }
 
     if (salesData) {
-      saleFeedbacks = salesData.map((s: any) => {
-        let dateStr = s.feedback_date;
-        if (!dateStr) {
-          const createdDate = parseLocalDate(s.sale_date);
-          const targetDate = new Date(
-            createdDate.getFullYear(),
-            createdDate.getMonth(),
-            createdDate.getDate() + Number(s.feedback_day)
-          );
-          dateStr = toLocalDateStr(targetDate);
-        }
+      setSales(salesData);
 
-        const itemNames = s.items?.map((i: any) => i.name).join(", ") || "판매상품";
+      saleFeedbacks = salesData
+        .filter((s: any) => s.feedback_day !== null && s.feedback_day !== undefined)
+        .map((s: any) => {
+          let dateStr = s.feedback_date;
+          if (!dateStr) {
+            const createdDate = parseLocalDate(s.sale_date || s.created_at);
+            const targetDate = new Date(
+              createdDate.getFullYear(),
+              createdDate.getMonth(),
+              createdDate.getDate() + Number(s.feedback_day)
+            );
+            dateStr = toLocalDateStr(targetDate);
+          }
 
-        return {
-          ...s,
-          target_date: dateStr,
-          source: "sale",
-          display_title: itemNames,
-          display_memo: s.memo || "내용 없음",
-        };
-      });
+          const itemNames = s.items?.map((i: any) => i.name).join(", ") || "판매상품";
+
+          return {
+            ...s,
+            target_date: dateStr,
+            source: "sale",
+            display_title: itemNames,
+            display_memo: s.memo || "내용 없음",
+          };
+        });
     }
 
     setFeedbacks([...consultFeedbacks, ...saleFeedbacks]);
@@ -173,6 +197,10 @@ export default function SchedulesPage() {
       if (item.source === "consultation") {
         setConsultations((prev) =>
           prev.map((c) => (c.id === item.id ? { ...c, is_feedback_completed: newStatus } : c))
+        );
+      } else {
+        setSales((prev) =>
+          prev.map((s) => (s.id === item.id ? { ...s, is_feedback_completed: newStatus } : s))
         );
       }
 
@@ -249,6 +277,12 @@ export default function SchedulesPage() {
 
   const formatName = (p: any) => (p?.custom_id ? `${p.name} (${p.custom_id})` : p?.name || "고객");
 
+  const formatSaleName = (s: any) => {
+    if (s?.patients) return formatName(s.patients);
+    if (s?.patient_name && s.patient_name.trim()) return s.patient_name.trim();
+    return "일반 고객";
+  };
+
   const formatSummaryText = (count: number, totalAmount: number) => {
     if (count <= 0) return null;
     if (totalAmount <= 0) return `${count}건`;
@@ -259,7 +293,7 @@ export default function SchedulesPage() {
     return `${count}건 / ${amountText}`;
   };
 
-  // 2주(14일) 날짜 배열 계산 (기준일이 포함된 주의 일요일 ~ 다음 주 토요일)
+  // 2주(14일) 날짜 배열 계산
   const biweeklyDays = useMemo(() => {
     if (!currentDate) return [];
     const startOfWeek = new Date(
@@ -290,7 +324,6 @@ export default function SchedulesPage() {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
-  // 네비게이션 핸들러
   const handlePrevPeriod = () => {
     if (viewMode === "biweekly") {
       setCurrentDate(new Date(year, month, currentDate.getDate() - 14));
@@ -313,7 +346,6 @@ export default function SchedulesPage() {
 
   const handleToday = () => setCurrentDate(new Date());
 
-  // 헤더 기간 텍스트
   const headerRangeLabel = (() => {
     if (viewMode === "monthly" || biweeklyDays.length === 0) {
       return `${year}년 ${month + 1}월`;
@@ -326,7 +358,6 @@ export default function SchedulesPage() {
     return `${first.monthNum}월 ${first.dayNum}일 ~ ${last.monthNum}월 ${last.dayNum}일`;
   })();
 
-  // 월간 보기용 계산
   const firstDayOfMonth = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const monthlyDays = Array.from({ length: daysInMonth }, (_, i) => {
@@ -449,13 +480,17 @@ export default function SchedulesPage() {
       {/* 좌우 1:1 두 개의 달력 병렬 배치 */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 flex-1 min-h-0 overflow-y-auto pr-1">
 
-        {/* 1. 좌측: 상담 및 약국 일정 캘린더 */}
+        {/* 1. 좌측: 상담 · 판매 및 일정 캘린더 */}
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 flex flex-col p-3 md:p-4 min-h-0">
           <div className="flex justify-between items-center mb-2 pb-2 border-b border-slate-100 flex-shrink-0">
             <h2 className="text-sm font-extrabold text-teal-950 flex items-center gap-1.5">
-              <span>🩺</span> 상담 및 약국 일정
+              <span>🩺</span> 상담 · 판매 및 일정
             </h2>
-            <span className="text-[10px] text-slate-400 font-semibold">날짜 더블클릭 시 일정 등록</span>
+            <div className="flex items-center gap-2 text-[10px] font-bold">
+              <span className="text-teal-700">🩺 상담</span>
+              <span className="text-amber-700">🛍️ 판매</span>
+              <span className="text-slate-400 font-semibold hidden sm:inline">· 더블클릭 일정등록</span>
+            </div>
           </div>
 
           <div className="grid grid-cols-7 text-center text-[10px] font-bold text-slate-400 mb-1.5 pb-1 border-b border-slate-100 flex-shrink-0">
@@ -484,10 +519,18 @@ export default function SchedulesPage() {
               const dayConsultations = consultations.filter(
                 (c) => (c.consultation_date || c.created_at.split("T")[0]) === dateStr
               );
-              const totalAmount = dayConsultations.reduce((sum, c) => sum + (c.amount || 0), 0);
+              const daySales = sales.filter(
+                (s) => (s.sale_date || s.created_at?.split("T")[0]) === dateStr
+              );
+
+              const consultTotal = dayConsultations.reduce((sum, c) => sum + (c.amount || 0), 0);
+              const salesTotal = daySales.reduce((sum, s) => sum + getSaleAmount(s), 0);
+              const totalCount = dayConsultations.length + daySales.length;
+              const totalAmount = consultTotal + salesTotal;
 
               const allDayItems = [
                 ...dayConsultations.map((c) => ({ type: "consultation", data: c })),
+                ...daySales.map((s) => ({ type: "sale", data: s })),
                 ...daySchedules.map((s) => ({ type: "schedule", data: s })),
               ];
 
@@ -496,7 +539,7 @@ export default function SchedulesPage() {
               const MAX_VISIBLE = isBiweekly ? 8 : 2;
               const visibleItems = allDayItems.slice(0, MAX_VISIBLE);
               const hiddenCount = allDayItems.length - MAX_VISIBLE;
-              const summaryText = formatSummaryText(dayConsultations.length, totalAmount);
+              const summaryText = formatSummaryText(totalCount, totalAmount);
 
               const showMonthPrefix = isBiweekly && (dayIdx === 0 || dayNum === 1);
 
@@ -546,6 +589,35 @@ export default function SchedulesPage() {
                             </div>
                             {isBiweekly && subLine && (
                               <div className="text-[9px] font-semibold text-teal-700 truncate mt-0.5 leading-tight">
+                                {subLine}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      } else if (item.type === "sale") {
+                        const s = item.data;
+                        const saleAmt = getSaleAmount(s);
+                        const itemsSummary =
+                          Array.isArray(s.items) && s.items.length > 0
+                            ? s.items.map((i: any) => `${i.name}(${i.quantity || 1})`).join(", ")
+                            : s.memo || "판매 내역";
+                        const subLine =
+                          saleAmt > 0 ? `${itemsSummary} · ${saleAmt.toLocaleString()}원` : itemsSummary;
+
+                        return (
+                          <div
+                            key={`sale-${s.id || idx}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedDetailSale(s);
+                            }}
+                            className="px-1.5 py-1 rounded-lg transition cursor-pointer border bg-amber-50/90 border-amber-200 text-amber-950 hover:bg-amber-100"
+                          >
+                            <div className="text-[10px] font-extrabold truncate leading-tight">
+                              🛍️ {formatSaleName(s)}
+                            </div>
+                            {isBiweekly && subLine && (
+                              <div className="text-[9px] font-semibold text-amber-800 truncate mt-0.5 leading-tight">
                                 {subLine}
                               </div>
                             )}
@@ -690,7 +762,7 @@ export default function SchedulesPage() {
                             )}
                             <span className="truncate">
                               {!isBiweekly && "📌 "}
-                              {badge} {formatName(f.patients)}
+                              {badge} {formatSaleName(f)}
                             </span>
                           </div>
                           {isBiweekly && (
@@ -743,7 +815,7 @@ export default function SchedulesPage() {
             <div className="flex justify-between items-center border-b pb-2 mb-3">
               <h3 className="text-base font-bold text-slate-900">
                 {dayDetailType === "consult" ? "📅" : "📌"} {dayDetailDate}{" "}
-                {dayDetailType === "consult" ? "상담/일정 목록" : "피드백 목록"}
+                {dayDetailType === "consult" ? "상담/판매/일정 목록" : "피드백 목록"}
               </h3>
               <button
                 onClick={() => setDayDetailDate(null)}
@@ -760,8 +832,12 @@ export default function SchedulesPage() {
                   const dayConsultations = consultations.filter(
                     (c) => (c.consultation_date || c.created_at.split("T")[0]) === dayDetailDate
                   );
+                  const daySales = sales.filter(
+                    (s) => (s.sale_date || s.created_at?.split("T")[0]) === dayDetailDate
+                  );
                   const allDayItems = [
                     ...dayConsultations.map((c) => ({ type: "consultation", data: c })),
+                    ...daySales.map((s) => ({ type: "sale", data: s })),
                     ...daySchedules.map((s) => ({ type: "schedule", data: s })),
                   ];
 
@@ -781,6 +857,29 @@ export default function SchedulesPage() {
                             🩺 {formatName(c.patients)}
                             <br />
                             {c.prescription || "처방없음"}
+                          </span>
+                        </div>
+                      );
+                    } else if (item.type === "sale") {
+                      const s = item.data;
+                      const saleAmt = getSaleAmount(s);
+                      const itemsSummary =
+                        Array.isArray(s.items) && s.items.length > 0
+                          ? s.items.map((i: any) => `${i.name}(${i.quantity || 1})`).join(", ")
+                          : "판매 내역";
+                      return (
+                        <div
+                          key={`sale-${s.id || idx}`}
+                          onClick={() => {
+                            setDayDetailDate(null);
+                            setSelectedDetailSale(s);
+                          }}
+                          className="px-2.5 py-2 rounded-xl flex items-center justify-between transition cursor-pointer font-bold border bg-amber-50 border-amber-200 text-amber-950 hover:bg-amber-100 shadow-xs text-xs"
+                        >
+                          <span className="whitespace-pre-line leading-tight">
+                            🛍️ {formatSaleName(s)}
+                            <br />
+                            {itemsSummary} ({saleAmt.toLocaleString()}원)
                           </span>
                         </div>
                       );
@@ -819,7 +918,7 @@ export default function SchedulesPage() {
                       }`}
                     >
                       <span className="truncate">
-                        [{f.source === "sale" ? "판매" : "상담"}] {formatName(f.patients)} /{" "}
+                        [{f.source === "sale" ? "판매" : "상담"}] {formatSaleName(f)} /{" "}
                         {f.display_title}
                       </span>
                     </div>
@@ -882,7 +981,7 @@ export default function SchedulesPage() {
               <div className="p-3.5 bg-slate-50 rounded-xl border">
                 <span className="text-xs text-slate-400 font-bold block mb-1">환자/고객명</span>
                 <p className="font-bold text-slate-900">
-                  {formatName(selectedDetailFeedback.patients)} (
+                  {formatSaleName(selectedDetailFeedback)} (
                   {selectedDetailFeedback.patients?.phone || "연락처 없음"})
                 </p>
               </div>
@@ -978,6 +1077,102 @@ export default function SchedulesPage() {
                 className="flex-1 px-4 py-2 bg-slate-900 text-white rounded-xl text-xs font-bold"
               >
                 수정하기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 판매 상세 모달 */}
+      {selectedDetailSale && (
+        <div
+          onClick={() => setSelectedDetailSale(null)}
+          className="fixed inset-0 z-[110] bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
+        >
+          <div
+            className="bg-white w-full max-w-lg max-h-[85vh] rounded-3xl p-5 shadow-2xl border border-slate-200 flex flex-col space-y-3 cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-center border-b pb-2.5">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">🛍️ 판매 상세 내역</h3>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  고객: <strong className="text-slate-800">{formatSaleName(selectedDetailSale)}</strong> | 판매일:{" "}
+                  {selectedDetailSale.sale_date || selectedDetailSale.created_at?.split("T")[0]}
+                </p>
+              </div>
+              <button
+                onClick={() => setSelectedDetailSale(null)}
+                className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 hover:bg-slate-200"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto space-y-2.5 pr-1 text-xs">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200/80">
+                  <span className="text-[10px] font-bold text-amber-800 block mb-0.5">총 결제 금액</span>
+                  <span className="font-extrabold text-amber-950 text-sm">
+                    {getSaleAmount(selectedDetailSale).toLocaleString()}원
+                  </span>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <span className="text-[10px] font-bold text-slate-400 block mb-0.5">결제 방식</span>
+                  <span className="font-bold text-slate-800 text-sm">
+                    {selectedDetailSale.payment_method || "-"}
+                  </span>
+                </div>
+              </div>
+
+              {Array.isArray(selectedDetailSale.items) && selectedDetailSale.items.length > 0 && (
+                <div className="bg-slate-50 rounded-2xl border border-slate-100 p-3 space-y-1.5">
+                  <span className="text-[10px] font-bold text-slate-400 block">판매 품목 내역</span>
+                  {selectedDetailSale.items.map((item: any, idx: number) => {
+                    const unitPrice = Number(item.price) || 0;
+                    const qty = Number(item.quantity) || 1;
+                    return (
+                      <div
+                        key={idx}
+                        className="flex justify-between items-center text-xs bg-white px-2.5 py-1.5 rounded-lg border border-slate-100"
+                      >
+                        <span className="font-extrabold text-slate-800">{item.name}</span>
+                        <div className="flex items-center gap-1.5 text-slate-500 tabular-nums">
+                          <span>{unitPrice.toLocaleString()}원</span>
+                          <span>×</span>
+                          <span className="font-extrabold text-teal-800">{qty}</span>
+                          <span>=</span>
+                          <span className="font-extrabold text-slate-900">
+                            {(unitPrice * qty).toLocaleString()}원
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {selectedDetailSale.memo && (
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 text-[11px] text-slate-700 whitespace-pre-line leading-relaxed">
+                  <strong className="text-slate-900 block mb-0.5 text-[10px]">판매 메모</strong>
+                  {selectedDetailSale.memo}
+                </div>
+              )}
+
+              {selectedDetailSale.feedback_day && (
+                <div className="p-2.5 bg-purple-50/60 rounded-xl border border-purple-200/70 text-[11px] text-purple-900 font-semibold">
+                  📌 피드백 예정: 판매일로부터 <strong>{selectedDetailSale.feedback_day}일 뒤</strong>
+                  {selectedDetailSale.feedback_date ? ` (${selectedDetailSale.feedback_date})` : ""}
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end pt-2 border-t">
+              <button
+                onClick={() => setSelectedDetailSale(null)}
+                className="w-full py-2.5 bg-slate-900 text-white rounded-xl font-bold text-xs hover:bg-slate-800 transition"
+              >
+                확인 완료
               </button>
             </div>
           </div>
