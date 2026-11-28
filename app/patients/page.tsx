@@ -318,31 +318,18 @@ export default function PatientsPage() {
     }
   };
 
-  // 상담 내역 클릭 시 상담 기록조회 탭 + 해당 기록으로 이동
+  // 상담 내역 클릭 시 상담 기록조회 탭 + 해당 상담 내역 수정창으로 이동
   const handleNavigateToConsultation = (consultation: any) => {
     if (!consultation?.id) return;
     setHistoryModalPatient(null);
     const params = new URLSearchParams();
     params.set("tab", "history");
     params.set("consultationId", String(consultation.id));
+    params.set("edit", "true");
     if (consultation.patient_id) {
       params.set("patientId", String(consultation.patient_id));
     }
     router.push(`/consultations?${params.toString()}`);
-  };
-
-  // 판매 내역 클릭 시 판매 기록조회 탭 + 해당 기록으로 이동
-  const handleNavigateToSale = (sale: any) => {
-    if (!sale?.id) return;
-    setSalesHistoryModalPatient(null);
-    const params = new URLSearchParams();
-    params.set("tab", "history");
-    params.set("saleId", String(sale.id));
-    const targetPatientId = sale.patient_id || selectedPatient?.id;
-    if (targetPatientId) {
-      params.set("patientId", String(targetPatientId));
-    }
-    router.push(`/sales?${params.toString()}`);
   };
 
   const selectedPatientLabRecords: LabRecord[] = useMemo(() => {
@@ -1063,8 +1050,7 @@ export default function PatientsPage() {
                       return (
                         <div
                           key={s.id}
-                          onClick={() => handleNavigateToSale(s)}
-                          className="p-2.5 bg-slate-50 hover:bg-teal-50/70 rounded-xl border border-slate-100 hover:border-teal-300 text-xs flex flex-col gap-1 cursor-pointer transition"
+                          className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 text-xs flex flex-col gap-1"
                         >
                           <div className="flex justify-between items-center font-bold text-slate-700">
                             <div className="flex items-center gap-2 truncate">
@@ -1712,7 +1698,7 @@ export default function PatientsPage() {
           <div className="bg-white w-full max-w-3xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center border-b pb-3">
               <h3 className="text-lg font-bold text-slate-900">📂 {historyModalPatient.name} 님의 전체 상담 기록</h3>
-              <span className="text-[11px] font-semibold text-slate-400">기록을 클릭하면 해당 상담 기록조회로 이동합니다</span>
+              <span className="text-[11px] font-semibold text-slate-400">기록을 클릭하면 상담 기록조회 및 수정창으로 이동합니다</span>
             </div>
             <div className="flex-1 overflow-y-auto space-y-4 pr-1">
               {consultations.filter(c => c.patient_id === historyModalPatient.id).length === 0 ? (
@@ -1727,7 +1713,7 @@ export default function PatientsPage() {
                     <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                       <div className="flex items-center gap-2">
                         <span className="font-bold text-slate-900 text-sm">{c.consultation_date || c.created_at.split("T")[0]}</span>
-                        <span className="text-[10px] font-bold text-teal-700 opacity-0 group-hover:opacity-100 transition">상담 기록조회로 이동 →</span>
+                        <span className="text-[10px] font-bold text-teal-700 opacity-0 group-hover:opacity-100 transition">수정창으로 이동 →</span>
                       </div>
                       {c.amount && <span className="font-extrabold text-purple-800 text-sm">{c.amount.toLocaleString()}원</span>}
                     </div>
@@ -1764,13 +1750,10 @@ export default function PatientsPage() {
         <div onClick={() => setSalesHistoryModalPatient(null)} className="fixed inset-0 z-50 bg-slate-950/50 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer">
           <div className="bg-white w-full max-w-3xl max-h-[85vh] rounded-3xl p-6 shadow-2xl border border-slate-200 flex flex-col space-y-4 cursor-default" onClick={e => e.stopPropagation()}>
             <div className="flex flex-wrap justify-between items-center border-b pb-3 gap-2">
-              <div className="flex items-center gap-2.5">
-                <h3 className="text-lg font-bold text-slate-900">🛍️ {salesHistoryModalPatient.name} 님의 전체 판매 기록</h3>
-                <span className="text-xs font-extrabold text-[#528771] bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-lg">
-                  총 {salesModalStats.pSales.length}건 · {salesModalStats.totalAmount.toLocaleString()}원
-                </span>
-              </div>
-              <span className="text-[11px] font-semibold text-slate-400">기록을 클릭하면 해당 판매 기록조회로 이동합니다</span>
+              <h3 className="text-lg font-bold text-slate-900">🛍️ {salesHistoryModalPatient.name} 님의 전체 판매 기록</h3>
+              <span className="text-xs font-extrabold text-[#528771] bg-teal-50 border border-teal-200 px-2.5 py-0.5 rounded-lg">
+                총 {salesModalStats.pSales.length}건 · {salesModalStats.totalAmount.toLocaleString()}원
+              </span>
             </div>
             <div className="flex-1 overflow-y-auto space-y-3 pr-1">
               {salesModalStats.pSales.length === 0 ? (
@@ -1781,8 +1764,7 @@ export default function PatientsPage() {
                   return (
                     <div
                       key={s.id || idx}
-                      onClick={() => handleNavigateToSale(s)}
-                      className="p-4 bg-white hover:bg-teal-50/50 border border-slate-200 hover:border-teal-400 rounded-2xl shadow-xs space-y-2.5 text-xs cursor-pointer transition group"
+                      className="p-4 bg-white border border-slate-200 rounded-2xl shadow-xs space-y-2.5 text-xs"
                     >
                       <div className="flex justify-between items-center border-b border-slate-100 pb-2">
                         <div className="flex items-center gap-2">
@@ -1792,9 +1774,6 @@ export default function PatientsPage() {
                               {s.payment_method}
                             </span>
                           )}
-                          <span className="text-[10px] font-bold text-teal-700 opacity-0 group-hover:opacity-100 transition">
-                            판매 기록조회로 이동 →
-                          </span>
                         </div>
                         <span className="font-extrabold text-[#528771] text-sm">{saleAmt.toLocaleString()}원</span>
                       </div>
